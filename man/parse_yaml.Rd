@@ -10,6 +10,6 @@ parse_yaml(text)
 \item{text}{Character vector; elements are concatenated with \code{"\\n"}.}
 }
 \description{
-Supports the common scalar types plus sequences and mappings with string
-keys; YAML tags, aliases, and other advanced nodes are rejected.
+Supports scalars, sequences, and mappings; YAML tags are preserved in a
+\code{yaml_tag} attribute when possible. YAML aliases are rejected.
 }
