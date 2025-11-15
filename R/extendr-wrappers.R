@@ -10,9 +10,13 @@
 #' @useDynLib yaml12, .registration = TRUE
 NULL
 
-#' Return string `"Hello world!"` to R.
+#' Parse a single YAML 1.2 document into base R structures.
+#'
+#' Supports the common scalar types plus sequences and mappings with string
+#' keys; YAML tags, aliases, and other advanced nodes are rejected.
+#' @param text Character vector; elements are concatenated with `"\n"`.
 #' @export
-hello_world <- function(x = NULL) .Call(wrap__hello_world, x)
+parse_yaml <- function(text) invisible(.Call(wrap__parse_yaml, text))
 
 
 # nolint end
