@@ -4,7 +4,7 @@
 \alias{hello_world}
 \title{Return string \code{"Hello world!"} to R.}
 \usage{
-hello_world()
+hello_world(x = NULL)
 }
 \description{
 Return string \code{"Hello world!"} to R.

@@ -10,7 +10,7 @@ crate-type = [ 'staticlib' ]
 name = 'yaml12'
 
 [dependencies]
-extendr-api = '0.8.1'
+extendr-api = { git = 'https://github.com/extendr/extendr' }
 
 [profile.release]
 lto = true

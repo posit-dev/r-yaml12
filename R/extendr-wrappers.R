@@ -12,7 +12,7 @@ NULL
 
 #' Return string `"Hello world!"` to R.
 #' @export
-hello_world <- function() .Call(wrap__hello_world)
+hello_world <- function(x = NULL) .Call(wrap__hello_world, x)
 
 
 # nolint end

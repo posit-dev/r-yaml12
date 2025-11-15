@@ -3,7 +3,7 @@ use extendr_api::prelude::*;
 /// Return string `"Hello world!"` to R.
 /// @export
 #[extendr]
-fn hello_world() -> &'static str {
+fn hello_world(#[extendr(default = "NULL")] x: Robj) -> &'static str {
     "Hello world!"
 }
 
