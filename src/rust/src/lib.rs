@@ -3,6 +3,19 @@ use saphyr::{LoadableYamlNode, Mapping, Scalar, Tag, Yaml};
 use std::cell::OnceCell;
 use std::thread_local;
 
+macro_rules! cached_sym {
+    ($cell:ident, $name:ident, $getter:ident) => {
+        thread_local! {
+            static $cell: OnceCell<Robj> = OnceCell::new();
+        }
+
+        #[inline]
+        fn $getter() -> Robj {
+            $cell.with(|cell| cell.get_or_init(|| sym!($name)).clone())
+        }
+    };
+}
+
 fn yaml_to_robj(node: &Yaml) -> std::result::Result<Robj, String> {
     match node {
         Yaml::Value(scalar) => Ok(scalar_to_robj(scalar)),
@@ -68,20 +81,14 @@ fn mapping_to_robj(map: &Mapping) -> std::result::Result<Robj, String> {
             key_values.push(yaml_to_robj(key)?);
         }
         let yaml_keys = List::from_values(key_values);
-        YAML_KEYS_SYM
-            .with(|cell| {
-                let sym = cell.get_or_init(|| sym!(yaml_keys));
-                list.set_attrib(sym, yaml_keys)
-            })
+        list.set_attrib(sym_yaml_keys(), yaml_keys)
             .map_err(|err| err.to_string())?;
     }
     Ok(list.into())
 }
 
-thread_local! {
-    static YAML_KEYS_SYM: OnceCell<Robj> = OnceCell::new();
-    static YAML_TAG_SYM: OnceCell<Robj> = OnceCell::new();
-}
+cached_sym!(YAML_KEYS_SYM, yaml_keys, sym_yaml_keys);
+cached_sym!(YAML_TAG_SYM, yaml_tag, sym_yaml_tag);
 
 fn convert_tagged(tag: &Tag, node: &Yaml) -> std::result::Result<Robj, String> {
     let value = yaml_to_robj(node)?;
@@ -90,13 +97,10 @@ fn convert_tagged(tag: &Tag, node: &Yaml) -> std::result::Result<Robj, String> {
 
 fn set_yaml_tag_attr(mut value: Robj, tag: &str) -> Robj {
     if !tag.is_empty() {
-        YAML_TAG_SYM.with(|cell| {
-            let sym = cell.get_or_init(|| sym!(yaml_tag));
-            let res = value.set_attrib(sym, Robj::from(tag.to_string()));
-            if res.is_err() {
-                // ignore types that cannot carry attributes
-            }
-        });
+        let res = value.set_attrib(sym_yaml_tag(), Robj::from(tag.to_string()));
+        if res.is_err() {
+            // ignore types that cannot carry attributes
+        }
     }
     value
 }
