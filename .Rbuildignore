@@ -5,3 +5,5 @@
 ^src/rust/target$
 ^src/Makevars$
 ^src/Makevars\.win$
+^agent-context$
+^AGENTS\.md$

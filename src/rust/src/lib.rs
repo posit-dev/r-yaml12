@@ -251,7 +251,7 @@ fn list_to_yaml(robj: &Robj) -> Result<Yaml<'static>> {
                 } else {
                     Yaml::Value(Scalar::String(name.into()))
                 };
-                mapping.insert(key, robj_to_yaml(&value)?);
+                mapping.insert(key, robj_to_yaml(value)?);
             }
             Ok(Yaml::Mapping(mapping))
         }
@@ -294,7 +294,7 @@ fn extract_yaml_tag(robj: &Robj) -> Result<Option<Tag>> {
     if tag_str.is_empty() {
         return Ok(None);
     }
-    parse_tag_string(&tag_str).map(Some)
+    parse_tag_string(tag_str).map(Some)
 }
 
 fn parse_tag_string(tag: &str) -> Result<Tag> {
@@ -328,7 +328,7 @@ fn parse_tag_string(tag: &str) -> Result<Tag> {
 fn parse_yaml_impl(text: Strings) -> Result<Robj> {
     let joined = collapse_lines(&text)?;
     let docs = Yaml::load_from_str(&joined)
-        .map_err(|err| Error::Other(format!("YAML parse error: {}", err)))?;
+        .map_err(|err| Error::Other(format!("YAML parse error: {err}")))?;
     match docs.first() {
         Some(doc) => {
             yaml_to_robj(doc).map_err(|err| Error::Other(format!("Unsupported YAML: {err}")))
@@ -346,7 +346,7 @@ fn parse_yaml_impl(text: Strings) -> Result<Robj> {
 fn encode_yaml(value: Robj) -> String {
     robj_to_yaml(&value)
         .and_then(|yaml| emit_yaml(&yaml))
-        .unwrap_or_else(|err| throw_r_error(&err.to_string()))
+        .unwrap_or_else(|err| throw_r_error(err.to_string()))
 }
 
 /// Parse a single YAML 1.2 document into base R structures.
@@ -357,7 +357,7 @@ fn encode_yaml(value: Robj) -> String {
 /// @export
 #[extendr]
 fn parse_yaml(text: Strings) -> Robj {
-    parse_yaml_impl(text).unwrap_or_else(|err| throw_r_error(&err.to_string()))
+    parse_yaml_impl(text).unwrap_or_else(|err| throw_r_error(err.to_string()))
 }
 
 // Macro to generate exports.
