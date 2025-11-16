@@ -1,5 +1,7 @@
 use extendr_api::prelude::*;
 use saphyr::{LoadableYamlNode, Mapping, Scalar, Tag, Yaml};
+use std::cell::OnceCell;
+use std::thread_local;
 
 fn yaml_to_robj(node: &Yaml) -> std::result::Result<Robj, String> {
     match node {
@@ -66,10 +68,18 @@ fn mapping_to_robj(map: &Mapping) -> std::result::Result<Robj, String> {
             key_values.push(yaml_to_robj(key)?);
         }
         let yaml_keys = List::from_values(key_values);
-        list.set_attrib(sym!("yaml_keys"), yaml_keys)
+        YAML_KEYS_SYM
+            .with(|cell| {
+                let sym = cell.get_or_init(|| sym!(yaml_keys));
+                list.set_attrib(sym, yaml_keys)
+            })
             .map_err(|err| err.to_string())?;
     }
     Ok(list.into())
+}
+
+thread_local! {
+    static YAML_KEYS_SYM: OnceCell<Robj> = OnceCell::new();
 }
 
 fn convert_tagged(tag: &Tag, node: &Yaml) -> std::result::Result<Robj, String> {
