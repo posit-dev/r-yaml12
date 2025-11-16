@@ -1,5 +1,5 @@
 use extendr_api::prelude::*;
-use saphyr::{LoadableYamlNode, Mapping, Scalar, Tag, Yaml, YamlEmitter};
+use saphyr::{LoadableYamlNode, Mapping, Scalar, Tag, Yaml};
 
 fn yaml_to_robj(node: &Yaml) -> std::result::Result<Robj, String> {
     match node {
@@ -45,14 +45,30 @@ fn sequence_to_robj(seq: &[Yaml]) -> std::result::Result<Robj, String> {
 }
 
 fn mapping_to_robj(map: &Mapping) -> std::result::Result<Robj, String> {
-    let mut names = Vec::with_capacity(map.len());
+    let mut names: Vec<&str> = Vec::with_capacity(map.len());
     let mut values = Vec::with_capacity(map.len());
+    let mut has_non_string_key = false;
     for (key, value) in map.iter() {
-        names.push(render_key(key)?);
+        match key {
+            Yaml::Value(Scalar::String(value)) => names.push(value.as_ref()),
+            _ => {
+                names.push("");
+                has_non_string_key = true;
+            }
+        }
         values.push(yaml_to_robj(value)?);
     }
-    let list = List::from_names_and_values(names.iter().map(String::as_str), values.into_iter())
-        .map_err(|err| err.to_string())?;
+    let mut list =
+        List::from_names_and_values(&names, values.into_iter()).map_err(|err| err.to_string())?;
+    if has_non_string_key {
+        let mut key_values = Vec::with_capacity(map.len());
+        for (key, _) in map.iter() {
+            key_values.push(yaml_to_robj(key)?);
+        }
+        let yaml_keys = List::from_values(key_values);
+        list.set_attrib(sym!("yaml_keys"), yaml_keys)
+            .map_err(|err| err.to_string())?;
+    }
     Ok(list.into())
 }
 
@@ -70,28 +86,6 @@ fn set_yaml_tag_attr(mut value: Robj, tag: &str) -> Robj {
         // ignore types that cannot carry attributes
     }
     value
-}
-
-fn render_key(key: &Yaml) -> std::result::Result<String, String> {
-    match key {
-        Yaml::Value(Scalar::String(value)) => Ok(value.as_ref().to_string()),
-        Yaml::Value(Scalar::Integer(value)) => Ok(value.to_string()),
-        Yaml::Value(Scalar::FloatingPoint(value)) => Ok(value.into_inner().to_string()),
-        Yaml::Value(Scalar::Boolean(value)) => Ok(value.to_string()),
-        Yaml::Value(Scalar::Null) => Ok("null".to_string()),
-        _ => emit_yaml_borrowed(key),
-    }
-}
-
-fn emit_yaml_borrowed(doc: &Yaml) -> std::result::Result<String, String> {
-    let mut output = String::new();
-    let mut emitter = YamlEmitter::new(&mut output);
-    emitter.dump(doc).map_err(|err| err.to_string())?;
-    Ok(strip_document_marker(&output).to_string())
-}
-
-fn strip_document_marker(text: &str) -> &str {
-    text.strip_prefix("---\n").unwrap_or(text)
 }
 
 fn collapse_lines(text: &Strings) -> Result<String> {
