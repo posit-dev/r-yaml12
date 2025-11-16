@@ -126,3 +126,18 @@ test_that("parse_yaml yaml_keys align with positions when names are empty", {
   expect_identical(yaml_keys[[1]], 1L)
   expect_identical(yaml_keys[[2]], 2L)
 })
+
+test_that("parse_yaml returns visibly", {
+  expect_visible(parse_yaml("answer: 42"))
+  expect_identical(parse_yaml("answer: 42"), list(answer = 42L))
+})
+
+test_that("parse_yaml keeps sequences/mappings of length 1 as collections", {
+  single_seq <- parse_yaml("- 1")
+  expect_type(single_seq, "list")
+  expect_identical(single_seq, list(1L))
+
+  single_map <- parse_yaml("key: 1")
+  expect_type(single_map, "list")
+  expect_identical(single_map, list(key = 1L))
+})

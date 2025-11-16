@@ -16,7 +16,14 @@ NULL
 #' `yaml_tag` attribute when possible. YAML aliases are rejected.
 #' @param text Character vector; elements are concatenated with `"\n"`.
 #' @export
-parse_yaml <- function(text) invisible(.Call(wrap__parse_yaml, text))
+parse_yaml <- function(text) .Call(wrap__parse_yaml, text)
+
+#' Encode an R object as YAML 1.2.
+#'
+#' @param value Any R object composed of lists, atomic vectors, and scalars.
+#' @return A scalar character string containing YAML.
+#' @export
+encode_yaml <- function(value) .Call(wrap__encode_yaml, value)
 
 
 # nolint end
