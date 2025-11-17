@@ -8,8 +8,13 @@ test_that("encode_yaml round-trips basic R lists", {
   encoded <- encode_yaml(obj)
   expect_type(encoded, "character")
 
+  expected <- list(
+    foo = "bar",
+    baz = list(TRUE, 123L),
+    qux = list(sub = c("nested", NA))
+  )
   reparsed <- parse_yaml(encoded)
-  expect_identical(reparsed, obj)
+  expect_identical(reparsed, expected)
 })
 
 test_that("encode_yaml preserves yaml_tag attribute", {
@@ -60,6 +65,7 @@ test_that("encode_yaml round-trips multi-document streams", {
   expect_true(grepl("\n---\n", encoded, fixed = TRUE))
   expect_true(grepl("\n$", encoded))
   parsed <- parse_yaml(encoded, multi = TRUE)
+  docs[[2]]$bar <- c(2L, NA)
   expect_identical(parsed, docs)
 })
 
@@ -115,7 +121,7 @@ test_that("encode_yaml returns visibly", {
 test_that("encode_yaml preserves single-length collections", {
   seq_out <- encode_yaml(list(list(1L)))
   reparsed_seq <- parse_yaml(seq_out)
-  expect_identical(reparsed_seq, list(list(1L)))
+  expect_identical(reparsed_seq, list(1L))
 
   map_out <- encode_yaml(list(list(key = 1L)))
   reparsed_map <- parse_yaml(map_out)

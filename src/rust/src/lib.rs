@@ -67,12 +67,164 @@ fn scalar_to_robj(scalar: &Scalar) -> Robj {
 }
 
 fn sequence_to_robj(seq: &[Yaml]) -> Fallible<Robj> {
+    #[derive(Copy, Clone, PartialEq, Eq)]
+    enum RVectorType {
+        List,
+        Logical,
+        Integer,
+        Double,
+        Character,
+    }
+
+    let mut out_type = RVectorType::List;
+    let mut simplify = true;
+
+    // iterate over the vec once to see if we can simplify, fail early/fast if not
+    for node in seq {
+        match node {
+            Yaml::Tagged(_, _) => {
+                simplify = false;
+                break;
+            }
+            Yaml::Value(scalar_type) => {
+                let this_kind = match scalar_type {
+                    Scalar::Null => RVectorType::List,
+                    Scalar::Boolean(_) => RVectorType::Logical,
+                    Scalar::Integer(_) => RVectorType::Integer,
+                    Scalar::FloatingPoint(_) => RVectorType::Double,
+                    Scalar::String(_) => RVectorType::Character,
+                };
+
+                if this_kind == out_type || matches!(scalar_type, Scalar::Null) {
+                    continue;
+                }
+                if let Scalar::Integer(i) = scalar_type {
+                    if out_type == RVectorType::Double {
+                        continue;
+                    }
+                    if i32::try_from(*i).is_err() {
+                        out_type = RVectorType::Double;
+                        continue;
+                    }
+                }
+                if out_type == RVectorType::List {
+                    out_type = this_kind;
+                    continue;
+                }
+                simplify = false;
+                break;
+            }
+            _ => {
+                simplify = false;
+                break;
+            }
+        }
+    }
+
+    if simplify {
+        match out_type {
+            RVectorType::Logical => {
+                let logicals = Logicals::from_values(seq.iter().map(|node| match node {
+                    Yaml::Value(Scalar::Boolean(b)) => (*b).into(),
+                    Yaml::Value(Scalar::Null) => Rbool::na_value(),
+                    _ => unreachable!("expected only booleans or nulls"),
+                }));
+                return Ok(logicals.into());
+            }
+            RVectorType::Integer => {
+                let integers = Integers::from_values(seq.iter().map(|node| match node {
+                    Yaml::Value(Scalar::Integer(value)) => Rint::from(*value as i32),
+                    Yaml::Value(Scalar::Null) => Rint::na(),
+                    _ => unreachable!("expected only integers or nulls"),
+                }));
+                return Ok(integers.into());
+            }
+            RVectorType::Double => {
+                let doubles = Doubles::from_values(seq.iter().map(|node| match node {
+                    Yaml::Value(Scalar::FloatingPoint(value)) => Rfloat::from(value.into_inner()),
+                    Yaml::Value(Scalar::Integer(value)) => Rfloat::from(*value as f64),
+                    Yaml::Value(Scalar::Null) => Rfloat::na(),
+                    _ => unreachable!("expected only doubles, integers, or nulls"),
+                }));
+                return Ok(doubles.into());
+            }
+            RVectorType::Character => {
+                let strings = Strings::from_values(seq.iter().map(|node| match node {
+                    Yaml::Value(Scalar::String(value)) => Rstr::from(value.as_ref()),
+                    Yaml::Value(Scalar::Null) => Rstr::na(),
+                    _ => unreachable!("expected only strings or nulls"),
+                }));
+                return Ok(strings.into());
+            }
+            RVectorType::List => {}
+        }
+    }
+
+    // can't simplify, return a list
     let mut values = Vec::with_capacity(seq.len());
     for node in seq {
         values.push(yaml_to_robj(node)?);
     }
+
     Ok(List::from_values(values).into())
 }
+// fn build_sequence(seq_type: SequenceType, seq: &[Yaml]) -> Result<Robj> {
+//     match seq_type {
+//         SequenceType::Strings => {
+//             let mut strings = Vec::with_capacity(seq.len());
+//             for node in seq {
+//                 match node {
+//                     Yaml::Value(Scalar::Null) => strings.push(Rstr::na()),
+//                     Yaml::Value(Scalar::String(value)) => {
+//                         strings.push(Rstr::from(value.as_ref()))
+//                     }
+//                     _ => strings.push(Rstr::na()),
+//                 }
+//             }
+//             Ok(Strings::from_values(strings).into())
+//         }
+//         SequenceType::Integers => {
+//             let mut integers = Vec::with_capacity(seq.len());
+//             for node in seq {
+//                 match node {
+//                     Yaml::Value(Scalar::Null) => integers.push(Rint::na()),
+//                     Yaml::Value(Scalar::Integer(value)) => {
+//                         integers.push(Rint::from(*value as i32))
+//                     }
+//                     _ => integers.push(Rint::na()),
+//                 }
+//             }
+//             Ok(Integers::from_values(integers).into())
+//         }
+//         SequenceType::Doubles => {
+//             let mut doubles = Vec::with_capacity(seq.len());
+//             for node in seq {
+//                 match node {
+//                     Yaml::Value(Scalar::Null) => doubles.push(Rfloat::na()),
+//                     Yaml::Value(Scalar::FloatingPoint(value)) => {
+//                         doubles.push(Rfloat::from(value.into_inner()))
+//                     }
+//                     Yaml::Value(Scalar::Integer(value)) => {
+//                         doubles.push(Rfloat::from(*value as f64))
+//                     }
+//                     _ => doubles.push(Rfloat::na()),
+//                 }
+//             }
+//             Ok(Doubles::from_values(doubles).into())
+//         }
+//         SequenceType::Logicals => {
+//             let mut logicals = Vec::with_capacity(seq.len());
+//             for node in seq {
+//                 match node {
+//                     Yaml::Value(Scalar::Null) => logicals.push(Rbool::na()),
+//                     Yaml::Value(Scalar::Boolean(value)) => logicals.push(Rbool::from(*value)),
+//                     _ => logicals.push(Rbool::na()),
+//                 }
+//             }
+//             Ok(Logicals::from_values(logicals).into())
+//         }
+//     }
+// }
 
 fn mapping_to_robj(map: &Mapping) -> Fallible<Robj> {
     let mut names: Vec<&str> = Vec::with_capacity(map.len());

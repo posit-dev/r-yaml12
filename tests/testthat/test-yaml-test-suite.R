@@ -49,17 +49,44 @@ strip_yaml_metadata <- function(x) {
   x
 }
 
-normalize_yaml <- function(x) {
+normalize_yaml <- function(x, top_level = TRUE, parent_is_sequence = FALSE) {
   x <- strip_yaml_metadata(x)
-  if (is.list(x)) {
-    lapply(x, normalize_yaml)
-  } else if (is.integer(x)) {
-    as.numeric(x)
-  } else if (is.logical(x)) {
-    ifelse(is.na(x), NA, x)
+  normalize_scalar <- function(v) {
+    if (is.integer(v)) {
+      as.numeric(v)
+    } else if (is.logical(v)) {
+      ifelse(is.na(v), NA, v)
+    } else {
+      v
+    }
+  }
+
+  result <- if (is.list(x)) {
+    is_sequence <- is.null(names(x))
+    lapply(
+      x,
+      normalize_yaml,
+      top_level = FALSE,
+      parent_is_sequence = is_sequence
+    )
+  } else if (is.atomic(x) && (top_level || parent_is_sequence)) {
+    lapply(as.list(x), normalize_scalar)
+  } else if (is.atomic(x) && length(x) == 1) {
+    normalize_scalar(x)
+  } else if (is.atomic(x)) {
+    lapply(as.list(x), normalize_scalar)
   } else {
     x
   }
+
+  if (is.list(result) &&
+    is.null(names(result)) &&
+    length(result) > 0 &&
+    all(vapply(result, function(el) is.atomic(el) && length(el) == 1, logical(1)))) {
+    return(unlist(result, use.names = FALSE))
+  }
+
+  result
 }
 
 load_suite_cases <- function(suite_dir) {

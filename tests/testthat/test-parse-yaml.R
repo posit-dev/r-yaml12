@@ -14,7 +14,7 @@ test_that("parse_yaml handles simple sequences and mappings", {
 - c
 )--"
     ),
-    list("a", "b", "c")
+    c("a", "b", "c")
   )
 
   expect_identical(
@@ -91,7 +91,7 @@ test_that("parse_yaml preserves YAML tags", {
   )
 
   tagged <- parse_yaml(r"--(values: !seq [1, 2])--")
-  expect_identical(tagged$values, structure(list(1L, 2L), yaml_tag = "!seq"))
+  expect_identical(tagged$values, structure(c(1L, 2L), yaml_tag = "!seq"))
 })
 
 test_that("parse_yaml() warnings are catchable and respect options(warn)", {
@@ -180,8 +180,8 @@ test_that("parse_yaml returns visibly", {
 
 test_that("parse_yaml keeps sequences/mappings of length 1 as collections", {
   single_seq <- parse_yaml("- 1")
-  expect_type(single_seq, "list")
-  expect_identical(single_seq, list(1L))
+  expect_type(single_seq, "integer")
+  expect_identical(single_seq, 1L)
 
   single_map <- parse_yaml("key: 1")
   expect_type(single_map, "list")
