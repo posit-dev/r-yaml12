@@ -1,5 +1,16 @@
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
+# Convert visible whitespace markers used by yaml-test-suite back to their
+# literal characters (mirrors tests/testthat/yaml-test-suite/bin/YAMLTestSuite.pm).
+suite_unescape <- function(text) {
+  text <- gsub("␣", " ", text, fixed = TRUE)
+  text <- gsub("—*»", "\t", text)
+  text <- gsub("←", "\r", text, fixed = TRUE)
+  text <- gsub("⇔", "\ufeff", text, fixed = TRUE)
+  text <- gsub("↵", "", text, fixed = TRUE)
+  sub("∎\\n?$", "", text)
+}
+
 format_yaml_key <- function(key) {
   if (is.null(key)) {
     "null"
@@ -82,6 +93,16 @@ load_suite_cases <- function(suite_dir) {
         snippet <- entry$yaml %||% entry$input %||% entry$data
         if (is.null(snippet)) {
           next
+        }
+
+        if (is.character(snippet)) {
+          snippet <- suite_unescape(snippet)
+        }
+        if (is.character(entry$json)) {
+          entry$json <- suite_unescape(entry$json)
+        }
+        if (is.character(entry$emit)) {
+          entry$emit <- suite_unescape(entry$emit)
         }
 
         case_index <- case_index + 1
@@ -172,45 +193,9 @@ if (!jsonlite_available) {
     )
 
     skip_compare_cases <- c(
-      "3RLN.yaml#3",
-      "3RLN.yaml#6",
-      "4ZYM.yaml#1",
-      "6CA3.yaml#1",
       "6KGN.yaml#1",
-      "6WPF.yaml#1",
-      "7A4E.yaml#1",
-      "7FWL.yaml#1",
-      "96NN.yaml#1",
-      "9TFX.yaml#1",
-      "9YRD.yaml#1",
-      "A2M4.yaml#1",
-      "DE56.yaml#2",
-      "DE56.yaml#5",
-      "DE56.yaml#6",
-      "DK95.yaml#1",
-      "DK95.yaml#3",
-      "DK95.yaml#6",
-      "DK95.yaml#9",
-      "DWX9.yaml#1",
-      "EX5H.yaml#1",
-      "HS5T.yaml#1",
-      "K54U.yaml#1",
-      "KH5V.yaml#3",
-      "NAT4.yaml#1",
-      "NB6Z.yaml#1",
-      "NP9H.yaml#1",
-      "PRH3.yaml#1",
-      "Q5MG.yaml#1",
-      "Q8AD.yaml#1",
       "RR7F.yaml#1",
-      "S4JQ.yaml#1",
-      "SM9W.yaml#1",
-      "T26H.yaml#1",
-      "T4YY.yaml#1",
-      "TL85.yaml#1",
-      "UV7Q.yaml#1",
-      "Y79Y.yaml#2",
-      "Y79Y.yaml#11"
+      "S4JQ.yaml#1"
     )
 
     for (case in suite_cases) {
