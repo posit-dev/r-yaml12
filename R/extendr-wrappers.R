@@ -16,8 +16,9 @@ NULL
 #' `yaml_tag` attribute when possible. YAML aliases are rejected.
 #' @param text Character vector; elements are concatenated with `"\n"`.
 #' @param multi When `TRUE`, return a list containing all documents in the stream.
+#' @param simplify When `FALSE`, keep YAML sequences as R lists instead of simplifying to atomic vectors.
 #' @export
-parse_yaml <- function(text, multi = FALSE) .Call(wrap__parse_yaml, text, multi)
+parse_yaml <- function(text, multi = FALSE, simplify = TRUE) .Call(wrap__parse_yaml, text, multi, simplify)
 
 #' Encode an R object as YAML 1.2.
 #'
@@ -31,8 +32,9 @@ encode_yaml <- function(value, multi = FALSE) .Call(wrap__encode_yaml, value, mu
 #'
 #' @param path Scalar string path to a YAML file.
 #' @param multi When `TRUE`, return a list containing all documents in the stream.
+#' @param simplify When `FALSE`, keep YAML sequences as R lists instead of simplifying to atomic vectors.
 #' @export
-read_yaml <- function(path, multi = FALSE) .Call(wrap__read_yaml, path, multi)
+read_yaml <- function(path, multi = FALSE, simplify = TRUE) .Call(wrap__read_yaml, path, multi, simplify)
 
 #' Write an R object as YAML 1.2 to a file.
 #'

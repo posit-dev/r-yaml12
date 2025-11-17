@@ -16,6 +16,17 @@ test_that("parse_yaml handles simple sequences and mappings", {
     ),
     c("a", "b", "c")
   )
+  expect_identical(
+    parse_yaml(
+      r"--(
+- a
+- b
+- c
+)--",
+      simplify = FALSE
+    ),
+    list("a", "b", "c")
+  )
 
   expect_identical(
     parse_yaml(

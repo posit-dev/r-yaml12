@@ -4,12 +4,14 @@
 \alias{parse_yaml}
 \title{Parse YAML 1.2 document(s) into base R structures.}
 \usage{
-parse_yaml(text, multi = FALSE)
+parse_yaml(text, multi = FALSE, simplify = TRUE)
 }
 \arguments{
 \item{text}{Character vector; elements are concatenated with \code{"\\n"}.}
 
 \item{multi}{When \code{TRUE}, return a list containing all documents in the stream.}
+
+\item{simplify}{When \code{FALSE}, keep YAML sequences as R lists instead of simplifying to atomic vectors.}
 }
 \description{
 Supports scalars, sequences, and mappings; YAML tags are preserved in a

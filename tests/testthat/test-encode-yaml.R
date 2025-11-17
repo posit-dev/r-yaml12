@@ -15,6 +15,8 @@ test_that("encode_yaml round-trips basic R lists", {
   )
   reparsed <- parse_yaml(encoded)
   expect_identical(reparsed, expected)
+
+  expect_identical(parse_yaml(encoded, simplify = FALSE), obj)
 })
 
 test_that("encode_yaml preserves yaml_tag attribute", {

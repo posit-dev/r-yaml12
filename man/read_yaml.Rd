@@ -4,12 +4,14 @@
 \alias{read_yaml}
 \title{Read YAML 1.2 document(s) from a file path.}
 \usage{
-read_yaml(path, multi = FALSE)
+read_yaml(path, multi = FALSE, simplify = TRUE)
 }
 \arguments{
 \item{path}{Scalar string path to a YAML file.}
 
 \item{multi}{When \code{TRUE}, return a list containing all documents in the stream.}
+
+\item{simplify}{When \code{FALSE}, keep YAML sequences as R lists instead of simplifying to atomic vectors.}
 }
 \description{
 Read YAML 1.2 document(s) from a file path.

@@ -8,6 +8,10 @@ test_that("write_yaml writes and read_yaml reads single documents", {
   expect_null(out)
   expect_true(file.exists(path))
   expect_identical(read_yaml(path), value)
+  expect_identical(
+    read_yaml(path, simplify = FALSE),
+    list(alpha = 1L, nested = list(TRUE, NULL))
+  )
 })
 
 test_that("write_yaml and read_yaml handle multi-document streams", {
@@ -19,6 +23,10 @@ test_that("write_yaml and read_yaml handle multi-document streams", {
 
   docs[[2]]$bar <- c(2L, NA)
   expect_identical(read_yaml(path, multi = TRUE), docs)
+  expect_identical(
+    read_yaml(path, multi = TRUE, simplify = FALSE),
+    list(list(foo = 1L), list(bar = list(2L, NULL)))
+  )
 })
 
 test_that("read_yaml errors clearly when the file cannot be read", {
