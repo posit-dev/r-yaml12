@@ -176,3 +176,9 @@ test_that("parse_yaml keeps sequences/mappings of length 1 as collections", {
   expect_type(single_map, "list")
   expect_identical(single_map, list(key = 1L))
 })
+
+test_that("roundtrip newline in short string scalar", {
+  og <- list(foo = "bar!\nbar!", baz = 42L)
+  rt <- parse_yaml(encode_yaml(og))
+  expect_identical(og, rt)
+})
