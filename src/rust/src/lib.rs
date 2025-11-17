@@ -116,29 +116,23 @@ fn emit_yaml_documents(docs: &[Yaml<'static>], multi: bool) -> Result<String> {
         return Ok(String::new());
     }
     let mut output = String::new();
-    for doc in docs {
-        {
-            let mut emitter = YamlEmitter::new(&mut output);
-            emitter
-                .dump(doc)
-                .map_err(|err| Error::Other(err.to_string()))?;
-        }
-        output.push('\n');
-    }
-    let rendered = if multi {
-        output
+    let mut emitter = YamlEmitter::new(&mut output);
+    if multi {
+        emitter
+            .dump_docs(docs)
+            .map_err(|err| Error::Other(err.to_string()))?;
     } else {
-        let body = output.get(4..).unwrap_or("");
-        let body = body.strip_suffix('\n').unwrap_or(body);
-        body.to_owned()
-    };
+        emitter
+            .dump_with_document_start(&docs[0], false)
+            .map_err(|err| Error::Other(err.to_string()))?;
+    }
     // R strings are limited to 2^31 - 1 bytes; error clearly if we would overflow.
-    if rendered.len() > R_STRING_MAX_BYTES {
+    if output.len() > R_STRING_MAX_BYTES {
         return Err(Error::Other(
             "Encoded YAML exceeds R's 2^31-1 byte string limit".to_string(),
         ));
     }
-    Ok(rendered)
+    Ok(output)
 }
 
 fn robj_to_yaml(robj: &Robj) -> Result<Yaml<'static>> {
