@@ -49,53 +49,13 @@ strip_yaml_metadata <- function(x) {
   x
 }
 
-normalize_yaml <- function(x, top_level = TRUE, parent_is_sequence = FALSE) {
-  x <- strip_yaml_metadata(x)
-  normalize_scalar <- function(v) {
-    if (is.integer(v)) {
-      as.numeric(v)
-    } else if (is.logical(v)) {
-      ifelse(is.na(v), NA, v)
-    } else {
-      v
-    }
-  }
-
-  result <- if (is.list(x)) {
-    is_sequence <- is.null(names(x))
-    lapply(
-      x,
-      normalize_yaml,
-      top_level = FALSE,
-      parent_is_sequence = is_sequence
-    )
-  } else if (is.atomic(x) && (top_level || parent_is_sequence)) {
-    lapply(as.list(x), normalize_scalar)
-  } else if (is.atomic(x) && length(x) == 1) {
-    normalize_scalar(x)
-  } else if (is.atomic(x)) {
-    lapply(as.list(x), normalize_scalar)
-  } else {
-    x
-  }
-
-  if (is.list(result) &&
-    is.null(names(result)) &&
-    length(result) > 0 &&
-    all(vapply(result, function(el) is.atomic(el) && length(el) == 1, logical(1)))) {
-    return(unlist(result, use.names = FALSE))
-  }
-
-  result
-}
-
 load_suite_cases <- function(suite_dir) {
   files <- list.files(suite_dir, pattern = "\\.yaml$", full.names = TRUE)
   cases <- list()
 
   for (path in files) {
     raw <- paste(readLines(path, warn = FALSE), collapse = "\n")
-    parsed <- try(parse_yaml(raw, multi = TRUE), silent = TRUE)
+    parsed <- try(parse_yaml(raw, multi = TRUE, simplify = FALSE), silent = TRUE)
     if (inherits(parsed, "try-error") || !length(parsed)) {
       next
     }
@@ -180,11 +140,14 @@ if (!jsonlite_available) {
             grepl("fail|error|invalid", tolower(entry$tags %||% ""))
 
           if (expect_fail) {
-            expect_error(parse_yaml(snippet, multi = TRUE), info = case_id)
+            expect_error(
+              parse_yaml(snippet, multi = TRUE, simplify = FALSE),
+              info = case_id
+            )
             return()
           }
 
-          parsed <- try(parse_yaml(snippet), silent = TRUE)
+          parsed <- try(parse_yaml(snippet, simplify = FALSE), silent = TRUE)
           if (inherits(parsed, "try-error")) {
             cond <- attr(parsed, "condition")
             msg <- if (inherits(cond, "condition")) {
@@ -217,9 +180,7 @@ if (!jsonlite_available) {
             sprintf("Comparison skipped for %s", case_id)
           )
 
-          expect_equal(
-            normalize_yaml(parsed),
-            normalize_yaml(expected),
+          expect_equal(strip_yaml_metadata(parsed), strip_yaml_metadata(expected),
             info = case_id
           )
         })

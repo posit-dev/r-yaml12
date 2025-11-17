@@ -6,26 +6,25 @@ test_that("parse_yaml handles scalars", {
 })
 
 test_that("parse_yaml handles simple sequences and mappings", {
-  expect_identical(
-    parse_yaml(
-      r"--(
+  simple_seq <- r"--(
 - a
 - b
 - c
 )--"
-    ),
+
+  expect_identical(
+    parse_yaml(simple_seq),
     c("a", "b", "c")
   )
+
   expect_identical(
-    parse_yaml(
-      r"--(
-- a
-- b
-- c
-)--",
-      simplify = FALSE
-    ),
+    parse_yaml(simple_seq, simplify = FALSE),
     list("a", "b", "c")
+  )
+
+  expect_identical(
+    parse_yaml(simple_seq, simplify = TRUE),
+    c("a", "b", "c")
   )
 
   expect_identical(

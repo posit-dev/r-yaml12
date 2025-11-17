@@ -8,6 +8,7 @@ test_that("write_yaml writes and read_yaml reads single documents", {
   expect_null(out)
   expect_true(file.exists(path))
   expect_identical(read_yaml(path), value)
+  expect_identical(read_yaml(path, simplify = TRUE), value)
   expect_identical(
     read_yaml(path, simplify = FALSE),
     list(alpha = 1L, nested = list(TRUE, NULL))
@@ -23,6 +24,7 @@ test_that("write_yaml and read_yaml handle multi-document streams", {
 
   docs[[2]]$bar <- c(2L, NA)
   expect_identical(read_yaml(path, multi = TRUE), docs)
+  expect_identical(read_yaml(path, multi = TRUE, simplify = TRUE), docs)
   expect_identical(
     read_yaml(path, multi = TRUE, simplify = FALSE),
     list(list(foo = 1L), list(bar = list(2L, NULL)))
@@ -43,6 +45,12 @@ test_that("read_yaml does not simplify mixed-type sequences", {
 
   expect_type(result, "list")
   expect_identical(result, list(TRUE, 1L))
+
+  simplified <- read_yaml(path, simplify = TRUE)
+  expect_type(simplified, "list")
+  expect_identical(simplified, list(TRUE, 1L))
+
+  expect_identical(read_yaml(path, simplify = FALSE), list(TRUE, 1L))
 })
 
 test_that("read_yaml keeps tagged sequence elements as list values", {
