@@ -18,6 +18,10 @@ fn unwrap_or_resume<T>(res: Fallible<T>) -> T {
     }
 }
 
+fn api_other(msg: impl Into<String>) -> RUnwindError {
+    Error::Other(msg.into()).into()
+}
+
 macro_rules! cached_sym {
     ($cell:ident, $name:ident, $getter:ident) => {
         thread_local! {
@@ -37,15 +41,11 @@ fn yaml_to_robj(node: &Yaml) -> Fallible<Robj> {
         Yaml::Tagged(tag, inner) => convert_tagged(tag, inner),
         Yaml::Sequence(seq) => sequence_to_robj(seq),
         Yaml::Mapping(map) => mapping_to_robj(map),
-        Yaml::Alias(_) => {
-            Err(Error::Other("YAML aliases are not supported by yaml12".to_string()).into())
-        }
-        Yaml::BadValue => {
-            Err(Error::Other("Encountered an invalid YAML scalar value".to_string()).into())
-        }
-        Yaml::Representation(_, _, _) => {
-            unreachable!("Unexpected Yaml::Representation; loader runs with early_parse(true)")
-        }
+        Yaml::Alias(_) => Err(api_other("YAML aliases are not supported by yaml12")),
+        Yaml::BadValue => Err(api_other("Encountered an invalid YAML scalar value")),
+        Yaml::Representation(_, _, _) => unreachable!(
+            "Unexpected Yaml::Representation; loader runs with early_parse(true)"
+        ),
     }
 }
 
@@ -88,7 +88,7 @@ fn mapping_to_robj(map: &Mapping) -> Fallible<Robj> {
         values.push(yaml_to_robj(value)?);
     }
     let mut list = List::from_names_and_values(&names, values.into_iter())
-        .map_err(|err| Error::Other(err.to_string()))?;
+        .map_err(|err| api_other(err.to_string()))?;
     if has_non_string_key {
         let mut key_values = Vec::with_capacity(map.len());
         for (key, _) in map.iter() {
@@ -96,7 +96,7 @@ fn mapping_to_robj(map: &Mapping) -> Fallible<Robj> {
         }
         let yaml_keys = List::from_values(key_values);
         list.set_attrib(sym_yaml_keys(), yaml_keys)
-            .map_err(|err| Error::Other(err.to_string()))?;
+            .map_err(|err| api_other(err.to_string()))?;
     }
     Ok(list.into())
 }
@@ -383,7 +383,7 @@ fn load_yaml_documents<'input>(text: &'input str, multi: bool) -> Fallible<Vec<Y
     let mut loader = YamlLoader::default();
     parser
         .load(&mut loader, multi)
-        .map_err(|err| Error::Other(format!("YAML parse error: {err}")))?;
+        .map_err(|err| api_other(format!("YAML parse error: {err}")))?;
     Ok(loader.into_documents())
 }
 
@@ -393,7 +393,7 @@ fn parse_yaml_impl(text: Strings, multi: bool) -> Fallible<Robj> {
         1 => {
             let first = text.elt(0);
             if first.is_na() {
-                return Err(Error::Other("`text` must not contain NA strings".to_string()).into());
+                return Err(api_other("`text` must not contain NA strings"));
             }
             let docs = load_yaml_documents(first.as_ref(), multi)?;
             docs_to_robj(docs, multi)
@@ -427,7 +427,7 @@ fn joined_lines_iter<'a>(text: &'a Strings) -> Fallible<JoinedLinesIter<'a>> {
     let mut lines = Vec::with_capacity(text.len());
     for line in text.iter() {
         if line.is_na() {
-            return Err(Error::Other("`text` must not contain NA strings".to_string()).into());
+            return Err(api_other("`text` must not contain NA strings"));
         }
         lines.push(line.as_ref());
     }
