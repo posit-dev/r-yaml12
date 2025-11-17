@@ -24,7 +24,11 @@ impl LongjmpToken {
     }
 
     pub unsafe fn resume(self) -> ! {
-        R_ContinueUnwind(self.cont_handle());
+        let cont = self.cont_handle();
+        // Seems to me we should release the token,
+        // but neither Rcpp, nor cpp11, nor savvy release ... am I missing something?
+        // ffi::R_ReleaseObject(cont);
+        R_ContinueUnwind(cont);
     }
 
     pub fn from_tagged_ptr(tagged_ptr: ffi::SEXP) -> Self {

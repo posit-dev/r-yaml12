@@ -4,8 +4,8 @@ mod warning;
 use extendr_api::prelude::*;
 use saphyr::{Mapping, Scalar, Tag, Yaml, YamlEmitter, YamlLoader};
 use saphyr_parser::Parser;
-use std::{borrow::Cow, cell::OnceCell, fs, thread_local};
 use std::result::Result as StdResult;
+use std::{borrow::Cow, cell::OnceCell, fs, thread_local};
 use unwind::EvalError;
 use warning::emit_warning;
 
@@ -44,9 +44,9 @@ fn yaml_to_robj(node: &Yaml) -> Fallible<Robj> {
         Yaml::Mapping(map) => mapping_to_robj(map),
         Yaml::Alias(_) => Err(api_other("YAML aliases are not supported by yaml12")),
         Yaml::BadValue => Err(api_other("Encountered an invalid YAML scalar value")),
-        Yaml::Representation(_, _, _) => unreachable!(
-            "Unexpected Yaml::Representation; loader runs with early_parse(true)"
-        ),
+        Yaml::Representation(_, _, _) => {
+            unreachable!("Unexpected Yaml::Representation; loader runs with early_parse(true)")
+        }
     }
 }
 
