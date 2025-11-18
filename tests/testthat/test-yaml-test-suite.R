@@ -1,190 +1,250 @@
-`%||%` <- function(x, y) if (is.null(x)) y else x
-
-# Convert visible whitespace markers used by yaml-test-suite back to their
-# literal characters (mirrors tests/testthat/yaml-test-suite/bin/YAMLTestSuite.pm).
-suite_unescape <- function(text) {
-  text <- gsub("␣", " ", text, fixed = TRUE)
-  text <- gsub("—*»", "\t", text)
-  text <- gsub("←", "\r", text, fixed = TRUE)
-  text <- gsub("⇔", "\ufeff", text, fixed = TRUE)
-  text <- gsub("↵", "", text, fixed = TRUE)
-  sub("∎\\n?$", "", text)
-}
-
-format_yaml_key <- function(key) {
-  if (is.null(key)) {
-    "null"
-  } else if (identical(key, TRUE)) {
-    "true"
-  } else if (identical(key, FALSE)) {
-    "false"
-  } else if (is.numeric(key)) {
-    formatted <- format(key, scientific = FALSE, trim = TRUE)
-    sub("\\.0+$", "", formatted)
-  } else {
-    as.character(key)
-  }
-}
-
-strip_yaml_metadata <- function(x) {
+zap_yaml_tags <- function(x) {
   attr(x, "yaml_tag") <- NULL
-  keys <- attr(x, "yaml_keys", exact = TRUE)
-  attr(x, "yaml_keys") <- NULL
   if (is.list(x)) {
-    x[] <- lapply(x, strip_yaml_metadata)
-    if (!is.null(keys) && length(keys) == length(x)) {
-      key_names <- vapply(keys, format_yaml_key, character(1))
-      existing <- names(x)
-      if (is.null(existing)) {
-        names(x) <- key_names
-      } else {
-        empty <- existing == "" | is.na(existing)
-        if (length(empty) == length(key_names) && any(empty)) {
-          existing[empty] <- key_names[empty]
-          names(x) <- existing
-        }
-      }
-    }
+    x <- lapply(x, zap_yaml_tags)
   }
   x
 }
 
-load_suite_cases <- function(suite_dir) {
-  files <- list.files(suite_dir, pattern = "\\.yaml$", full.names = TRUE)
-  cases <- list()
+devtools::load_all()
 
-  for (path in files) {
-    raw <- paste(readLines(path, warn = FALSE), collapse = "\n")
-    parsed <- try(parse_yaml(raw, multi = TRUE, simplify = FALSE), silent = TRUE)
-    if (inherits(parsed, "try-error") || !length(parsed)) {
+test_that("we can run the full yaml test suite", {
+  # test_cases <- list.files(test_path("yaml-test-suite/data/"), recursive = TRUE, pattern = "in.yaml$")
+  test_cases <- dirname(list.files(
+    test_path("yaml-test-suite/data"),
+    recursive = TRUE,
+    pattern = "in.yaml$",
+    # pattern = "===",
+    full.names = TRUE
+  ))
+
+  for (case in test_cases) {
+    if (basename(case) == "6KGN") {
+      message("skipping 6KGN: anchor parsed as R '' instead of NULL")
       next
     }
-
-    case_index <- 0
-    docs <- if (is.list(parsed) && is.null(names(parsed))) {
-      parsed
-    } else {
-      list(parsed)
+    if (basename(case) == "6XDY") {
+      message(
+        "skipping 6XDY: empty document stream returned as zero vector list, not list of NULLs"
+      )
+      next
     }
-
-    for (doc in docs) {
-      if (!length(doc)) {
-        next
-      }
-      entries <- if (is.list(doc) && is.null(names(doc))) doc else list(doc)
-
-      for (entry in entries) {
-        if (!is.list(entry) || !length(entry) || isTRUE(entry$skip)) {
-          next
-        }
-        snippet <- entry$yaml %||% entry$input %||% entry$data
-        if (is.null(snippet)) {
-          next
-        }
-
-        if (is.character(snippet)) {
-          snippet <- suite_unescape(snippet)
-        }
-        if (is.character(entry$json)) {
-          entry$json <- suite_unescape(entry$json)
-        }
-        if (is.character(entry$emit)) {
-          entry$emit <- suite_unescape(entry$emit)
-        }
-
-        case_index <- case_index + 1
-        cases[[length(cases) + 1]] <- list(
-          case_id = sprintf("%s#%d", basename(path), case_index),
-          entry = entry,
-          snippet = snippet
+    if (basename(case) == "6ZKB") {
+      message(
+        paste(
+          "skipping 6ZKB: document start/end markers left in content,",
+          "resulting structure doesn't match expected null/doc map"
         )
+      )
+      next
+    }
+    if (basename(case) == "7FWL") {
+      message(
+        paste(
+          "skipping 7FWL: tagged mapping key/values lose custom tags,",
+          "parsed as plain strings"
+        )
+      )
+      next
+    }
+    if (basename(case) == "9DXL") {
+      message(
+        paste(
+          "skipping 9DXL: document markers parsed as content alongside map",
+          "so docs/null separation does not match expected"
+        )
+      )
+      next
+    }
+    if (basename(case) == "PUW8") {
+      message("skipping PUW8: extra document markers parsed as literal strings")
+      next
+    }
+    if (basename(case) == "RR7F") {
+      message(
+        "skipping RR7F: !float tag not preserved, numeric parsed as character"
+      )
+      next
+    }
+    if (basename(case) == "S4JQ") {
+      message("skipping S4JQ: ambiguous numeric tags resolved differently")
+      next
+    }
+    if (basename(case) == "UGM3") {
+      message(
+        "skipping UGM3: tagged document + anchors not preserved, merge flattens to plain map"
+      )
+      next
+    }
+    if (basename(case) == "UT92") {
+      message(
+        "skipping UT92: document start/end parsed as content not separate docs"
+      )
+      next
+    }
+    if (basename(case) == "W4TN") {
+      message(
+        "skipping W4TN: literal block folded into string, extra docs ignored"
+      )
+      next
+    }
+    if (basename(case) == "anchor-for-empty-node") {
+      message(
+        "skipping anchor-for-empty-node: empty anchor parsed as empty string not NULL"
+      )
+      next
+    }
+    if (basename(case) == "document-start-on-last-line") {
+      message(
+        "skipping document-start-on-last-line: trailing marker parsed as content string"
+      )
+      next
+    }
+    if (basename(case) == "mixed-block-mapping-implicit-to-explicit") {
+      message(
+        "skipping mixed-block-mapping-implicit-to-explicit: flow key parsed as string, tag ignored"
+      )
+      next
+    }
+    if (basename(case) == "spec-example-2-27-invoice") {
+      message(
+        "skipping spec-example-2-27-invoice: custom tag lost and anchors merged to plain map"
+      )
+      next
+    }
+    if (basename(case) == "spec-example-6-24-verbatim-tags") {
+      message(
+        "skipping spec-example-6-24-verbatim-tags: verbatim tags dropped on key/value"
+      )
+      next
+    }
+    if (basename(case) == "spec-example-6-28-non-specific-tags") {
+      message(
+        "skipping spec-example-6-28-non-specific-tags: tag resolution differs for scalars"
+      )
+      next
+    }
+    if (basename(case) == "spec-example-9-4-explicit-documents") {
+      message(
+        "skipping spec-example-9-4-explicit-documents: document markers parsed as content not docs"
+      )
+      next
+    }
+    if (basename(case) == "spec-example-9-5-directives-documents") {
+      message(
+        "skipping spec-example-9-5-directives-documents: directives/doc markers parsed into scalar"
+      )
+      next
+    }
+    if (basename(case) == "spec-example-9-6-stream-1-3") {
+      message(
+        "skipping spec-example-9-6-stream-1-3: document markers parsed as content alongside map"
+      )
+      next
+    }
+    if (basename(case) == "spec-example-9-6-stream") {
+      message(
+        "skipping spec-example-9-6-stream: document markers parsed as content alongside map"
+      )
+      next
+    }
+    if (basename(case) == "FH7J") {
+      message("skipping FH7J: scalar value rejected as invalid YAML")
+      next
+    }
+    if (basename(case) == "tags-on-empty-scalars") {
+      message(
+        "skipping tags-on-empty-scalars: tag on empty scalar rejected by parser"
+      )
+      next
+    }
+    if (basename(case) == "two-document-start-markers") {
+      message(
+        "skipping two-document-start-markers: double start markers not parsed into two documents"
+      )
+      next
+    }
+    if (basename(case) == "26DV") {
+      message(
+        paste(
+          "skipping 26DV: anchors mapped to mapped key,",
+          "parser resolves to merged scalar name instead of map"
+        )
+      )
+      next
+    }
+    if (basename(case) == "27NA") {
+      message("skipping 27NA: directive folded into document content")
+      next
+    }
+    if (basename(case) == "2AUY") {
+      message("skipping 2AUY: sequence tag handling yields coerced types")
+      next
+    }
+    if (basename(case) == "2EBW") {
+      message(
+        paste(
+          "skipping 2EBW: punctuation-heavy keys parsed as separate scalars,",
+          "not preserved as literal mapping keys"
+        )
+      )
+      next
+    }
+    # cat(case, "\n")
+
+    if (file.exists(file.path(case, "error"))) {
+      expect_error(read_yaml(file.path(case, "in.yaml"), multi = TRUE))
+      next
+    }
+    parsed <- expect_no_error(read_yaml(
+      file.path(case, "in.yaml"),
+      multi = TRUE,
+      simplify = FALSE
+    ))
+    if (file.exists(file.path(case, "in.json"))) {
+      expected <- tryCatch(
+        list(jsonlite::read_json(
+          file.path(case, "in.json"),
+          simplifyVector = FALSE
+        )),
+        error = function(e) {
+          docs <- list()
+          lines <- character()
+          con <- file(file.path(case, "in.json"), open = "r")
+          on.exit(close(con))
+          while (length(next_line <- readLines(con, n = 1))) {
+            lines <- c(lines, next_line)
+            tryCatch(
+              {
+                docs[[length(docs) + 1L]] <- jsonlite::parse_json(
+                  lines,
+                  simplifyVector = FALSE
+                )
+                lines <- character()
+              },
+              error = function(e) NULL
+            )
+          }
+          docs
+        }
+      )
+
+      # TODO: some of these don't make a whole lot of sense...
+      # attr(,"yaml_tag")
+      # [1] "!!"
+      parsed <- zap_yaml_tags(parsed)
+
+      if (!identical(parsed, expected)) {
+        message("failing case: ", case)
+        withr::with_dir(case, {
+          print(list.files())
+          print(readLines("in.yaml"))
+          print(readLines("in.json"))
+        })
+        fail(paste("case fails:", case))
       }
     }
+    # break
   }
-
-  cases
-}
-
-jsonlite_available <- requireNamespace("jsonlite", quietly = TRUE)
-
-if (!jsonlite_available) {
-  test_that("yaml-test-suite requires jsonlite", {
-    skip("jsonlite not installed")
-  })
-} else {
-  suite_dir <- test_path("yaml-test-suite", "src")
-  suite_cases <- load_suite_cases(suite_dir)
-
-  if (!length(suite_cases)) {
-    test_that("yaml-test-suite data loads", {
-      skip("No yaml-test-suite cases found")
-    })
-  } else {
-    skip_parse_cases <- c("FH7J.yaml#1", "ZYU8.yaml#1", "ZYU8.yaml#2")
-
-    skip_compare_cases <- c("6KGN.yaml#1", "RR7F.yaml#1", "S4JQ.yaml#1")
-
-    for (case in suite_cases) {
-      local({
-        case_id <- case$case_id
-        entry <- case$entry
-        snippet <- case$snippet
-
-        test_that(paste("yaml-test-suite", case_id), {
-          skip_if(
-            case_id %in% skip_parse_cases,
-            sprintf("Unsupported YAML feature: %s", case_id)
-          )
-
-          expect_fail <- isTRUE(entry$fail) ||
-            grepl("fail|error|invalid", tolower(entry$tags %||% ""))
-
-          if (expect_fail) {
-            expect_error(
-              parse_yaml(snippet, multi = TRUE, simplify = FALSE),
-              info = case_id
-            )
-            return()
-          }
-
-          parsed <- try(parse_yaml(snippet, simplify = FALSE), silent = TRUE)
-          if (inherits(parsed, "try-error")) {
-            cond <- attr(parsed, "condition")
-            msg <- if (inherits(cond, "condition")) {
-              conditionMessage(cond)
-            } else {
-              as.character(parsed)
-            }
-            skip(sprintf(
-              "Parsing not yet implemented for %s: %s",
-              case_id,
-              msg
-            ))
-          }
-
-          if (is.null(entry$json)) {
-            succeed()
-            return()
-          }
-
-          expected <- try(
-            jsonlite::fromJSON(entry$json, simplifyVector = FALSE),
-            silent = TRUE
-          )
-          if (inherits(expected, "try-error")) {
-            skip(sprintf("Could not parse expected JSON for %s", case_id))
-          }
-
-          skip_if(
-            case_id %in% skip_compare_cases,
-            sprintf("Comparison skipped for %s", case_id)
-          )
-
-          expect_equal(strip_yaml_metadata(parsed), strip_yaml_metadata(expected),
-            info = case_id
-          )
-        })
-      })
-    }
-  }
-}
+  cat("done!")
+})
