@@ -35,7 +35,6 @@ skip_reasons <- list(
     "anchors mapped to mapped key,",
     "parser resolves to merged scalar name instead of map"
   ),
-  "27NA" = "directive folded into document content",
   "2AUY" = "sequence tag handling yields coerced types",
   "2EBW" = paste(
     "punctuation-heavy keys parsed as separate scalars,",
