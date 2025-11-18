@@ -168,63 +168,6 @@ fn sequence_to_robj(seq: &[Yaml], simplify_seqs: bool) -> Fallible<Robj> {
 
     Ok(List::from_values(values).into())
 }
-// fn build_sequence(seq_type: SequenceType, seq: &[Yaml]) -> Result<Robj> {
-//     match seq_type {
-//         SequenceType::Strings => {
-//             let mut strings = Vec::with_capacity(seq.len());
-//             for node in seq {
-//                 match node {
-//                     Yaml::Value(Scalar::Null) => strings.push(Rstr::na()),
-//                     Yaml::Value(Scalar::String(value)) => {
-//                         strings.push(Rstr::from(value.as_ref()))
-//                     }
-//                     _ => strings.push(Rstr::na()),
-//                 }
-//             }
-//             Ok(Strings::from_values(strings).into())
-//         }
-//         SequenceType::Integers => {
-//             let mut integers = Vec::with_capacity(seq.len());
-//             for node in seq {
-//                 match node {
-//                     Yaml::Value(Scalar::Null) => integers.push(Rint::na()),
-//                     Yaml::Value(Scalar::Integer(value)) => {
-//                         integers.push(Rint::from(*value as i32))
-//                     }
-//                     _ => integers.push(Rint::na()),
-//                 }
-//             }
-//             Ok(Integers::from_values(integers).into())
-//         }
-//         SequenceType::Doubles => {
-//             let mut doubles = Vec::with_capacity(seq.len());
-//             for node in seq {
-//                 match node {
-//                     Yaml::Value(Scalar::Null) => doubles.push(Rfloat::na()),
-//                     Yaml::Value(Scalar::FloatingPoint(value)) => {
-//                         doubles.push(Rfloat::from(value.into_inner()))
-//                     }
-//                     Yaml::Value(Scalar::Integer(value)) => {
-//                         doubles.push(Rfloat::from(*value as f64))
-//                     }
-//                     _ => doubles.push(Rfloat::na()),
-//                 }
-//             }
-//             Ok(Doubles::from_values(doubles).into())
-//         }
-//         SequenceType::Logicals => {
-//             let mut logicals = Vec::with_capacity(seq.len());
-//             for node in seq {
-//                 match node {
-//                     Yaml::Value(Scalar::Null) => logicals.push(Rbool::na()),
-//                     Yaml::Value(Scalar::Boolean(value)) => logicals.push(Rbool::from(*value)),
-//                     _ => logicals.push(Rbool::na()),
-//                 }
-//             }
-//             Ok(Logicals::from_values(logicals).into())
-//         }
-//     }
-// }
 
 fn mapping_to_robj(map: &Mapping, simplify: bool) -> Fallible<Robj> {
     let mut names: Vec<&str> = Vec::with_capacity(map.len());
