@@ -158,12 +158,6 @@ test_that("we can run the full yaml test suite", {
       )
       next
     }
-    if (basename(case) == "two-document-start-markers") {
-      message(
-        "skipping two-document-start-markers: double start markers not parsed into two documents"
-      )
-      next
-    }
     if (basename(case) == "26DV") {
       message(
         paste(
@@ -216,10 +210,11 @@ test_that("we can run the full yaml test suite", {
             lines <- c(lines, next_line)
             tryCatch(
               {
-                docs[[length(docs) + 1L]] <- jsonlite::parse_json(
+                doc <- jsonlite::parse_json(
                   lines,
                   simplifyVector = FALSE
                 )
+                docs[length(docs) + 1L] <- list(doc)
                 lines <- character()
               },
               error = function(e) NULL
