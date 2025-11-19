@@ -417,29 +417,27 @@ fn docs_to_robj(mut docs: Vec<Yaml<'_>>, multi: bool, simplify: bool) -> Fallibl
 }
 
 fn joined_lines_iter<'a>(text: &'a Strings) -> Fallible<JoinedLinesIter<'a>> {
-    let mut lines = Vec::with_capacity(text.len());
     for line in text.iter() {
         if line.is_na() {
             return Err(api_other("`text` must not contain NA strings"));
         }
-        lines.push(line.as_ref());
     }
-    Ok(JoinedLinesIter::new(lines))
+    Ok(JoinedLinesIter::new(text.as_slice().iter()))
 }
 
+type LinesIter<'a> = std::slice::Iter<'a, Rstr>;
+
 struct JoinedLinesIter<'a> {
-    lines: std::vec::IntoIter<&'a str>,
+    lines: LinesIter<'a>,
     current: std::str::Chars<'a>,
 }
 
 impl<'a> JoinedLinesIter<'a> {
-    fn new(lines: Vec<&'a str>) -> Self {
-        let mut iter = lines.into_iter();
-        let current = iter.next().unwrap_or("").chars();
-        Self {
-            lines: iter,
-            current,
-        }
+    fn new(mut lines: LinesIter<'a>) -> Self {
+        let current = lines
+            .next()
+            .map_or_else(|| "".chars(), |line| line.as_ref().chars());
+        Self { lines, current }
     }
 }
 
@@ -451,7 +449,7 @@ impl<'a> Iterator for JoinedLinesIter<'a> {
             return Some(ch);
         }
         if let Some(next_line) = self.lines.next() {
-            self.current = next_line.chars();
+            self.current = next_line.as_ref().chars();
             return Some('\n');
         }
         None
