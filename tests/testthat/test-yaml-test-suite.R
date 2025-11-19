@@ -8,7 +8,6 @@ test_cases <- dirname(list.files(
 # unlink("skip-cases.txt")
 
 skip_cases <- c(
-  "6KGN",
   "7FWL",
   "RR7F",
   "UGM3",
@@ -105,7 +104,7 @@ for (case in test_cases) {
       expect_identical(parsed, expected)
 
       if (!identical(parsed, expected)) {
-        cat(case, "\n", sep = "", file = "skip-cases.txt", append = TRUE)
+        # cat(case, "\n", sep = "", file = "skip-cases.txt", append = TRUE)
         # message("failing case: ", case)
         # withr::with_dir(case, {
         #   cat("case files: \n")

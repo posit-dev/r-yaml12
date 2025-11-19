@@ -3,7 +3,7 @@ mod warning;
 
 use extendr_api::prelude::*;
 use saphyr::{Mapping, Scalar, Tag, Yaml, YamlEmitter, YamlLoader};
-use saphyr_parser::Parser;
+use saphyr_parser::{Parser, ScalarStyle};
 use std::result::Result as StdResult;
 use std::{borrow::Cow, cell::OnceCell, fs, thread_local};
 use unwind::EvalError;
@@ -38,11 +38,17 @@ macro_rules! cached_sym {
 
 fn resolve_representation(node: &mut Yaml) {
     if let Yaml::Representation(value, style, tag) = node {
-        let parsed = match tag {
+        let parsed = match &tag {
             Some(tag) if !tag.is_yaml_core_schema() => Yaml::Tagged(
                 tag.clone(),
                 Box::new(Yaml::Value(Scalar::String(value.clone()))),
             ),
+            // Plain, untagged, empty scalar nodes (including anchored ones) should be treated as
+            // null, matching Core Schema semantics and the yaml-test-suite expectations for
+            // empty anchors.
+            None if *style == ScalarStyle::Plain && value.trim().is_empty() => {
+                Yaml::Value(Scalar::Null)
+            }
             _ => Yaml::value_from_cow_and_metadata(value.clone(), *style, tag.as_ref()),
         };
         *node = parsed;
@@ -55,7 +61,9 @@ fn yaml_to_robj(node: &mut Yaml, simplify: bool) -> Fallible<Robj> {
         Yaml::Tagged(tag, inner) => convert_tagged(tag, inner.as_mut(), simplify),
         Yaml::Sequence(seq) => sequence_to_robj(seq, simplify),
         Yaml::Mapping(map) => mapping_to_robj(map, simplify),
-        Yaml::Alias(_) => Err(api_other("YAML aliases are not supported by yaml12")),
+        Yaml::Alias(_) => Err(api_other(
+            "Internal error: encountered unresolved YAML alias node",
+        )),
         Yaml::BadValue => Err(api_other("Encountered an invalid YAML scalar value")),
         Yaml::Representation(_, _, _) => {
             resolve_representation(node);
@@ -642,7 +650,8 @@ fn encode_yaml(value: Robj, #[extendr(default = "FALSE")] multi: bool) -> String
 /// Parse YAML 1.2 document(s) into base R structures.
 ///
 /// Supports scalars, sequences, and mappings; YAML tags are preserved in a
-/// `yaml_tag` attribute when possible. YAML aliases are rejected.
+/// `yaml_tag` attribute when possible. YAML anchors and aliases are resolved
+/// by the parser, so aliases behave like copies of their target nodes.
 /// @param text Character vector; elements are concatenated with `"\n"`.
 /// @param multi When `TRUE`, return a list containing all documents in the stream.
 /// @param simplify When `FALSE`, keep YAML sequences as R lists instead of simplifying to atomic vectors.
