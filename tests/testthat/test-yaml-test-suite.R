@@ -49,10 +49,13 @@ extract_event_tags <- function(case_dir) {
 
   event_lines <- readLines(event_path, warn = FALSE)
   tokens <- strsplit(event_lines, "[[:space:]]+")
-  tags <- unlist(lapply(tokens, function(parts) {
-    parts <- parts[nzchar(parts)]
-    parts[startsWith(parts, "<") & endsWith(parts, ">")]
-  }), use.names = FALSE)
+  tags <- unlist(
+    lapply(tokens, function(parts) {
+      parts <- parts[nzchar(parts)]
+      parts[startsWith(parts, "<") & endsWith(parts, ">")]
+    }),
+    use.names = FALSE
+  )
   trimws(gsub("^<|>$", "", tags))
 }
 

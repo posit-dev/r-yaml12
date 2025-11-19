@@ -15,37 +15,32 @@ fn resolve_representation(node: &mut Yaml, _simplify: bool) {
         }
     };
 
+    let is_plain_empty = style == ScalarStyle::Plain && value.trim().is_empty();
+
     let parsed = match tag {
         Some(tag) => {
             let owned_tag = tag.into_owned();
             match classify_tag(&owned_tag) {
                 TagClass::Canonical(kind) => {
-                    if kind == CanonicalTagKind::CoreNull
-                        && style == ScalarStyle::Plain
-                        && value.trim().is_empty()
-                    {
+                    if kind == CanonicalTagKind::CoreNull && is_plain_empty {
                         Yaml::Value(Scalar::Null)
                     } else {
-                        let canonical_cow = Cow::Owned(make_canonical_tag(kind));
-                        Yaml::value_from_cow_and_metadata(
-                            value.clone(),
-                            style,
-                            Some(&canonical_cow),
-                        )
+                        let canonical_tag = Cow::Owned(make_canonical_tag(kind));
+                        Yaml::value_from_cow_and_metadata(value, style, Some(&canonical_tag))
                     }
                 }
                 TagClass::Core => {
-                    let core_cow = Cow::Owned(owned_tag.clone());
-                    Yaml::value_from_cow_and_metadata(value.clone(), style, Some(&core_cow))
+                    let core_tag = Cow::Owned(owned_tag);
+                    Yaml::value_from_cow_and_metadata(value, style, Some(&core_tag))
                 }
                 TagClass::NonCore => Yaml::Tagged(
                     Cow::Owned(owned_tag),
-                    Box::new(Yaml::Value(Scalar::String(value.clone()))),
+                    Box::new(Yaml::Value(Scalar::String(value))),
                 ),
             }
         }
-        None if style == ScalarStyle::Plain && value.trim().is_empty() => Yaml::Value(Scalar::Null),
-        None => Yaml::value_from_cow_and_metadata(value.clone(), style, None),
+        None if is_plain_empty => Yaml::Value(Scalar::Null),
+        None => Yaml::value_from_cow_and_metadata(value, style, None),
     };
     *node = parsed;
 }
