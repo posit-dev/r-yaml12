@@ -48,6 +48,13 @@ fn logical_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
     let slice = robj
         .as_logical_slice()
         .ok_or_else(|| Error::Other("Expected a logical vector".to_string()))?;
+    if let [value] = slice {
+        return Ok(if value.is_na() {
+            Yaml::Value(Scalar::Null)
+        } else {
+            Yaml::Value(Scalar::Boolean(value.to_bool()))
+        });
+    }
     let mut values = Vec::with_capacity(slice.len());
     for value in slice {
         if value.is_na() {
@@ -63,6 +70,13 @@ fn integer_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
     let slice = robj
         .as_integer_slice()
         .ok_or_else(|| Error::Other("Expected an integer vector".to_string()))?;
+    if let [value] = slice {
+        return Ok(if *value == i32::MIN {
+            Yaml::Value(Scalar::Null)
+        } else {
+            Yaml::Value(Scalar::Integer(*value as i64))
+        });
+    }
     let mut values = Vec::with_capacity(slice.len());
     for value in slice {
         if *value == i32::MIN {
@@ -78,6 +92,13 @@ fn real_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
     let slice = robj
         .as_real_slice()
         .ok_or_else(|| Error::Other("Expected a numeric vector".to_string()))?;
+    if let [value] = slice {
+        return Ok(if value.is_nan() {
+            Yaml::Value(Scalar::Null)
+        } else {
+            Yaml::Value(Scalar::FloatingPoint((*value).into()))
+        });
+    }
     let mut values = Vec::with_capacity(slice.len());
     for value in slice {
         if value.is_nan() {
@@ -90,9 +111,19 @@ fn real_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
 }
 
 fn character_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
-    let strings = robj
+    let mut strings = robj
         .as_str_iter()
         .ok_or_else(|| Error::Other("Expected a character vector".to_string()))?;
+    if robj.len() == 1 {
+        let value = strings
+            .next()
+            .expect("character vector length of 1 should yield 1 element");
+        return Ok(if value.is_na() {
+            Yaml::Value(Scalar::Null)
+        } else {
+            Yaml::Value(Scalar::String(Cow::Borrowed(value)))
+        });
+    }
     let mut values = Vec::with_capacity(robj.len());
     for value in strings {
         if value.is_na() {
