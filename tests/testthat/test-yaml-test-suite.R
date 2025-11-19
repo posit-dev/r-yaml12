@@ -5,13 +5,6 @@ test_cases <- dirname(list.files(
   full.names = TRUE
 ))
 
-# unlink("skip-cases.txt")
-
-skip_cases <- c(
-  "name/tags-on-empty-scalars",
-  "name/spec-example-6-24-verbatim-tags",
-  NULL
-)
 
 sort_named_lists <- function(x) {
   if (!is.list(x)) {
@@ -40,9 +33,6 @@ for (case in test_cases) {
   }
 
   test_that(paste(case, ":", title_text), {
-    if (any(endsWith(case, skip_cases))) {
-      skip(case)
-    }
     if (file.exists(file.path(case, "error"))) {
       expect_error(read_yaml(file.path(case, "in.yaml"), multi = TRUE))
       return()
@@ -96,8 +86,6 @@ for (case in test_cases) {
 
       return()
       if (length(waldo::compare(parsed, expected, tolerance = 0))) {
-        # browser()
-        # cat(case, "\n", sep = "", file = "skip-cases.txt", append = TRUE)
         # message("failing case: ", case)
         # withr::with_dir(case, {
         #   cat("case files: \n")
@@ -115,4 +103,3 @@ for (case in test_cases) {
     }
   })
 }
-# readLines("skip-cases.txt") |> TKutils::dput_cb()
