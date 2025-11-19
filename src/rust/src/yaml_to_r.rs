@@ -188,14 +188,11 @@ fn mapping_to_robj(map: &mut Mapping, simplify: bool) -> Fallible<Robj> {
     let mut values: Vec<Robj> = Vec::with_capacity(len);
     let mut resolved_keys: Vec<Yaml> = Vec::with_capacity(len);
 
-    // 1st pass: resolve keys and collect values
-    for (key, value) in map.iter_mut() {
-        // iter_mut() only returns mut value, not mut key.
-        let mut resolved_key = key.clone();
-        resolve_representation(&mut resolved_key, simplify);
-
-        resolved_keys.push(resolved_key);
-        values.push(yaml_to_robj(value, simplify)?);
+    // 1st pass: resolve keys/values while consuming the mapping to avoid cloning keys.
+    for (mut key, mut value) in mem::take(map) {
+        resolve_representation(&mut key, simplify);
+        resolved_keys.push(key);
+        values.push(yaml_to_robj(&mut value, simplify)?);
     }
 
     // 2nd pass: build names as &str from resolved_keys.
