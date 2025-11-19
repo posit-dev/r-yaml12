@@ -17,6 +17,45 @@ sort_named_lists <- function(x) {
   lapply(x, sort_named_lists)
 }
 
+collect_yaml_tags <- function(x) {
+  tags <- character()
+
+  collect <- function(value) {
+    if (!is.null(tag <- attr(value, "yaml_tag", exact = TRUE))) {
+      tags <<- c(tags, tag)
+    }
+
+    if (!is.list(value)) {
+      return()
+    }
+
+    yaml_keys <- attr(value, "yaml_keys", exact = TRUE)
+    if (is.list(yaml_keys)) {
+      lapply(yaml_keys, collect)
+    }
+
+    lapply(value, collect)
+  }
+
+  collect(x)
+  tags
+}
+
+extract_event_tags <- function(case_dir) {
+  event_path <- file.path(case_dir, "test.event")
+  if (!file.exists(event_path)) {
+    return(character())
+  }
+
+  event_lines <- readLines(event_path, warn = FALSE)
+  tokens <- strsplit(event_lines, "[[:space:]]+")
+  tags <- unlist(lapply(tokens, function(parts) {
+    parts <- parts[nzchar(parts)]
+    parts[startsWith(parts, "<") & endsWith(parts, ">")]
+  }), use.names = FALSE)
+  trimws(gsub("^<|>$", "", tags))
+}
+
 
 for (case in test_cases) {
   case_id <- basename(case)
@@ -73,9 +112,17 @@ for (case in test_cases) {
         }
       )
 
-      # TODO: some of these don't make a whole lot of sense...
-      # attr(,"yaml_tag")
-      # [1] "!!"
+      parsed_tags <- collect_yaml_tags(parsed)
+      expected_tags <- extract_event_tags(case)
+      expected_non_core_tags <- expected_tags[
+        !startsWith(expected_tags, "tag:yaml.org,2002:")
+      ]
+      expect_equal(
+        sort(unique(parsed_tags)),
+        sort(unique(expected_non_core_tags)),
+        info = paste("yaml_tag mismatch for", case_title)
+      )
+
       parsed <- zap_yaml_tags(parsed)
 
       # Sort names to make map comparisons order-insensitive

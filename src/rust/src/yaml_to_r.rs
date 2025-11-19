@@ -270,8 +270,15 @@ fn convert_tagged(tag: &Tag, node: &mut Yaml, simplify: bool) -> Fallible<Robj> 
     if is_canonical {
         return Ok(value);
     }
-    let tag_str = format!("{tag}");
+    let tag_str = render_tag(tag);
     set_yaml_tag_attr(value, &tag_str)
+}
+
+fn render_tag(tag: &Tag) -> String {
+    let mut rendered = String::with_capacity(tag.handle.len() + tag.suffix.len());
+    rendered.push_str(tag.handle.as_str());
+    rendered.push_str(tag.suffix.as_str());
+    rendered
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
