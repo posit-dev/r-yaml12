@@ -63,7 +63,7 @@ fn logical_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
             values.push(Yaml::Value(Scalar::Boolean(value.to_bool())));
         }
     }
-    Ok(sequence_or_scalar(values))
+    Ok(Yaml::Sequence(values))
 }
 
 fn integer_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
@@ -85,7 +85,7 @@ fn integer_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
             values.push(Yaml::Value(Scalar::Integer(*value as i64)));
         }
     }
-    Ok(sequence_or_scalar(values))
+    Ok(Yaml::Sequence(values))
 }
 
 fn real_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
@@ -107,7 +107,7 @@ fn real_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
             values.push(Yaml::Value(Scalar::FloatingPoint((*value).into())));
         }
     }
-    Ok(sequence_or_scalar(values))
+    Ok(Yaml::Sequence(values))
 }
 
 fn character_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
@@ -132,7 +132,7 @@ fn character_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
             values.push(Yaml::Value(Scalar::String(Cow::Borrowed(value))));
         }
     }
-    Ok(sequence_or_scalar(values))
+    Ok(Yaml::Sequence(values))
 }
 
 fn list_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
@@ -178,13 +178,6 @@ fn list_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
                 .collect::<Fallible<Vec<_>>>()?;
             Ok(Yaml::Sequence(seq))
         }
-    }
-}
-
-fn sequence_or_scalar(values: Vec<Yaml<'static>>) -> Yaml<'static> {
-    match values.len() {
-        1 => values.into_iter().next().unwrap(),
-        _ => Yaml::Sequence(values),
     }
 }
 

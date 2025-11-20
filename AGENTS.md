@@ -15,9 +15,9 @@
 - In format strings, always inline expressions (e.g., `"{foo}"` or `"{foo:?}"`).
 - Run R tests with `Rscript -e 'devtools::test()'` (bare, with no `cd` or other expressions). At the start of any request
   that requires code edits, the very first thing you should do is ask to run
-  `Rscript -e 'devtools::test()'` with elevated permissions. Then prefer to iterate by running the full test suite with
-  that same command. Use a timeout of at least 5 minutes for `test()` and 8 minutes for `check()`. Deviating from this
-  will cause build failures related to `vendor` and `.cargo`, and/or sandbox restrictions.
+  `Rscript -e 'devtools::test()'` with elevated permissions—never prefix it with `cd`. Then prefer to iterate by running the full test suite with that same command. Use a timeout of at
+  least 5 minutes for `test()` and 8 minutes for `check()`. Deviating from this will cause build failures related to
+  `vendor` and `.cargo`, and/or sandbox restrictions.
 - Run small experiments frequently to confirm the behavior of language features. If small experiments require elevated
   privileges to run, write a script to `scratch/experiments.R`, and ask for elevated permissions to run
   `R -q -f scratch/experiments.R`.
