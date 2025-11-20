@@ -15,6 +15,38 @@ fn api_other(msg: impl Into<String>) -> EvalError {
     EvalError::Api(Error::Other(msg.into()))
 }
 
+/// Map an `EvalError` back into R control flow.
+///
+/// Call this only after the entrypoint's Rust scope is clear of owned locals,
+/// because `EvalError::Jump` resumes R's continuation and skips the rest of the
+/// current frame. Wrap per-call work in a block that produces the `Fallible`
+/// result so drops occur before delegating here.
+///
+/// Good:
+/// ```
+/// fn entrypoint() -> Robj {
+///     let result: Fallible<_> = {
+///         let _buf = String::from("tmp"); // drops before handle_eval_error
+///         do_work()
+///     };
+///     match result {
+///         Ok(val) => val,
+///         Err(err) => handle_eval_error(err),
+///     }
+/// }
+/// ```
+///
+/// Bad (skips `_buf` drop if a jump occurs):
+/// ```
+/// fn entrypoint_bad() -> Robj {
+///     let _buf = String::from("tmp");
+///     let result = do_work();
+///     match result {
+///         Ok(val) => val,
+///         Err(err) => handle_eval_error(err), // jumps before _buf can drop
+///     }
+/// }
+/// ```
 fn handle_eval_error<T>(err: EvalError) -> T {
     match err {
         EvalError::Jump(token) => unsafe { token.resume() },
@@ -46,7 +78,13 @@ cached_sym!(YAML_TAG_SYM, yaml_tag, sym_yaml_tag);
 /// @export
 #[extendr]
 fn format_yaml(value: Robj, #[extendr(default = "FALSE")] multi: bool) -> String {
-    r_to_yaml::format_yaml_impl(&value, multi).unwrap_or_else(handle_eval_error)
+    let result = { r_to_yaml::format_yaml_impl(&value, multi) };
+    if let Ok(value) = result {
+        return value;
+    }
+    // Safe: entrypoint holds no owned locals; work lives in format_yaml_impl.
+    // If adding locals here, wrap work in a block so drops happen before this call.
+    handle_eval_error(result.unwrap_err())
 }
 
 /// Parse YAML 1.2 document(s) into base R structures.
@@ -57,14 +95,22 @@ fn format_yaml(value: Robj, #[extendr(default = "FALSE")] multi: bool) -> String
 /// @param text Character vector; elements are concatenated with `"\n"`.
 /// @param multi When `TRUE`, return a list containing all documents in the stream.
 /// @param simplify When `FALSE`, keep YAML sequences as R lists instead of simplifying to atomic vectors.
+/// @param handlers Named list of R functions keyed by YAML tag strings; matching handlers transform tagged values.
 /// @export
 #[extendr]
 fn parse_yaml(
     text: Strings,
     #[extendr(default = "FALSE")] multi: bool,
     #[extendr(default = "TRUE")] simplify: bool,
+    #[extendr(default = "NULL")] handlers: Robj,
 ) -> Robj {
-    yaml_to_r::parse_yaml_impl(text, multi, simplify).unwrap_or_else(handle_eval_error)
+    let result = { yaml_to_r::parse_yaml_impl(text, multi, simplify, handlers) };
+    if let Ok(value) = result {
+        return value;
+    }
+    // Safe: entrypoint holds no owned locals; work lives in parse_yaml_impl.
+    // If adding locals here, wrap work in a block so drops happen before this call.
+    handle_eval_error(result.unwrap_err())
 }
 
 /// Read YAML 1.2 document(s) from a file path.
@@ -72,14 +118,22 @@ fn parse_yaml(
 /// @param path Scalar string path to a YAML file.
 /// @param multi When `TRUE`, return a list containing all documents in the stream.
 /// @param simplify When `FALSE`, keep YAML sequences as R lists instead of simplifying to atomic vectors.
+/// @param handlers Named list of R functions keyed by YAML tag strings; matching handlers transform tagged values.
 /// @export
 #[extendr]
 fn read_yaml(
     path: &str,
     #[extendr(default = "FALSE")] multi: bool,
     #[extendr(default = "TRUE")] simplify: bool,
+    #[extendr(default = "NULL")] handlers: Robj,
 ) -> Robj {
-    yaml_to_r::read_yaml_impl(path, multi, simplify).unwrap_or_else(handle_eval_error)
+    let result = { yaml_to_r::read_yaml_impl(path, multi, simplify, handlers) };
+    if let Ok(value) = result {
+        return value;
+    }
+    // Safe: entrypoint holds no owned locals; work lives in read_yaml_impl.
+    // If adding locals here, wrap work in a block so drops happen before this call.
+    handle_eval_error(result.unwrap_err())
 }
 
 /// Write an R object as YAML 1.2 to a file.
@@ -91,8 +145,65 @@ fn read_yaml(
 /// @export
 #[extendr]
 fn write_yaml(value: Robj, path: &str, #[extendr(default = "FALSE")] multi: bool) -> Robj {
-    r_to_yaml::write_yaml_impl(&value, path, multi).unwrap_or_else(handle_eval_error);
-    NULL.into()
+    let result = { r_to_yaml::write_yaml_impl(&value, path, multi) };
+    if result.is_ok() {
+        return NULL.into();
+    }
+    // Safe: entrypoint holds no owned locals; work lives in write_yaml_impl.
+    // If adding locals here, wrap work in a block so drops happen before this call.
+    handle_eval_error(result.unwrap_err())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::unwind::LongjmpToken;
+    use extendr_ffi as ffi;
+    use std::cell::Cell;
+
+    struct DropFlag<'a> {
+        flag: &'a Cell<bool>,
+    }
+
+    impl<'a> Drop for DropFlag<'a> {
+        fn drop(&mut self) {
+            self.flag.set(true);
+        }
+    }
+
+    #[test]
+    fn scoped_result_drops_locals_on_ok_path() {
+        let dropped = Cell::new(false);
+        let result: Fallible<()> = {
+            let _flag = DropFlag { flag: &dropped };
+            Ok(())
+        };
+        assert!(result.is_ok());
+        assert!(dropped.get());
+    }
+
+    #[test]
+    fn scoped_result_drops_locals_on_api_err() {
+        let dropped = Cell::new(false);
+        let result: Fallible<()> = {
+            let _flag = DropFlag { flag: &dropped };
+            Err(api_other("boom"))
+        };
+        assert!(matches!(result, Err(EvalError::Api(_))));
+        assert!(dropped.get());
+    }
+
+    #[test]
+    fn scoped_result_drops_locals_on_jump_err() {
+        let dropped = Cell::new(false);
+        let token = unsafe { LongjmpToken::from_tagged_ptr(ffi::R_NilValue) };
+        let result: Fallible<()> = {
+            let _flag = DropFlag { flag: &dropped };
+            Err(EvalError::Jump(token))
+        };
+        assert!(matches!(result, Err(EvalError::Jump(_))));
+        assert!(dropped.get());
+    }
 }
 
 // Macro to generate exports.

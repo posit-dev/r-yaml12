@@ -104,6 +104,41 @@ test_that("parse_yaml preserves YAML tags", {
   expect_identical(tagged$values, structure(c(1L, 2L), yaml_tag = "!seq"))
 })
 
+test_that("parse_yaml applies handlers to tagged nodes", {
+  handlers <- list(
+    "!expr" = function(x) eval(str2lang(x), baseenv()),
+    "!wrap" = function(x) list(value = x)
+  )
+
+  expect_identical(
+    parse_yaml("foo: !expr 1+1", handlers = handlers),
+    list(foo = 2)
+  )
+
+  expect_identical(
+    parse_yaml("items: !wrap [a, b]", handlers = handlers),
+    list(items = list(value = c("a", "b")))
+  )
+})
+
+test_that("parse_yaml handler errors propagate", {
+  expect_error(
+    parse_yaml(
+      "foo: !boom bar",
+      handlers = list("!boom" = function(x) stop("boom"))
+    ),
+    "boom"
+  )
+})
+
+test_that("parse_yaml validates handlers argument", {
+  expect_error(parse_yaml("foo: !expr 1", handlers = 12), "named list")
+  expect_error(
+    parse_yaml("foo: !expr 1", handlers = list("!expr" = "not a function")),
+    "must be a function"
+  )
+})
+
 test_that("parse_yaml() warnings are catchable and respect options(warn)", {
   expect_no_warning(parse_yaml("!custom null"))
   expect_identical(

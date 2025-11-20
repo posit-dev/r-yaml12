@@ -67,6 +67,35 @@ test_that("read_yaml keeps tagged sequence elements as list values", {
   expect_false(identical(first_tag, ""))
 })
 
+test_that("read_yaml applies handlers to tagged values", {
+  path <- tempfile("yaml12-handlers-", fileext = ".yaml")
+  on.exit(unlink(path), add = TRUE)
+
+  writeLines(c("foo: !double 21", "bar: !upper baz"), path)
+
+  handlers <- list(
+    "!double" = function(x) as.integer(x) * 2L,
+    "!upper" = function(x) toupper(x)
+  )
+
+  expect_identical(
+    read_yaml(path, handlers = handlers),
+    list(foo = 42L, bar = "BAZ")
+  )
+})
+
+test_that("read_yaml handler errors propagate", {
+  path <- tempfile("yaml12-handlers-", fileext = ".yaml")
+  on.exit(unlink(path), add = TRUE)
+
+  writeLines("foo: !err value", path)
+
+  expect_error(
+    read_yaml(path, handlers = list("!err" = function(x) stop("handler oops"))),
+    "handler oops"
+  )
+})
+
 test_that("read_yaml errors clearly on non-UTF-8 input", {
   dir <- withr::local_tempdir()
   withr::local_dir(dir)

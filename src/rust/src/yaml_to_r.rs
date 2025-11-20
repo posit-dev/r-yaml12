@@ -1,10 +1,96 @@
-use crate::unwind::EvalError;
+use crate::unwind::{run_with_unwind_protect, EvalError};
 use crate::warning::emit_warning;
 use crate::{api_other, sym_yaml_keys, sym_yaml_tag, Fallible};
 use extendr_api::prelude::*;
+use extendr_ffi::Rf_lcons;
 use saphyr::{Mapping, Scalar, Tag, Yaml, YamlLoader};
 use saphyr_parser::{Parser, ScalarStyle};
-use std::{borrow::Cow, fs, mem};
+use std::{borrow::Cow, collections::HashMap, fs, mem};
+
+#[allow(improper_ctypes)]
+extern "C" {
+    fn Rf_eval(expr: extendr_ffi::SEXP, env: extendr_ffi::SEXP) -> extendr_ffi::SEXP;
+}
+
+struct HandlerRegistry {
+    handlers: HashMap<String, Function>,
+}
+
+impl HandlerRegistry {
+    fn from_robj(handlers: &Robj) -> Fallible<Option<Self>> {
+        if handlers.is_null() {
+            return Ok(None);
+        }
+
+        let list: List = handlers
+            .try_into()
+            .map_err(|_| api_other("`handlers` must be a named list of functions"))?;
+
+        if list.is_empty() {
+            return Ok(None);
+        }
+
+        let Some(names_attr) = list.names() else {
+            return Err(api_other("`handlers` must be a named list of functions"));
+        };
+
+        let names: Vec<&str> = names_attr.collect();
+
+        let mut handlers_map = HashMap::with_capacity(list.len());
+        for (name, value) in names.into_iter().zip(list.values()) {
+            if name.is_empty() || name.is_na() {
+                return Err(api_other("`handlers` must be a named list of functions"));
+            }
+
+            let func = value.as_function().ok_or_else(|| {
+                api_other(format!(
+                    "Handler `{name}` must be a function (closure or primitive)"
+                ))
+            })?;
+
+            handlers_map.insert(name.to_string(), func);
+        }
+
+        Ok(Some(Self {
+            handlers: handlers_map,
+        }))
+    }
+
+    fn get(&self, tag: &str) -> Option<&Function> {
+        self.handlers.get(tag)
+    }
+
+    fn apply(&self, handler: &Function, arg: Robj) -> Fallible<Robj> {
+        struct CallState<'a> {
+            handler: &'a Function,
+            arg: Robj,
+            result: Option<Robj>,
+        }
+
+        let mut state = CallState {
+            handler,
+            arg,
+            result: None,
+        };
+        let state_ptr = &mut state as *mut CallState;
+
+        let protect_result = run_with_unwind_protect(|| unsafe {
+            let st = &mut *state_ptr;
+            let args = pairlist!(st.arg.clone());
+            let call = Robj::from_sexp(Rf_lcons(st.handler.get(), args.get()));
+            let env = st.handler.environment().unwrap_or_else(global_env);
+            let out = Rf_eval(call.get(), env.get());
+            st.result = Some(Robj::from_sexp(out));
+        });
+
+        match protect_result {
+            Ok(()) => state
+                .result
+                .ok_or_else(|| api_other("Handler evaluation failed unexpectedly")),
+            Err(token) => Err(EvalError::Jump(token)),
+        }
+    }
+}
 
 fn resolve_representation(node: &mut Yaml, _simplify: bool) {
     let (value, style, tag) = match mem::replace(node, Yaml::BadValue) {
@@ -45,19 +131,23 @@ fn resolve_representation(node: &mut Yaml, _simplify: bool) {
     *node = parsed;
 }
 
-fn yaml_to_robj(node: &mut Yaml, simplify: bool) -> Fallible<Robj> {
+fn yaml_to_robj(
+    node: &mut Yaml,
+    simplify: bool,
+    handlers: Option<&HandlerRegistry>,
+) -> Fallible<Robj> {
     match node {
         Yaml::Value(scalar) => Ok(scalar_to_robj(scalar)),
-        Yaml::Tagged(tag, inner) => convert_tagged(tag, inner.as_mut(), simplify),
-        Yaml::Sequence(seq) => sequence_to_robj(seq, simplify),
-        Yaml::Mapping(map) => mapping_to_robj(map, simplify),
+        Yaml::Tagged(tag, inner) => convert_tagged(tag, inner.as_mut(), simplify, handlers),
+        Yaml::Sequence(seq) => sequence_to_robj(seq, simplify, handlers),
+        Yaml::Mapping(map) => mapping_to_robj(map, simplify, handlers),
         Yaml::Alias(_) => Err(api_other(
             "Internal error: encountered unresolved YAML alias node",
         )),
         Yaml::BadValue => Err(api_other("Encountered an invalid YAML scalar value")),
         Yaml::Representation(_, _, _) => {
             resolve_representation(node, simplify);
-            yaml_to_robj(node, simplify)
+            yaml_to_robj(node, simplify, handlers)
         }
     }
 }
@@ -78,7 +168,11 @@ fn scalar_to_robj(scalar: &Scalar) -> Robj {
     }
 }
 
-fn sequence_to_robj(seq: &mut [Yaml], simplify_seqs: bool) -> Fallible<Robj> {
+fn sequence_to_robj(
+    seq: &mut [Yaml],
+    simplify_seqs: bool,
+    handlers: Option<&HandlerRegistry>,
+) -> Fallible<Robj> {
     #[derive(Copy, Clone, PartialEq, Eq)]
     enum RVectorType {
         List,
@@ -176,13 +270,17 @@ fn sequence_to_robj(seq: &mut [Yaml], simplify_seqs: bool) -> Fallible<Robj> {
     // can't simplify, return a list
     let mut values = Vec::with_capacity(seq.len());
     for node in seq {
-        values.push(yaml_to_robj(node, simplify_seqs)?);
+        values.push(yaml_to_robj(node, simplify_seqs, handlers)?);
     }
 
     Ok(List::from_values(values).into())
 }
 
-fn mapping_to_robj(map: &mut Mapping, simplify: bool) -> Fallible<Robj> {
+fn mapping_to_robj(
+    map: &mut Mapping,
+    simplify: bool,
+    handlers: Option<&HandlerRegistry>,
+) -> Fallible<Robj> {
     let len = map.len();
 
     let mut values: Vec<Robj> = Vec::with_capacity(len);
@@ -192,7 +290,7 @@ fn mapping_to_robj(map: &mut Mapping, simplify: bool) -> Fallible<Robj> {
     for (mut key, mut value) in mem::take(map) {
         resolve_representation(&mut key, simplify);
         resolved_keys.push(key);
-        values.push(yaml_to_robj(&mut value, simplify)?);
+        values.push(yaml_to_robj(&mut value, simplify, handlers)?);
     }
 
     // 2nd pass: build names as &str from resolved_keys.
@@ -246,7 +344,7 @@ fn mapping_to_robj(map: &mut Mapping, simplify: bool) -> Fallible<Robj> {
     if needs_yaml_keys_attr {
         let mut yaml_keys = Vec::with_capacity(resolved_keys.len());
         for mut key in resolved_keys {
-            yaml_keys.push(yaml_to_robj(&mut key, simplify)?);
+            yaml_keys.push(yaml_to_robj(&mut key, simplify, handlers)?);
         }
         let yaml_keys = List::from_values(yaml_keys);
         list.set_attrib(sym_yaml_keys(), yaml_keys)
@@ -256,14 +354,27 @@ fn mapping_to_robj(map: &mut Mapping, simplify: bool) -> Fallible<Robj> {
     Ok(list.into())
 }
 
-fn convert_tagged(tag: &Tag, node: &mut Yaml, simplify: bool) -> Fallible<Robj> {
-    let is_canonical = matches!(classify_tag(tag), TagClass::Canonical(_));
-    let value = yaml_to_robj(node, simplify)?;
-    if is_canonical {
+fn convert_tagged(
+    tag: &Tag,
+    node: &mut Yaml,
+    simplify: bool,
+    handlers: Option<&HandlerRegistry>,
+) -> Fallible<Robj> {
+    let rendered_tag = render_tag(tag);
+
+    if let Some(registry) = handlers {
+        if let Some(handler) = registry.get(&rendered_tag) {
+            let value = yaml_to_robj(node, simplify, handlers)?;
+            return registry.apply(handler, value);
+        }
+    }
+
+    let value = yaml_to_robj(node, simplify, handlers)?;
+    if matches!(classify_tag(tag), TagClass::Canonical(_)) {
         return Ok(value);
     }
-    let tag_str = render_tag(tag);
-    set_yaml_tag_attr(value, &tag_str)
+
+    set_yaml_tag_attr(value, &rendered_tag)
 }
 
 fn render_tag(tag: &Tag) -> String {
@@ -382,7 +493,15 @@ fn load_yaml_documents<'input>(text: &'input str, multi: bool) -> Fallible<Vec<Y
     Ok(loader.into_documents())
 }
 
-pub(crate) fn parse_yaml_impl(text: Strings, multi: bool, simplify: bool) -> Fallible<Robj> {
+pub(crate) fn parse_yaml_impl(
+    text: Strings,
+    multi: bool,
+    simplify: bool,
+    handlers: Robj,
+) -> Fallible<Robj> {
+    let handler_registry = HandlerRegistry::from_robj(&handlers)?;
+    let handlers = handler_registry.as_ref();
+
     match text.len() {
         0 => Ok(NULL.into()),
         1 => {
@@ -391,26 +510,31 @@ pub(crate) fn parse_yaml_impl(text: Strings, multi: bool, simplify: bool) -> Fal
                 return Err(api_other("`text` must not contain NA strings"));
             }
             let docs = load_yaml_documents(first.as_ref(), multi)?;
-            docs_to_robj(docs, multi, simplify)
+            docs_to_robj(docs, multi, simplify, handlers)
         }
         _ => {
             let joined_iter = joined_lines_iter(&text)?;
             let docs = load_yaml_documents_iter(joined_iter, multi)?;
-            docs_to_robj(docs, multi, simplify)
+            docs_to_robj(docs, multi, simplify, handlers)
         }
     }
 }
 
-fn docs_to_robj(mut docs: Vec<Yaml<'_>>, multi: bool, simplify: bool) -> Fallible<Robj> {
+fn docs_to_robj(
+    mut docs: Vec<Yaml<'_>>,
+    multi: bool,
+    simplify: bool,
+    handlers: Option<&HandlerRegistry>,
+) -> Fallible<Robj> {
     if multi {
         let mut values = Vec::with_capacity(docs.len());
         for doc in docs.iter_mut() {
-            values.push(yaml_to_robj(doc, simplify).map_err(wrap_unsupported)?);
+            values.push(yaml_to_robj(doc, simplify, handlers).map_err(wrap_unsupported)?);
         }
         Ok(List::from_values(values).into())
     } else {
         match docs.first_mut() {
-            Some(doc) => yaml_to_robj(doc, simplify).map_err(wrap_unsupported),
+            Some(doc) => yaml_to_robj(doc, simplify, handlers).map_err(wrap_unsupported),
             None => Ok(NULL.into()),
         }
     }
@@ -469,9 +593,17 @@ where
     Ok(loader.into_documents())
 }
 
-pub(crate) fn read_yaml_impl(path: &str, multi: bool, simplify: bool) -> Fallible<Robj> {
+pub(crate) fn read_yaml_impl(
+    path: &str,
+    multi: bool,
+    simplify: bool,
+    handlers: Robj,
+) -> Fallible<Robj> {
+    let handler_registry = HandlerRegistry::from_robj(&handlers)?;
+    let handlers = handler_registry.as_ref();
+
     let contents = fs::read_to_string(path)
         .map_err(|err| api_other(format!("Failed to read `{path}`: {err}")))?;
     let docs = load_yaml_documents(&contents, multi)?;
-    docs_to_robj(docs, multi, simplify)
+    docs_to_robj(docs, multi, simplify, handlers)
 }
