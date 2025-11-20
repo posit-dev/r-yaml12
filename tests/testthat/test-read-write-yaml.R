@@ -66,3 +66,13 @@ test_that("read_yaml keeps tagged sequence elements as list values", {
   expect_length(first_tag, 1L)
   expect_false(identical(first_tag, ""))
 })
+
+test_that("read_yaml errors clearly on non-UTF-8 input", {
+  dir <- withr::local_tempdir()
+  withr::local_dir(dir)
+
+  writeBin(as.raw(c(0x61, 0xe9, 0x0a)), "latin1.yaml")
+
+  expect_snapshot(error = TRUE, read_yaml("latin1.yaml"))
+  expect_snapshot(error = TRUE, read_yaml("latin1.yaml", multi = TRUE))
+})
