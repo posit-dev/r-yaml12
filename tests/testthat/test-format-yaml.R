@@ -72,9 +72,11 @@ test_that("format_yaml round-trips multi-document streams", {
 })
 
 test_that("format_yaml single-document output has no header or trailing newline", {
-  encoded <- format_yaml(list(foo = 1L))
+  obj <- list(foo = 1L)
+  encoded <- format_yaml(obj)
   expect_false(startsWith(encoded, "---"))
   expect_false(grepl("\n$", encoded))
+  expect_identical(parse_yaml(encoded), obj)
 })
 
 test_that("format_yaml validates yaml_tag attribute shape", {
@@ -115,9 +117,12 @@ null: c
 })
 
 test_that("format_yaml returns visibly", {
-  expect_visible(format_yaml(list(answer = 42L)))
-  out <- format_yaml(list(answer = 42L))
+  obj <- list(answer = 42L)
+
+  expect_visible(format_yaml(obj))
+  out <- format_yaml(obj)
   expect_true(is.character(out) && length(out) == 1)
+  expect_identical(parse_yaml(out), obj)
 })
 
 test_that("format_yaml preserves single-length collections", {
