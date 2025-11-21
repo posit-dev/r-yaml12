@@ -12,12 +12,37 @@ extern "C" {
     fn Rf_lang2(x1: extendr_ffi::SEXP, x2: extendr_ffi::SEXP) -> extendr_ffi::SEXP;
 }
 
-struct HandlerRegistry<'a> {
-    handlers: HashMap<&'a str, Function>,
+#[derive(Copy, Clone, PartialEq, Eq)]
+struct TagKeyRef<'a> {
+    handle: &'a str,
+    suffix: &'a str,
 }
 
-impl<'a> HandlerRegistry<'a> {
-    fn from_robj(handlers: &'a Robj) -> Fallible<Option<Self>> {
+impl<'a> TagKeyRef<'a> {
+    fn eq_str(&self, other: &str) -> bool {
+        if other.len() != self.handle.len() + self.suffix.len() {
+            return false;
+        }
+        let (handle_prefix, suffix_part) = other.split_at(self.handle.len());
+        handle_prefix == self.handle && suffix_part == self.suffix
+    }
+}
+
+impl<'a> From<&'a Tag> for TagKeyRef<'a> {
+    fn from(tag: &'a Tag) -> Self {
+        Self {
+            handle: tag.handle.as_str(),
+            suffix: tag.suffix.as_str(),
+        }
+    }
+}
+
+struct HandlerRegistry {
+    handlers: HashMap<String, Function>,
+}
+
+impl HandlerRegistry {
+    fn from_robj(handlers: &Robj) -> Fallible<Option<Self>> {
         if handlers.is_null() {
             return Ok(None);
         }
@@ -34,11 +59,10 @@ impl<'a> HandlerRegistry<'a> {
             return Err(api_other("`handlers` must be a named list of functions"));
         };
 
-        let names: Vec<&'a str> = names_attr.collect();
-
         let mut handlers_map = HashMap::with_capacity(list.len());
+        let names: Vec<_> = names_attr.collect();
         for (name, value) in names.into_iter().zip(list.values()) {
-            if name.is_empty() || name.is_na() {
+            if name.is_na() || name.is_empty() {
                 return Err(api_other("`handlers` must be a named list of functions"));
             }
 
@@ -48,7 +72,7 @@ impl<'a> HandlerRegistry<'a> {
                 ))
             })?;
 
-            handlers_map.insert(name, func);
+            handlers_map.insert(name.to_string(), func);
         }
 
         Ok(Some(Self {
@@ -56,8 +80,11 @@ impl<'a> HandlerRegistry<'a> {
         }))
     }
 
-    fn get(&self, tag: &str) -> Option<&Function> {
-        self.handlers.get(tag)
+    fn get(&self, tag: TagKeyRef<'_>) -> Option<&Function> {
+        self.handlers
+            .iter()
+            .find(|(name, _)| tag.eq_str(name.as_str()))
+            .map(|(_, handler)| handler)
     }
 
     fn apply(&self, handler: &Function, arg: Robj) -> Fallible<Robj> {
@@ -295,7 +322,7 @@ fn mapping_to_robj(
         // Keep the handled value alive so we can borrow its string data when
         // constructing R names without allocating.
         let key_handler_result = if let (Some(registry), Yaml::Tagged(tag, _)) = (handlers, &key) {
-            if let Some(handler) = registry.get(&render_tag(tag)) {
+            if let Some(handler) = registry.get(TagKeyRef::from(tag.as_ref())) {
                 let key_obj = yaml_to_robj(&mut key, simplify, handlers)?;
                 Some(registry.apply(handler, key_obj)?)
             } else {
@@ -384,10 +411,8 @@ fn convert_tagged(
     simplify: bool,
     handlers: Option<&HandlerRegistry>,
 ) -> Fallible<Robj> {
-    let rendered_tag = render_tag(tag);
-
     if let Some(registry) = handlers {
-        if let Some(handler) = registry.get(&rendered_tag) {
+        if let Some(handler) = registry.get(TagKeyRef::from(tag)) {
             let value = yaml_to_robj(node, simplify, handlers)?;
             return registry.apply(handler, value);
         }
@@ -398,6 +423,7 @@ fn convert_tagged(
         return Ok(value);
     }
 
+    let rendered_tag = render_tag(tag);
     set_yaml_tag_attr(value, &rendered_tag)
 }
 
