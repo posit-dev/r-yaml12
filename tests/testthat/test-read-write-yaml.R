@@ -15,6 +15,16 @@ test_that("write_yaml writes and read_yaml reads single documents", {
   )
 })
 
+test_that("write_yaml defaults to R stdout when path is NULL", {
+  value <- list(alpha = 1L, nested = c(TRUE, NA))
+
+  output <- capture.output(write_yaml(value))
+  expect_identical(
+    paste(output, collapse = "\n"),
+    format_yaml(value)
+  )
+})
+
 test_that("write_yaml and read_yaml handle multi-document streams", {
   path <- tempfile("yaml12-", fileext = ".yaml")
   on.exit(unlink(path), add = TRUE)

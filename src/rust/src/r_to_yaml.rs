@@ -1,7 +1,9 @@
 use crate::{api_other, sym_yaml_keys, sym_yaml_tag, Fallible, R_STRING_MAX_BYTES};
 use extendr_api::prelude::*;
 use saphyr::{Mapping, Scalar, Tag, Yaml, YamlEmitter};
-use std::{borrow::Cow, fs};
+use std::{borrow::Cow, fs, os::raw::c_char};
+
+const PRINTF_NO_FMT_CSTRING: &[c_char] = &[37, 115, 0]; // "%s\0"
 
 pub(crate) fn yaml_body(yaml: &str, multi: bool) -> &str {
     if multi || !yaml.starts_with("---\n") {
@@ -28,6 +30,23 @@ fn emit_yaml_documents(docs: &[Yaml<'static>], multi: bool) -> Fallible<String> 
             .map_err(|err| api_other(err.to_string()))?;
     }
     Ok(output)
+}
+
+fn write_to_r_stdout(mut content: String) -> Fallible<()> {
+    // R character vectors cannot contain embedded NUL bytes, so it is safe to
+    // emit the YAML buffer without scanning for interior terminators.
+    debug_assert!(
+        !content.as_bytes().contains(&0),
+        "R character data cannot contain embedded NULs",
+    );
+    content.push('\0');
+    unsafe {
+        extendr_ffi::Rprintf(
+            PRINTF_NO_FMT_CSTRING.as_ptr(),
+            content.as_ptr() as *const c_char,
+        );
+    }
+    Ok(())
 }
 
 fn robj_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
@@ -260,14 +279,21 @@ pub(crate) fn format_yaml_impl(value: &Robj, multi: bool) -> Fallible<String> {
     }
 }
 
-pub(crate) fn write_yaml_impl(value: &Robj, path: &str, multi: bool) -> Fallible<()> {
-    let yaml = format_yaml_impl(value, multi)?;
-    let body = yaml_body(&yaml, multi);
-    if body.len() > R_STRING_MAX_BYTES {
+pub(crate) fn write_yaml_impl(value: &Robj, path: Option<&str>, multi: bool) -> Fallible<()> {
+    let mut yaml = format_yaml_impl(value, multi)?;
+    if !multi && yaml.starts_with("---\n") {
+        yaml.drain(..4);
+    }
+    if yaml.len() > R_STRING_MAX_BYTES {
         return Err(api_other(
             "Formatted YAML exceeds R's 2^31-1 byte string limit",
         ));
     }
-    fs::write(path, body).map_err(|err| api_other(format!("Failed to write `{path}`: {err}")))?;
+    if let Some(path) = path {
+        fs::write(path, &yaml)
+            .map_err(|err| api_other(format!("Failed to write `{path}`: {err}")))?;
+    } else {
+        write_to_r_stdout(yaml)?;
+    }
     Ok(())
 }

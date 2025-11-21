@@ -42,11 +42,12 @@ read_yaml <- function(path, multi = FALSE, simplify = TRUE, handlers = NULL) .Ca
 #' Write an R object as YAML 1.2 to a file.
 #'
 #' @param value Any R object composed of lists, atomic vectors, and scalars.
-#' @param path Scalar string file path to write YAML to.
+#' @param path Scalar string file path to write YAML to. When `NULL` (the default),
+#'   write to R's standard output connection.
 #' @param multi When `TRUE`, treat `value` as a list of YAML documents and encode a stream.
 #' @return Invisibly returns `NULL`.
 #' @export
-write_yaml <- function(value, path, multi = FALSE) .Call(wrap__write_yaml, value, path, multi)
+write_yaml <- function(value, path = NULL, multi = FALSE) invisible(.Call(wrap__write_yaml, value, path, multi))
 
 
 # nolint end

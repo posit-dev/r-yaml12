@@ -148,13 +148,27 @@ fn read_yaml(
 /// Write an R object as YAML 1.2 to a file.
 ///
 /// @param value Any R object composed of lists, atomic vectors, and scalars.
-/// @param path Scalar string file path to write YAML to.
+/// @param path Scalar string file path to write YAML to. When `NULL` (the default),
+///   write to R's standard output connection.
 /// @param multi When `TRUE`, treat `value` as a list of YAML documents and encode a stream.
 /// @return Invisibly returns `NULL`.
 /// @export
-#[extendr]
-fn write_yaml(value: Robj, path: &str, #[extendr(default = "FALSE")] multi: bool) -> Robj {
-    let result = { r_to_yaml::write_yaml_impl(&value, path, multi) };
+#[extendr(invisible)]
+fn write_yaml(
+    value: Robj,
+    #[extendr(default = "NULL")] path: Robj,
+    #[extendr(default = "FALSE")] multi: bool,
+) -> Robj {
+    let path = if path.is_null() {
+        Ok(None)
+    } else {
+        path.as_str()
+            .ok_or_else(|| {
+                api_other("`path` must be NULL or a single, non-missing string".to_string())
+            })
+            .map(Some)
+    };
+    let result = path.and_then(|path| r_to_yaml::write_yaml_impl(&value, path, multi));
     if result.is_ok() {
         return NULL.into();
     }

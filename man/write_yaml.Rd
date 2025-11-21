@@ -4,12 +4,13 @@
 \alias{write_yaml}
 \title{Write an R object as YAML 1.2 to a file.}
 \usage{
-write_yaml(value, path, multi = FALSE)
+write_yaml(value, path = NULL, multi = FALSE)
 }
 \arguments{
 \item{value}{Any R object composed of lists, atomic vectors, and scalars.}
 
-\item{path}{Scalar string file path to write YAML to.}
+\item{path}{Scalar string file path to write YAML to. When \code{NULL} (the default),
+write to R's standard output connection.}
 
 \item{multi}{When \code{TRUE}, treat \code{value} as a list of YAML documents and encode a stream.}
 }
