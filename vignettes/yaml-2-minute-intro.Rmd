@@ -1,0 +1,209 @@
+---
+title: "YAML in 2 Minutes: A Gentle Introduction for R Users"
+output: rmarkdown::html_vignette
+editor_options:
+  markdown:
+    wrap: 72
+    canonical: true
+vignette: >
+  %\VignetteIndexEntry{YAML in 2 Minutes: A Gentle Introduction for R Users}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(yaml12)
+```
+
+Here’s a quick introduction to YAML for R users.
+
+Think of YAML as “JSON with comments and nicer multiline strings.” The
+`yaml12` package parses YAML 1.2 (the modern spec that avoids YAML 1.1’s
+surprising truthy/falsey rules) into plain R lists and vectors.
+
+Three building blocks cover everything: scalars (single values),
+sequences (ordered items), and mappings (key/value pairs). JSON is a
+subset of YAML 1.2, so JSON snippets parse the same way.
+
+## How `yaml12` parses input: the mini decision tree
+
+`yaml12` treats each snippet by walking this checklist in order; the
+first “yes” sets that node’s type.
+
+1.  **Is this a sequence entry?** At this indent:
+
+    -   does the line start with `-`? Then that line’s value is one
+        sequence item; each sibling `-` line is the next item.
+
+        ``` yaml
+        - cat
+        - dog
+        ```
+
+        → `list("cat", "dog")` (or `c("cat", "dog")` when
+        `simplify = TRUE`)
+
+    -   or does the line start with `[`? Inside `[ ... ]` (JSON-style
+        arrays), items are comma-separated.
+
+        ``` yaml
+        [cat, dog]
+        ```
+
+        → `list("cat", "dog")` (or `c("cat", "dog")` when
+        `simplify = TRUE`)
+
+2.  **Is this a mapping entry?** At this indent:
+
+    -   does the line contain an unquoted `:` followed by a space or a
+        newline? Then it is a mapping pair. `foo: 1` is a pair, but
+        `http://foo` stays a scalar because the `:` is followed by `/`.
+
+        ``` yaml
+        foo: 1
+        bar: true
+        ```
+
+        → `list(foo = 1L, bar = TRUE)`
+
+    -   or does it start with `{`? Inside `{ ... }` (JSON-style
+        objects), pairs are comma-separated and use `key: value`.
+
+        ``` yaml
+        {a: true}
+        ```
+
+        → `list(a = TRUE)`
+
+    Mappings become named lists in R.
+
+3.  **Is this a block scalar?** `|` starts a *literal* block that keeps
+    newlines exactly; `>` starts a *folded* block that turns line breaks
+    into spaces, except blank/indented lines keep their breaks. Blocks
+    are always parsed as strings.
+
+    ``` yaml
+    |
+      hello
+      world
+    ```
+
+    → `"hello\nworld\n"`
+
+    ``` yaml
+    >
+      hello
+      world
+    ```
+
+    → `"hello world\n"`
+
+4.  **Is this a quoted scalar?** Starting with `"` means *double-quoted*
+    (backslash escapes like `\n`, `\t`, `\"`, `\\` are interpreted).
+    Starting with `'` means *single-quoted* (no escapes; everything is
+    literal, except `''` gives a single quote). Use double quotes when
+    you need escapes; use single quotes when you want literal text. Like
+    Blocks, quoted scalars are always parsed as strings.
+
+    ``` yaml
+    ["line\nbreak", "quote: \"here\""]
+    ```
+
+    → `c("line\nbreak", "quote: \"here\"")`
+
+    ``` yaml
+    ['line\nbreak', 'quote: ''here''']
+    ```
+
+    → `c("line\\nbreak", "quote: 'here'")`
+
+5.  **Otherwise it is plain (unquoted) scalar.** Now decide what kind of
+    plain scalar it is, in this order:
+
+    -   `true` / `false` → `TRUE` / `FALSE`
+    -   `null`, `~`, or empty → `NULL`
+    -   Numbers: decimal or signed, `0x` hex, `0o` octal, `.inf`, `.nan`
+    -   Everything else stays a string. Unquoted words like `yes` / `no`
+        stay strings in YAML 1.2; YAML 1.1 treated many unquoted words
+        as booleans, which caused surprises that YAML 1.2 removes.
+
+    ``` yaml
+    [true, 123, 4.5e2, 0x10, .inf, yes]
+    ```
+
+    → `list(TRUE, 123L, 450, 16L, Inf, "yes")`
+
+## One example end-to-end
+
+``` yaml
+doc:
+  pets:
+    - cat
+    - dog
+  numbers: [1, 2.5, 0x10, .inf, null]
+  integers: [1, 2, 3, 0x10, null]
+  flags: {enabled: true, label: on}
+  literal: |
+    hello
+    world
+  folded: >
+    hello
+    world
+  quoted:
+    - "line\nbreak"
+    - 'quote: ''here'''
+  plain: [yes, no]
+  mixed: [won't simplify, 123, true]
+```
+
+Corresponding R object (`parse_yaml()` with defaults):
+
+``` r
+list(
+  doc = list(
+    pets = c("cat", "dog"),
+    numbers = c(1, 2.5, 16, Inf, NA_real_),
+    integers = c(1L, 2L, 3L, 16L, NA_integer_),
+    flags = list(enabled = TRUE, label = "on"), # named list (mapping)
+    literal = "hello\nworld\n",        # literal block keeps newlines
+    folded = "hello world\n",          # folded block joins lines with spaces
+    quoted = c("line\nbreak", "quote: 'here'"),
+    plain = c("yes", "no"),
+    mixed = list("won't simplify", 123L, TRUE)
+  )
+)
+```
+
+## Quick notes
+
+-   Indentation defines structure: siblings share an indent, children
+    are indented more. If an entry is indented under `pets`, it belongs
+    to that mapping:
+
+    ``` yaml
+    pets:
+      - cat
+      - dog
+    ```
+
+    → `list(pets = list("cat", "dog"))`
+
+-   Homogeneous sequences simplify to vectors (`null` → `NA` there);
+    mixed/nested sequences stay lists; set `simplify = FALSE` to keep
+    lists always. Mappings always stay named lists.
+
+-   Quote only when needed; YAML 1.2 reserves leading `[-?{]`, `#`, `:`
+    for structure/comments.
+
+-   Booleans are only `true`/`false`; `null` is R `NULL` (or `NA` inside
+    simplified vectors).
+
+That covers nearly everything you're likely to encounter in real-world
+YAML!

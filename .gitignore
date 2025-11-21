@@ -4,3 +4,4 @@ src/Makevars
 src/Makevars.win
 src/vendor
 stash
+inst/doc
