@@ -18,20 +18,13 @@ fn emit_yaml_documents(docs: &[Yaml<'static>], multi: bool) -> Fallible<String> 
         return Ok(String::new());
     }
     let mut output = String::new();
+    let mut emitter = YamlEmitter::new(&mut output);
+    emitter.multiline_strings(true);
     if multi {
-        for doc in docs {
-            {
-                let mut emitter = YamlEmitter::new(&mut output);
-                emitter.multiline_strings(true);
-                emitter
-                    .dump(doc)
-                    .map_err(|err| api_other(err.to_string()))?;
-            }
-            output.push('\n');
-        }
+        emitter
+            .dump_docs(docs)
+            .map_err(|err| api_other(err.to_string()))?;
     } else {
-        let mut emitter = YamlEmitter::new(&mut output);
-        emitter.multiline_strings(true);
         emitter
             .dump(&docs[0])
             .map_err(|err| api_other(err.to_string()))?;
