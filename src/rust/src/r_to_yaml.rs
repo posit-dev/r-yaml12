@@ -32,7 +32,7 @@ fn emit_yaml_documents(docs: &[Yaml<'static>], multi: bool) -> Fallible<String> 
     Ok(output)
 }
 
-fn write_to_r_stdout(mut content: String) -> Fallible<()> {
+fn write_to_r_stdout(mut content: String, body_start: usize) -> Fallible<()> {
     // R character vectors cannot contain embedded NUL bytes, so it is safe to
     // emit the YAML buffer without scanning for interior terminators.
     debug_assert!(
@@ -43,7 +43,7 @@ fn write_to_r_stdout(mut content: String) -> Fallible<()> {
     unsafe {
         extendr_ffi::Rprintf(
             PRINTF_NO_FMT_CSTRING.as_ptr(),
-            content.as_ptr() as *const c_char,
+            content.as_ptr().add(body_start) as *const c_char,
         );
     }
     Ok(())
@@ -280,20 +280,24 @@ pub(crate) fn format_yaml_impl(value: &Robj, multi: bool) -> Fallible<String> {
 }
 
 pub(crate) fn write_yaml_impl(value: &Robj, path: Option<&str>, multi: bool) -> Fallible<()> {
-    let mut yaml = format_yaml_impl(value, multi)?;
-    if !multi && yaml.starts_with("---\n") {
-        yaml.drain(..4);
-    }
-    if yaml.len() > R_STRING_MAX_BYTES {
+    let yaml = format_yaml_impl(value, multi)?;
+    let body_start = if multi || !yaml.starts_with("---\n") {
+        0
+    } else {
+        4
+    };
+    let body_len = yaml.len().saturating_sub(body_start);
+    if body_len > R_STRING_MAX_BYTES {
         return Err(api_other(
             "Formatted YAML exceeds R's 2^31-1 byte string limit",
         ));
     }
+    let body = &yaml[body_start..];
     if let Some(path) = path {
-        fs::write(path, &yaml)
+        fs::write(path, body)
             .map_err(|err| api_other(format!("Failed to write `{path}`: {err}")))?;
     } else {
-        write_to_r_stdout(yaml)?;
+        write_to_r_stdout(yaml, body_start)?;
     }
     Ok(())
 }

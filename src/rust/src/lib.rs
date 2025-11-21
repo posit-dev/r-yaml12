@@ -165,7 +165,6 @@ fn write_yaml(
         match path.as_str() {
             Some(path) => Some(path),
             None => {
-                drop(value);
                 return handle_eval_error(api_other(
                     "`path` must be NULL or a single, non-missing string",
                 ));
@@ -175,11 +174,7 @@ fn write_yaml(
     let result: Fallible<()> = { r_to_yaml::write_yaml_impl(&value, path_opt, multi) };
     match result {
         Ok(()) => value,
-        Err(err) => {
-            // Drop before delegating to R to avoid skipped drops on jumps.
-            drop(value);
-            handle_eval_error(err)
-        }
+        Err(err) => handle_eval_error(err),
     }
 }
 

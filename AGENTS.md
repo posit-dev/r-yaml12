@@ -22,3 +22,5 @@
 - Run small experiments frequently to confirm the behavior of language features. If small experiments require elevated
   privileges to run, write a script to `scratch/experiments.R`, and ask for elevated permissions to run
   `R -q -f scratch/experiments.R`.
+- After every set of changes, emit a draft commit message. If I ask for revisions, when you're done, emit
+  an updated draft commit message.
