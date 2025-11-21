@@ -7,6 +7,11 @@ test_that("write_yaml writes and read_yaml reads single documents", {
 
   expect_identical(out, value)
   expect_true(file.exists(path))
+  file_lines <- readLines(path)
+  body_lines <- strsplit(format_yaml(value), "\n", fixed = TRUE)[[1]]
+  expect_identical(file_lines[[1]], "---")
+  expect_identical(file_lines[[length(file_lines)]], "...")
+  expect_identical(file_lines[seq_along(body_lines) + 1L], body_lines)
   expect_identical(read_yaml(path), value)
   expect_identical(read_yaml(path, simplify = TRUE), value)
   expect_identical(
@@ -18,12 +23,14 @@ test_that("write_yaml writes and read_yaml reads single documents", {
 test_that("write_yaml defaults to R stdout when path is NULL", {
   value <- list(alpha = 1L, nested = c(TRUE, NA))
 
-  output <- capture.output(out <- write_yaml(value))
-  expect_identical(out, value)
-  expect_identical(
-    paste(output, collapse = "\n"),
-    format_yaml(value)
+  output <- paste0(
+    capture.output(out <- write_yaml(value)),
+    collapse = "\n"
   )
+  expect_identical(out, value)
+  expect_true(startsWith(output, "---\n"))
+  expect_true(endsWith(output, "\n..."))
+  expect_identical(output, paste0("---\n", format_yaml(value), "\n..."))
 })
 
 test_that("write_yaml and read_yaml handle multi-document streams", {
@@ -33,6 +40,18 @@ test_that("write_yaml and read_yaml handle multi-document streams", {
   docs <- list(list(foo = 1L), list(bar = list(2L, NULL)))
   write_yaml(docs, path, multi = TRUE)
 
+  file_lines <- readLines(path)
+  expected_lines <- strsplit(
+    format_yaml(docs, multi = TRUE),
+    "\n",
+    fixed = TRUE
+  )[[1]]
+  if (identical(expected_lines[[length(expected_lines)]], "")) {
+    expected_lines <- expected_lines[-length(expected_lines)]
+  }
+  expected_lines <- c(expected_lines, "...")
+  expect_identical(file_lines, expected_lines)
+
   docs[[2]]$bar <- c(2L, NA)
   expect_identical(read_yaml(path, multi = TRUE), docs)
   expect_identical(read_yaml(path, multi = TRUE, simplify = TRUE), docs)
@@ -40,6 +59,28 @@ test_that("write_yaml and read_yaml handle multi-document streams", {
     read_yaml(path, multi = TRUE, simplify = FALSE),
     list(list(foo = 1L), list(bar = list(2L, NULL)))
   )
+})
+
+test_that("write_yaml flushes a final newline for files", {
+  path <- tempfile("yaml12-", fileext = ".yaml")
+  on.exit(unlink(path), add = TRUE)
+
+  write_yaml(list(foo = 1L), path)
+  expect_silent(readLines(path))
+})
+
+test_that("format_yaml multi-doc output stays stable", {
+  docs <- list(list(foo = 1L), list(bar = list(2L, NULL)))
+  expect_snapshot(format_yaml(docs, multi = TRUE))
+})
+
+test_that("write_yaml snapshot aids emitter regressions", {
+  path <- tempfile("yaml12-", fileext = ".yaml")
+  on.exit(unlink(path), add = TRUE)
+
+  multilines <- list(tail = "line1\nline2\n")
+  write_yaml(multilines, path)
+  expect_snapshot(readChar(path, file.info(path)$size))
 })
 
 test_that("read_yaml errors clearly when the file cannot be read", {
