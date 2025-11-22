@@ -401,6 +401,7 @@ fn is_timestamp_tag(tag: &Tag) -> bool {
     matches!(
         (tag.handle.as_str(), tag.suffix.as_str()),
         ("tag:yaml.org,2002:", "timestamp")
+            | ("!!", "timestamp")
             | ("!", "timestamp")
             | ("", "timestamp")
             | ("", "!timestamp")
@@ -439,7 +440,7 @@ fn timestamp_to_robj(value: TimestampValue) -> Fallible<Robj> {
 }
 
 fn parse_timestamp_scalar(input: &str) -> Option<TimestampValue> {
-    let trimmed = input.trim();
+    let trimmed = input.trim_matches(|ch| ch == ' ' || ch == '\t');
     let bytes = trimmed.as_bytes();
     let len = bytes.len();
     let mut idx = 0usize;
@@ -451,13 +452,13 @@ fn parse_timestamp_scalar(input: &str) -> Option<TimestampValue> {
         return None;
     }
     idx += 1;
-    let (month, next) = parse_exact_digits(bytes, idx, 2)?;
+    let (month, next) = parse_digit_range(bytes, idx, 1, 2)?;
     idx = next;
     if bytes.get(idx)? != &b'-' {
         return None;
     }
     idx += 1;
-    let (day, next) = parse_exact_digits(bytes, idx, 2)?;
+    let (day, next) = parse_digit_range(bytes, idx, 1, 2)?;
     idx = next;
 
     let date_days = days_from_civil(year, month, day)?;
@@ -466,26 +467,32 @@ fn parse_timestamp_scalar(input: &str) -> Option<TimestampValue> {
     }
 
     let sep = bytes[idx];
-    if sep != b'T' && sep != b't' && sep != b' ' {
+    if sep == b'T' || sep == b't' {
+        idx += 1;
+    } else if is_space_or_tab(sep) {
+        idx += 1;
+        while idx < len && is_space_or_tab(bytes[idx]) {
+            idx += 1;
+        }
+    } else {
         return None;
     }
-    idx += 1;
 
-    let (hour, next) = parse_exact_digits(bytes, idx, 2)?;
+    let (hour, next) = parse_digit_range(bytes, idx, 1, 2)?;
     idx = next;
     if bytes.get(idx)? != &b':' {
         return None;
     }
     idx += 1;
 
-    let (minute, next) = parse_exact_digits(bytes, idx, 2)?;
+    let (minute, next) = parse_digit_range(bytes, idx, 1, 2)?;
     idx = next;
     if bytes.get(idx)? != &b':' {
         return None;
     }
     idx += 1;
 
-    let (second, next) = parse_exact_digits(bytes, idx, 2)?;
+    let (second, next) = parse_digit_range(bytes, idx, 1, 2)?;
     idx = next;
 
     let mut fraction = 0.0f64;
@@ -495,9 +502,6 @@ fn parse_timestamp_scalar(input: &str) -> Option<TimestampValue> {
         while idx < len && bytes[idx].is_ascii_digit() {
             idx += 1;
         }
-        if idx == start {
-            return None;
-        }
         let mut place = 0.1f64;
         for &digit in &bytes[start..idx] {
             fraction += (digit - b'0') as f64 * place;
@@ -505,7 +509,7 @@ fn parse_timestamp_scalar(input: &str) -> Option<TimestampValue> {
         }
     }
 
-    while matches!(bytes.get(idx), Some(b' ')) {
+    while idx < len && is_space_or_tab(bytes[idx]) {
         idx += 1;
     }
 
@@ -518,7 +522,7 @@ fn parse_timestamp_scalar(input: &str) -> Option<TimestampValue> {
             b'+' | b'-' => {
                 let sign = if bytes[idx] == b'+' { 1i32 } else { -1i32 };
                 idx += 1;
-                let (hours_off, next) = parse_one_or_two_digits(bytes, idx)?;
+                let (hours_off, next) = parse_digit_range(bytes, idx, 1, 2)?;
                 idx = next;
                 let mut minutes_off = 0u32;
                 if matches!(bytes.get(idx), Some(b':')) {
@@ -539,7 +543,7 @@ fn parse_timestamp_scalar(input: &str) -> Option<TimestampValue> {
             _ => return None,
         }
 
-        while matches!(bytes.get(idx), Some(b' ')) {
+        while idx < len && is_space_or_tab(bytes[idx]) {
             idx += 1;
         }
 
@@ -572,20 +576,24 @@ fn parse_exact_digits(bytes: &[u8], start: usize, count: usize) -> Option<(u32, 
     Some((value, end))
 }
 
-fn parse_one_or_two_digits(bytes: &[u8], start: usize) -> Option<(u32, usize)> {
+fn parse_digit_range(bytes: &[u8], start: usize, min: usize, max: usize) -> Option<(u32, usize)> {
     let mut idx = start;
     let mut value = 0u32;
     let mut count = 0usize;
-    while idx < bytes.len() && count < 2 && bytes[idx].is_ascii_digit() {
+    while idx < bytes.len() && count < max && bytes[idx].is_ascii_digit() {
         value = value * 10 + (bytes[idx] - b'0') as u32;
         idx += 1;
         count += 1;
     }
-    if count == 0 {
+    if count < min {
         None
     } else {
         Some((value, idx))
     }
+}
+
+fn is_space_or_tab(byte: u8) -> bool {
+    byte == b' ' || byte == b'\t'
 }
 
 fn days_from_civil(year: i32, month: u32, day: u32) -> Option<i64> {

@@ -169,3 +169,20 @@ test_that("format_yaml errors clearly on invalid yaml_tag", {
     fixed = TRUE
   )
 })
+
+test_that("format_yaml tags Date and POSIXct objects as timestamps", {
+  posix_val <- as.POSIXct("2024-01-02 03:04:05", tz = "UTC")
+  posix_yaml <- format_yaml(posix_val)
+  expect_true(grepl("!!timestamp", posix_yaml, fixed = TRUE))
+  parsed_posix <- parse_yaml(posix_yaml)
+  expect_s3_class(parsed_posix, "POSIXct")
+  expect_identical(attr(parsed_posix, "tzone"), "UTC")
+  expect_equal(as.numeric(parsed_posix), as.numeric(posix_val))
+
+  date_val <- as.Date("2024-01-02")
+  date_yaml <- format_yaml(date_val)
+  expect_true(grepl("!!timestamp", date_yaml, fixed = TRUE))
+  parsed_date <- parse_yaml(date_yaml)
+  expect_s3_class(parsed_date, "Date")
+  expect_identical(parsed_date, date_val)
+})
