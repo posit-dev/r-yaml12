@@ -101,6 +101,39 @@ test_that("parse_yaml simplifies mixed numeric sequences", {
   expect_identical(unsimplified, list(1L, 2.5, 16L, Inf, NULL))
 })
 
+test_that("parse_yaml simplifies signed infinities", {
+  yaml <- "[-.inf, +.inf, .INF]"
+
+  simplified <- parse_yaml(yaml, simplify = TRUE)
+  expect_type(simplified, "double")
+  expect_identical(simplified, c(-Inf, Inf, Inf))
+
+  unsimplified <- parse_yaml(yaml, simplify = FALSE)
+  expect_identical(unsimplified, list(-Inf, Inf, Inf))
+})
+
+test_that("parse_yaml simplifies NaN values", {
+  yaml <- "[.nan, .NaN]"
+
+  simplified <- parse_yaml(yaml, simplify = TRUE)
+  expect_type(simplified, "double")
+  expect_identical(simplified, c(NaN, NaN))
+
+  unsimplified <- parse_yaml(yaml, simplify = FALSE)
+  expect_identical(unsimplified, list(NaN, NaN))
+})
+
+test_that("parse_yaml promotes signed integers with floats", {
+  yaml <- "[-1, +2, 3.0]"
+
+  simplified <- parse_yaml(yaml, simplify = TRUE)
+  expect_type(simplified, "double")
+  expect_identical(simplified, c(-1, 2, 3))
+
+  unsimplified <- parse_yaml(yaml, simplify = FALSE)
+  expect_identical(unsimplified, list(-1L, 2L, 3.0))
+})
+
 test_that("parse_yaml handles trailing newlines", {
   expect_identical(parse_yaml("foo: 1\n"), list(foo = 1L))
 })
