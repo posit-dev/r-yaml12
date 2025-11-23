@@ -158,21 +158,30 @@ test_that("parse_yaml parses YAML 1.1 timestamp forms", {
   )
 
   expect_equal(
-    parse_yaml("!!timestamp 2001-12-14t21:59:43.10-05:00"),
-    canonical
+    as.numeric(parse_yaml("!!timestamp 2001-12-14t21:59:43.10-05:00")),
+    as.numeric(canonical)
+  )
+  expect_identical(
+    attr(parse_yaml("!!timestamp 2001-12-14t21:59:43.10-05:00"), "tzone"),
+    "Etc/GMT+5"
   )
   expect_equal(
-    parse_yaml("!!timestamp 2001-12-14 21:59:43.10 -5"),
-    canonical
+    as.numeric(parse_yaml("!!timestamp 2001-12-14 21:59:43.10 -5")),
+    as.numeric(canonical)
   )
+  expect_null(attr(parse_yaml("!!timestamp 2001-12-14 21:59:43.10 -5"), "tzone"))
   expect_equal(
-    parse_yaml("!!timestamp 2001-12-15 2:59:43.10"),
-    canonical
+    as.numeric(parse_yaml("!!timestamp 2001-12-15 2:59:43.10")),
+    as.numeric(canonical)
   )
 
   date_only <- parse_yaml("!!timestamp 2002-12-14")
   expect_s3_class(date_only, "Date")
   expect_identical(as.integer(date_only), as.integer(as.Date("2002-12-14")))
+
+  no_tz <- parse_yaml("!!timestamp 2001-12-15 02:59:43")
+  expect_s3_class(no_tz, "POSIXct")
+  expect_null(attr(no_tz, "tzone", exact = TRUE))
 })
 
 test_that("parse_yaml applies handlers to tagged nodes", {

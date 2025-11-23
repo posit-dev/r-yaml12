@@ -9,7 +9,6 @@
 - When working on Rust code, prefer to iterate by switching to the `src/rust` directory and running `cargo check` there.
   Before you finish making edits, run `cargo clippy` and address any issues. Once you are finished making edits to Rust
   files, run `cargo fmt` and `cargo build`.
-- Run Rust lints with `cargo check` and `cargo clippy` from the `src/rust/src` directory as well, to match CI.
 - In Rust, avoid allocating `String` unnecessarily. Prefer working with `&str` slices that borrow directly from the raw
   input buffer, preserving lifetimes from the original input, and only allocate/clone into `String` when you truly need
   owned data.
@@ -22,5 +21,5 @@
 - Run small experiments frequently to confirm the behavior of language features. If small experiments require elevated
   privileges to run, write a script to `scratch/experiments.R`, and ask for elevated permissions to run
   `R -q -f scratch/experiments.R`.
-- After every set of changes, emit a draft commit message. If I ask for revisions, when you're done, emit
+- After every set of changes, emit a draft commit message. If you are asked for revisions, when you're done, emit
   an updated draft commit message.
