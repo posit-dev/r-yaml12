@@ -169,7 +169,10 @@ test_that("parse_yaml parses YAML 1.1 timestamp forms", {
     as.numeric(parse_yaml("!!timestamp 2001-12-14 21:59:43.10 -5")),
     as.numeric(canonical)
   )
-  expect_null(attr(parse_yaml("!!timestamp 2001-12-14 21:59:43.10 -5"), "tzone"))
+  expect_null(attr(
+    parse_yaml("!!timestamp 2001-12-14 21:59:43.10 -5"),
+    "tzone"
+  ))
   expect_equal(
     as.numeric(parse_yaml("!!timestamp 2001-12-15 2:59:43.10")),
     as.numeric(canonical)

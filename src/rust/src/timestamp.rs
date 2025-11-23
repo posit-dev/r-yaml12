@@ -35,6 +35,7 @@ pub(crate) fn is_timestamp_tag(tag: &Tag) -> bool {
             | ("", "tag:yaml.org,2002:timestamp")
             | ("", "<tag:yaml.org,2002:timestamp>")
             | ("!", "<tag:yaml.org,2002:timestamp>")
+            | ("!", "!timestamp")
     )
 }
 
@@ -307,14 +308,14 @@ fn sign_to_mult(sign: char) -> i32 {
 pub(crate) fn timestamp_tag() -> Tag {
     Tag {
         handle: String::new(),
-        suffix: "<tag:yaml.org,2002:timestamp>".to_string(),
+        suffix: "!timestamp".to_string(),
     }
 }
 
 pub(crate) fn core_timestamp_tag() -> Tag {
     Tag {
         handle: String::new(),
-        suffix: "<tag:yaml.org,2002:timestamp>".to_string(),
+        suffix: "!timestamp".to_string(),
     }
 }
 
@@ -383,10 +384,10 @@ pub(crate) fn format_posix_precise(
 ) -> Fallible<Vec<Option<String>>> {
     let values = posix_seconds_from_robj(robj)?;
     let sep = if space_separated { ' ' } else { 'T' };
-    let offset_suffix = if append_z {
-        "Z".to_string()
-    } else {
-        format_offset(offset_minutes)
+    let offset_suffix = match (append_z, space_separated) {
+        (true, _) => "Z".to_string(),
+        (false, true) => format_space_offset(offset_minutes),
+        (false, false) => format_offset(offset_minutes),
     };
 
     let mut out = Vec::with_capacity(values.len());
@@ -459,6 +460,15 @@ fn posix_seconds_from_robj(robj: &Robj) -> Fallible<Vec<Option<f64>>> {
             .collect());
     }
     Err(api_other("Expected a numeric POSIXct vector"))
+}
+
+fn format_space_offset(minutes: i32) -> String {
+    if minutes % 60 == 0 {
+        let hours = minutes / 60;
+        format!("{hours:+}")
+    } else {
+        format_offset(minutes)
+    }
 }
 
 fn split_seconds(secs: f64) -> (i64, u32, u32, u32, u32) {
