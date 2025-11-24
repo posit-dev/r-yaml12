@@ -311,40 +311,50 @@ fn extract_yaml_tag(robj: &Robj) -> Fallible<Option<Tag>> {
 }
 
 fn is_core_schema_tag(tag: &str) -> bool {
-    let tag = tag.trim();
-    tag.starts_with("!!")
-        || tag.starts_with("!<tag:yaml.org,2002:")
-        || tag.starts_with("!tag:yaml.org,2002:")
-        || tag.starts_with("<tag:yaml.org,2002:")
-        || tag.starts_with("tag:yaml.org,2002:")
+    parse_tag_string(tag)
+        .map(|parsed| parsed.is_yaml_core_schema())
+        .unwrap_or(false)
 }
 
 fn parse_tag_string(tag: &str) -> Fallible<Tag> {
-    if tag.is_empty() {
+    const YAML_CORE_HANDLE: &str = "tag:yaml.org,2002:";
+
+    let trimmed = tag.trim();
+    if trimmed.is_empty() {
         return Err(api_other(
             "`yaml_tag` attribute must not be the empty string",
         ));
     }
-    if let Some(pos) = tag.rfind('!') {
-        if pos + 1 >= tag.len() {
-            return Err(api_other(format!("Invalid YAML tag `{tag}`")));
-        }
-        let handle = &tag[..pos];
-        let suffix = &tag[pos + 1..];
-        if handle.is_empty() {
-            Ok(Tag {
-                handle: "!".to_string(),
-                suffix: suffix.to_string(),
-            })
-        } else {
-            Ok(Tag {
-                handle: handle.to_string(),
-                suffix: suffix.to_string(),
-            })
-        }
-    } else {
-        Err(api_other(format!("Invalid YAML tag `{tag}`")))
+
+    let Some((mut handle, mut suffix)) = split_tag_name(trimmed) else {
+        return Err(api_other(format!("Invalid YAML tag `{trimmed}`")));
+    };
+
+    if handle == "!!" {
+        handle = YAML_CORE_HANDLE;
+    } else if handle.is_empty() && suffix.starts_with(YAML_CORE_HANDLE) {
+        suffix = &suffix[YAML_CORE_HANDLE.len()..];
+        handle = YAML_CORE_HANDLE;
     }
+
+    Ok(Tag {
+        handle: handle.to_string(),
+        suffix: suffix.to_string(),
+    })
+}
+
+fn split_tag_name(name: &str) -> Option<(&str, &str)> {
+    if let Some(pos) = name.rfind('!') {
+        if pos + 1 < name.len() {
+            return Some(name.split_at(pos + 1));
+        }
+    }
+    if let Some(pos) = name.rfind(':') {
+        if pos + 1 < name.len() {
+            return Some(name.split_at(pos + 1));
+        }
+    }
+    None
 }
 
 pub(crate) fn format_yaml_impl(value: &Robj, multi: bool) -> Fallible<String> {

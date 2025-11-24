@@ -5,6 +5,24 @@ test_that("parse_yaml handles scalars", {
   expect_identical(parse_yaml("hello"), "hello")
 })
 
+test_that("parse_yaml normalizes literal core-schema tags", {
+  inputs <- c(
+    "!!str true",
+    "!<tag:yaml.org,2002:str> true",
+    "%TAG ! tag:yaml.org,2002:\n---\n!str true",
+    "%TAG !yaml! tag:yaml.org,2002:\n---\n!yaml!str true",
+    "%TAG !! tag:yaml.org,2002:\n---\n!!str true"
+  )
+
+  parsed <- lapply(inputs, parse_yaml)
+  expect_true(all(vapply(parsed, identical, logical(1), "true")))
+  expect_true(all(vapply(
+    parsed,
+    function(x) is.null(attr(x, "yaml_tag", exact = TRUE)),
+    logical(1)
+  )))
+})
+
 test_that("parse_yaml handles simple sequences and mappings", {
   simple_seq <- r"--(
 - a

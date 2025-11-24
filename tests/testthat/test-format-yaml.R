@@ -60,6 +60,17 @@ test_that("format_yaml ignores yaml_tag attributes using core schema handle", {
   expect_identical(attr(reparsed, "yaml_tag", exact = TRUE), "!custom")
 })
 
+test_that("format_yaml ignores literal core-schema yaml_tag attributes", {
+  obj <- structure("bar", yaml_tag = "tag:yaml.org,2002:str")
+
+  encoded <- format_yaml(obj)
+  expect_false(grepl("tag:yaml.org,2002:str", encoded, fixed = TRUE))
+
+  reparsed <- parse_yaml(encoded)
+  expect_identical(reparsed, "bar")
+  expect_null(attr(reparsed, "yaml_tag", exact = TRUE))
+})
+
 test_that("format_yaml round-trips multi-document streams", {
   docs <- list(list(foo = 1L), list(bar = list(2L, NULL)))
   encoded <- format_yaml(docs, multi = TRUE)

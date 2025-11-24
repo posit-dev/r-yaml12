@@ -363,8 +363,7 @@ fn convert_tagged(
         return Ok(value);
     }
 
-    let rendered_tag = render_tag(tag);
-    set_yaml_tag_attr(value, &rendered_tag)
+    set_yaml_tag_attr(value, tag)
 }
 
 fn render_tag(tag: &Tag) -> String {
@@ -400,16 +399,19 @@ fn is_core_tag_without_attr(tag: &Tag) -> bool {
 }
 
 fn canonical_tag_kind(tag: &Tag) -> Option<CanonicalTagKind> {
-    let suffix = tag.suffix.as_str();
-    let suffix = suffix.trim_start_matches('!');
-    if suffix == "null" && tag.handle.as_str() == "!" {
-        return None;
+    if tag.is_yaml_core_schema() {
+        return match tag.suffix.as_str() {
+            "str" => Some(CanonicalTagKind::CoreString),
+            "null" => Some(CanonicalTagKind::CoreNull),
+            _ => None,
+        };
     }
-    let suffix = suffix.strip_prefix("tag:yaml.org,2002:").unwrap_or(suffix);
 
+    let suffix = tag.suffix.as_str().trim_start_matches('!');
+    let suffix = suffix.strip_prefix("tag:yaml.org,2002:").unwrap_or(suffix);
     match suffix {
         "str" => Some(CanonicalTagKind::CoreString),
-        "null" => Some(CanonicalTagKind::CoreNull),
+        "null" if tag.handle.as_str() != "!" => Some(CanonicalTagKind::CoreNull),
         _ => None,
     }
 }
@@ -435,45 +437,25 @@ fn make_canonical_tag(kind: CanonicalTagKind) -> Tag {
     }
 }
 
-fn is_canonical_null_tag(tag: &str) -> bool {
-    // Enumerate all variants that should be treated as the canonical null tag
-    const NULL_TAGS: &[&str] = &[
-        "null",
-        "!null",
-        "!!null",
-        "!!!null",
-        "<null>",
-        "!<null>",
-        "<!null>",
-        "!<!null>",
-        "<!!null>",
-        "!<!!null>",
-        "tag:yaml.org,2002:null",
-        "!tag:yaml.org,2002:null",
-        "<tag:yaml.org,2002:null>",
-        "!<tag:yaml.org,2002:null>",
-    ];
+fn set_yaml_tag_attr(mut value: Robj, tag: &Tag) -> Fallible<Robj> {
+    let rendered_tag = render_tag(tag);
 
-    NULL_TAGS.contains(&tag.trim())
-}
-
-fn set_yaml_tag_attr(mut value: Robj, tag: &str) -> Fallible<Robj> {
     // R NULL cannot carry attributes; skip instead of erroring and panicking
-    if tag.is_empty() {
+    if rendered_tag.is_empty() {
         return Ok(value);
     }
 
     if value.is_null() {
-        if !is_canonical_null_tag(tag) {
+        if !matches!(canonical_tag_kind(tag), Some(CanonicalTagKind::CoreNull)) {
             let warn_msg = format!(
-                "yaml12: discarding tag `{tag}` on null scalar; R NULL cannot carry attributes"
+                "yaml12: discarding tag `{rendered_tag}` on null scalar; R NULL cannot carry attributes"
             );
             emit_warning(&warn_msg)?;
         }
         return Ok(value);
     }
 
-    value.set_attrib(sym_yaml_tag(), tag)?;
+    value.set_attrib(sym_yaml_tag(), rendered_tag.as_str())?;
     Ok(value)
 }
 

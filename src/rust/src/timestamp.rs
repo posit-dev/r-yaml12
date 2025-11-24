@@ -26,15 +26,10 @@ pub(crate) enum TimestampValue {
 }
 
 pub(crate) fn is_timestamp_tag(tag: &Tag) -> bool {
-    matches!(
-        (tag.handle.as_str(), tag.suffix.as_str()),
-        ("tag:yaml.org,2002:", "timestamp")
-            | ("!", "timestamp")
-            | ("", "timestamp")
-            | ("", "!timestamp")
-            | ("", "!!timestamp")
-            | ("", "tag:yaml.org,2002:timestamp")
-    )
+    if tag.suffix.as_str() != "timestamp" {
+        return false;
+    }
+    tag.is_yaml_core_schema() || tag.handle.as_str() == "!"
 }
 
 pub(crate) fn parse_timestamp_scalar(input: &str) -> Option<TimestampValue> {
@@ -402,15 +397,15 @@ fn sign_to_mult(sign: char) -> i32 {
 
 pub(crate) fn timestamp_tag() -> Tag {
     Tag {
-        handle: String::new(),
-        suffix: "!timestamp".to_string(),
+        handle: "tag:yaml.org,2002:".to_string(),
+        suffix: "timestamp".to_string(),
     }
 }
 
 pub(crate) fn core_timestamp_tag() -> Tag {
     Tag {
-        handle: String::new(),
-        suffix: "!timestamp".to_string(),
+        handle: "tag:yaml.org,2002:".to_string(),
+        suffix: "timestamp".to_string(),
     }
 }
 
