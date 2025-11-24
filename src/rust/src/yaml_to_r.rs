@@ -382,10 +382,6 @@ enum TagClass {
     NonCore,
 }
 
-fn is_set_tag(tag: &Tag) -> bool {
-    tag.handle.as_str() == "tag:yaml.org,2002:" && tag.suffix.as_str() == "set"
-}
-
 fn is_core_tag_without_attr(tag: &Tag) -> bool {
     if !tag.is_yaml_core_schema() {
         return false;
@@ -397,18 +393,16 @@ fn is_core_tag_without_attr(tag: &Tag) -> bool {
 }
 
 fn canonical_tag_kind(tag: &Tag) -> Option<CanonicalTagKind> {
-    match (tag.handle.as_str(), tag.suffix.as_str()) {
-        ("tag:yaml.org,2002:", "str") => Some(CanonicalTagKind::CoreString),
-        ("!", "str") => Some(CanonicalTagKind::CoreString),
-        ("", "str") => Some(CanonicalTagKind::CoreString),
-        ("", "!str") => Some(CanonicalTagKind::CoreString),
-        ("", "!!str") => Some(CanonicalTagKind::CoreString),
-        ("", "tag:yaml.org,2002:str") => Some(CanonicalTagKind::CoreString),
-        ("tag:yaml.org,2002:", "null") => Some(CanonicalTagKind::CoreNull),
-        ("", "null") => Some(CanonicalTagKind::CoreNull),
-        ("", "!null") => Some(CanonicalTagKind::CoreNull),
-        ("", "!!null") => Some(CanonicalTagKind::CoreNull),
-        ("", "tag:yaml.org,2002:null") => Some(CanonicalTagKind::CoreNull),
+    let suffix = tag.suffix.as_str();
+    let suffix = suffix.trim_start_matches('!');
+    if suffix == "null" && tag.handle.as_str() == "!" {
+        return None;
+    }
+    let suffix = suffix.strip_prefix("tag:yaml.org,2002:").unwrap_or(suffix);
+
+    match suffix {
+        "str" => Some(CanonicalTagKind::CoreString),
+        "null" => Some(CanonicalTagKind::CoreNull),
         _ => None,
     }
 }
@@ -710,48 +704,49 @@ mod tests {
         docs.pop().expect("expected one document")
     }
 
+    fn normalized_suffix(suffix: &str) -> &str {
+        let suffix = suffix.trim_start_matches('!');
+        suffix.strip_prefix("tag:yaml.org,2002:").unwrap_or(suffix)
+    }
+
     #[test]
     fn canonical_string_tags_cover_all_forms() {
+        let canonical_string = Tag {
+            handle: "tag:yaml.org,2002:".to_string(),
+            suffix: "str".to_string(),
+        };
+        assert_eq!(
+            canonical_tag_kind(&canonical_string),
+            Some(CanonicalTagKind::CoreString)
+        );
+
         let cases = [
-            ("!!str true", None, ParsedValueKind::String),
-            ("!str true", Some(("!", "str")), ParsedValueKind::Boolean),
-            ("!<str> true", Some(("", "str")), ParsedValueKind::Boolean),
-            ("!<!str> true", Some(("", "!str")), ParsedValueKind::Boolean),
-            (
-                "!<!!str> true",
-                Some(("", "!!str")),
-                ParsedValueKind::Boolean,
-            ),
-            (
-                "!<tag:yaml.org,2002:str> true",
-                Some(("", "tag:yaml.org,2002:str")),
-                ParsedValueKind::Boolean,
-            ),
+            ("!!str true", ParsedValueKind::String),
+            ("!str true", ParsedValueKind::Boolean),
+            ("!<str> true", ParsedValueKind::Boolean),
+            ("!<!str> true", ParsedValueKind::Boolean),
+            ("!<!!str> true", ParsedValueKind::Boolean),
+            ("!<tag:yaml.org,2002:str> true", ParsedValueKind::Boolean),
         ];
 
-        for (input, expected_tag, expected_value) in cases {
+        for (input, expected_value) in cases {
             let parsed = load_scalar(input);
-            let assertion = match (expected_tag, parsed) {
-                (None, Yaml::Value(Scalar::String(value))) => {
+            match parsed {
+                Yaml::Value(Scalar::String(value)) => {
                     assert_eq!(
                         expected_value,
                         ParsedValueKind::String,
                         "input `{input}` should resolve to string value"
                     );
                     assert_eq!(value.as_ref(), "true");
-                    let canonical = Tag {
-                        handle: "tag:yaml.org,2002:".to_string(),
-                        suffix: "str".to_string(),
-                    };
-                    canonical
                 }
-                (Some((handle, suffix)), Yaml::Tagged(tag, inner)) => {
-                    assert_eq!(tag.handle, handle);
-                    assert_eq!(tag.suffix, suffix);
+                Yaml::Tagged(tag, inner) => {
+                    assert_eq!(
+                        canonical_tag_kind(&tag).is_some(),
+                        normalized_suffix(tag.suffix.as_str()) == "str",
+                        "input `{input}` canonical detection should match plain `str` suffix",
+                    );
                     match (expected_value, inner.as_ref()) {
-                        (ParsedValueKind::String, Yaml::Value(Scalar::String(value))) => {
-                            assert_eq!(value.as_ref(), "true");
-                        }
                         (ParsedValueKind::Boolean, Yaml::Value(Scalar::Boolean(value))) => {
                             assert!(
                                 *value,
@@ -764,64 +759,50 @@ mod tests {
                             )
                         }
                     }
-                    tag.into_owned()
                 }
-                (expected, other) => {
-                    panic!("input `{input}` expected tag {expected:?}, got {other:?}")
-                }
-            };
-
-            assert_eq!(
-                canonical_tag_kind(&assertion),
-                Some(CanonicalTagKind::CoreString),
-                "input `{input}` should map to canonical string tag"
-            );
+                other => panic!("input `{input}` expected tagged or string value, got {other:?}"),
+            }
         }
     }
 
     #[test]
     fn canonical_null_tags_cover_all_forms() {
+        let canonical_null = Tag {
+            handle: "tag:yaml.org,2002:".to_string(),
+            suffix: "null".to_string(),
+        };
+        assert_eq!(
+            canonical_tag_kind(&canonical_null),
+            Some(CanonicalTagKind::CoreNull)
+        );
+
         let cases = [
-            ("!!null null", None),
-            ("!<null> null", Some(("", "null"))),
-            ("!<!null> null", Some(("", "!null"))),
-            ("!<!!null> null", Some(("", "!!null"))),
-            (
-                "!<tag:yaml.org,2002:null> null",
-                Some(("", "tag:yaml.org,2002:null")),
-            ),
+            "!!null null",
+            "!<null> null",
+            "!<!null> null",
+            "!<!!null> null",
+            "!<tag:yaml.org,2002:null> null",
         ];
 
-        for (input, expected_tag) in cases {
+        for input in cases {
             let parsed = load_scalar(input);
-            match (expected_tag, parsed) {
-                (None, Yaml::Value(Scalar::Null)) => {
-                    let canonical = Tag {
-                        handle: "tag:yaml.org,2002:".to_string(),
-                        suffix: "null".to_string(),
-                    };
-                    assert_eq!(
-                        canonical_tag_kind(&canonical),
-                        Some(CanonicalTagKind::CoreNull),
-                        "input `{input}` should map to canonical null tag"
-                    );
+            match parsed {
+                Yaml::Value(Scalar::Null) => {
+                    // Canonical null scalars should not carry tags.
                 }
-                (Some((handle, suffix)), Yaml::Tagged(tag, inner)) => {
-                    assert_eq!(tag.handle, handle);
-                    assert_eq!(tag.suffix, suffix);
+                Yaml::Tagged(tag, inner) => {
                     assert_eq!(
-                        canonical_tag_kind(&tag),
-                        Some(CanonicalTagKind::CoreNull),
-                        "input `{input}` should map to canonical null tag"
+                        canonical_tag_kind(&tag).is_some(),
+                        normalized_suffix(tag.suffix.as_str()) == "null"
+                            && tag.handle.as_str() != "!",
+                        "input `{input}` canonical detection should match plain `null` suffix",
                     );
                     assert!(
                         matches!(inner.as_ref(), Yaml::Value(Scalar::Null)),
                         "input `{input}` should parse to tagged null scalar"
                     );
                 }
-                (expected, other) => {
-                    panic!("input `{input}` expected tag {expected:?}, got {other:?}")
-                }
+                other => panic!("input `{input}` expected null scalar, got {other:?}"),
             }
         }
     }

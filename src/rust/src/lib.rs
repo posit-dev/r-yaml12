@@ -144,7 +144,7 @@ fn parse_yaml(
 #[extendr(invisible)]
 fn dbg_yaml(text: Strings) -> Robj {
     let result: Fallible<()> = (|| -> Fallible<()> {
-        if text.len() == 0 {
+        if text.is_empty() {
             return Ok(());
         }
 
