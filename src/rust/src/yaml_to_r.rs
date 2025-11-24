@@ -339,24 +339,11 @@ fn convert_tagged(
     }
 
     let value = yaml_to_robj(node, simplify, handlers)?;
-    if is_core_tag_without_attr(tag) || is_core_string_tag(tag) || is_core_null_tag(tag) {
+    if tag.is_yaml_core_schema() && (TIMESTAMP_SUPPORT_ENABLED || !is_timestamp_tag(tag)) {
         return Ok(value);
     }
 
     set_yaml_tag_attr(value, tag)
-}
-
-fn is_core_tag_without_attr(tag: &Tag) -> bool {
-    if !tag.is_yaml_core_schema() {
-        return false;
-    }
-    if !TIMESTAMP_SUPPORT_ENABLED && is_timestamp_tag(tag) {
-        return false;
-    }
-    matches!(
-        tag.suffix.as_str(),
-        "timestamp" | "set" | "omap" | "pairs" | "seq" | "map"
-    )
 }
 
 fn is_core_string_tag(tag: &Tag) -> bool {
