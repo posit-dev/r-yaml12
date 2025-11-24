@@ -24,99 +24,90 @@ library(yaml12)
 
 This vignette picks up where the “YAML in 2 Minutes” intro leaves off.
 It shows what YAML tags are and how to work with them in yaml12 with tag
-handlers. Along the way we also cover complex keys, anchors, and merges,
-so you can work with any advanced YAML you might see in the wild.
+handlers. Along the way we also cover complex valued keys and node
+anchors, so you can work with any advanced YAML (version 1.2) you might
+see in the wild.
 
-## Tags in YAML and how yaml12 exposes them
+## Tags in YAML and how yaml12 handles them
 
-Tags annotate any YAML node with extra meaning. yaml12 will attach YAML
-tags as an R attribute named `"yaml_tag"`, which is always a string. The
-basic YAML syntax is to prefix a yaml node (scalar, sequence, or
-mapping) with `!`, like this:
+Tags annotate any YAML node with extra meaning. In YAML syntax a tag
+always starts with `!`, and it appears before the node’s value; it is
+not part of the scalar text itself.
 
-```{r}
-parse_yaml("!some_tag some_value")
-```
-
-YAML 1.2 supports:
-
--   *Local/short tags* like `!expr` (handle `!`, suffix `expr`)
--   *Core tags* like `!!str` and `!!null` (the core `yaml.org` schema)
--   *Verbose tags* like `!<tag:example.com,2024:note>`
-
-yaml12 automatically applies the core schema tags to scalars (strings,
-numbers, booleans, null). A core tag can be an alternative way to force
-a node to be a certain type. Core tags are discarded after parsing,
-since they carry no additional information once we've constructed the
-appropriate R type. For example:
+*yaml12* attaches tags as a `yaml_tag` attribute (always a string). The
+most common form is a simple local short tag that starts with `!`:
 
 ```{r}
-parse_yaml("!!str true")
+dput(parse_yaml("!some_tag some_value"))
 ```
 
-Non-core tags are preserved on the parsed R object as a `yaml_tag`
-attribute unless a handler transforms them.
-
-```{r}
-yaml <- "
-path: !file /data/raw.csv
-note: !<tag:example.com,2024:note> read-me
-"
-
-doc <- parse_yaml(yaml)
-str(doc)
-```
-
-## Using handlers to transform tagged nodes while parsing
-
-`parse_yaml()` and `read_yaml()` accept `handlers`: a named list of
-functions whose names are YAML tag strings (spelled exactly as in your
-YAML). Handlers run on any matching tagged node. For tagged scalars, the
-handler always receives a string; for tagged sequences or mappings, it
-receives an R list representing that node.
-
-Tagged scalars: The presence of a custom tag bypasses normal scalar
-typing inference for that node, so handlers see the raw string even when
-the content looks like another type.
+The presence of a custom tag bypasses normal scalar node typing
+inferencing; the scalar is always returned as a string even when the
+content looks like another type.
 
 ```{r}
 parse_yaml("! true")
 parse_yaml("true")
 ```
 
-Any tag with an unmatched handler is left preserved.
+## Using handlers to transform tagged nodes while parsing
+
+`parse_yaml()` and `read_yaml()` accept `handlers`: a named list of
+functions whose names are YAML tag strings. Handlers run on any matching
+tagged node. For tagged scalars, the handler always receives a length-1
+string; for tagged sequences or mappings, it receives an R vector
+representing that node.
+
+Here is an example of using a handler to evaluate `!expr` nodes.
+
+```{r}
+handlers <- list(
+  "!expr" = function(x) eval(str2lang(x), globalenv())
+)
+parse_yaml("!expr 1+1", handlers = handlers)
+```
+
+Any errors from a handler stop parsing:
+
+```{r, error = TRUE}
+parse_yaml("!expr stop('boom')", handlers = handlers)
+```
+
+Any tag without a matching handler is left preserved as `yaml_tag`
+attribute, and handlers without matching tags are left unused.
 
 ```{r}
 handlers <- list(
   "!expr" = function(x) eval(str2lang(x), globalenv()),
-  "!upper" = toupper
+  "!upper" = toupper,
+  "!lower" = tolower # unused
 )
 
-yaml_tagged_scalars <- "
-- !expr 1 + 1
-- !expr 2 * pi
-- !upper hello
-- !upper true
-- !upper 007
-"
-
-parse_yaml(yaml_tagged_scalars, handlers = handlers)
+str(parse_yaml(handlers = handlers, "
+- !expr 1+1
+- !upper r is awesome
+- !note this tag has no handler
+"))
 ```
 
-Tagged sequence and tagged mapping: for a tagged sequence the handler
-gets an R list, and for a tagged mapping the handler gets a named list.
+With a tagged sequence, the handler is called with an unnamed R list, or
+an atomic vector if `simplify = TRUE` and all the sequence elements are
+a common type. With tagged mappings the handler is called with a named R
+list, potentially with a `yaml_keys` attribute (more on this in the next
+section).
 
 ```{r}
 handlers <- list(
   "!some_seq_tag" = function(x) {
     stopifnot(identical(x, c("a", "b")))
-    "some value"
+    "some handled value"
   },
   "!some_map_tag" = function(x) {
     stopifnot(identical(x, list(key1 = 1L, key2 = 2L)))
-    "some other value"
+    "some other handled value"
   }
 )
+
 yaml_tagged_containers <- "
 - !some_seq_tag [a, b]
 - !some_map_tag {key1: 1, key2: 2}
@@ -125,13 +116,81 @@ yaml_tagged_containers <- "
 str(parse_yaml(yaml_tagged_containers, handlers = handlers))
 ```
 
-Tagged mapping key: YAML mapping keys are not limited to plain string
-scalars—they can be tagged scalars, other scalar types, sequences, or
-even be mappings themselves. When a key is more complex than a single
-plain string scalar, YAML uses the explicit `?` prefix to denote a
-mapping key: a line starting with `?` introduces the key node (of any
-type) and the following `:` line holds its value. Because handlers also
-see keys, they can normalize tagged keys before they become R names.
+Handlers make it easy to opt into powerful behaviors (like evaluating
+`!expr` nodes) while keeping the default parser strict and safe.
+
+### Post-process tags yourself
+
+If you want more control, you can parse first without `handlers` and
+then walk the result yourself. For example, you can process
+`!expr`-tagged scalars yourself by walking the yaml nodes simply like
+this:
+
+```{r}
+eval_yaml_expr_nodes <- function(x) {
+  if (is.list(x)) {
+    x <- lapply(x, eval_yaml_expr_nodes)
+  } else if (identical(attr(x, "yaml_tag", TRUE), "!expr")) {
+    x <- eval(str2lang(x), globalenv())
+  }
+  x
+}
+
+safe_loaded <- parse_yaml("!expr 1 + 1")
+dput(safe_loaded)
+eval_yaml_expr_nodes(safe_loaded)
+```
+
+## Mappings revisited: non-string keys and `yaml_keys`
+
+In YAML, mapping keys do not have to be plain scalar strings; any
+arbitrary YAML node can be a key: including other scalar types,
+sequences, and even other mappings. For example, this is valid YAML even
+though the key is a boolean:
+
+``` yaml
+true: true
+```
+
+When *yaml12* sees a mapping key that is not a untagged string scalar,
+it keeps the original keys in a `yaml_keys` attribute next to the
+values:
+
+```{r}
+dput(parse_yaml("true: true"))
+```
+
+For complex key values, YAML uses the explicit mapping-key indicator
+`?`. A line starting with ? introduces the key node (of any type) of a
+mapping, and the following line that starts with `:` holds its value:
+
+``` yaml
+? [a, b]
+: value with a sequence key
+? {x: 1, y: 2}
+: value with a mapping key
+```
+
+In yaml12 you can see those keys via the `yaml_keys` attribute:
+
+```{r}
+yaml <- "
+true: true
+? [a, b]
+: tuple
+? {x: 1, y: 2}
+: map-key
+"
+
+str(parse_yaml(yaml))
+```
+
+### Tagged mapping keys
+
+If you supply handlers, they run on keys as well, so a handler can turn
+tagged keys into friendly R names before `yaml_keys` needs to be
+attached. If all the mapping keys resolve to bare scalar strings, then a
+`yaml_keys` attribute is not attached.
 
 ```{r}
 handlers <- list(
@@ -140,125 +199,33 @@ handlers <- list(
 )
 
 yaml_tagged_key <- "
-? !upper newyork
-: !airport jfk
-? !upper warsaw
-: !airport waw
+!upper newyork: !airport jfk
+!upper warsaw: !airport waw
 "
 
-parse_yaml(yaml_tagged_key, handlers = handlers)
+str(parse_yaml(yaml_tagged_key, handlers = handlers))
 ```
 
-Handlers make it easy to opt into powerful behaviors (like evaluating
-`!expr` nodes) while keeping the default parser strict and safe.
-
-A tag always starts with `!`. A single `!` is a local tag like `!expr`.
-A doubled `!!` means “use the core `yaml.org` namespace.” In that
-namespace, only the built-in YAML types are valid: `str`, `null`,
-`bool`, `int`, `float`, and the collection tags `seq` and `map`
-(sometimes `timestamp` appears, though it’s rarely written explicitly).
-These are rare to see in real documents; they are mostly another way to
-force a node’s type. `!!` is actually a special case of a namespaced tag
-where the namespace is omitted; the YAML parser fills in
-`tag:yaml.org,2002:` for you. You can also write your own namespaced
-tags like `!foo!bar`, where `foo` is the namespace and `bar` is the tag.
-Formally in the YAML spec these are called the “handle” (left) and
-“suffix” (right). `!<...>` is the verbose “full URI” form: everything
-inside `!<...>` must be a valid URI. Conventionally these start with
-`tag:` (e.g., `!<tag:example.com,2024:note>`), but any valid URI scheme
-is allowed (`http:`, `urn:`, etc.); spaces and other reserved characters
-must be percent-encoded.
-
-## How yaml12 decides a node’s tag
-
-The parser walks each node and decides its tag with a simple decision
-tree:
-
-1.  **Does the node text start with `!`?** If yes, it is explicitly
-    tagged; do not infer a core tag.
-
-    -   **Second character `!`?** Treat as the core handle `!!`:
-        `!!str`, `!!int`, `!!bool`, `!!float`, `!!null`, `!!seq`,
-        `!!map`, (sometimes `!!timestamp`).
-    -   **Second character `<`?** Treat as a full-URI tag (everything
-        inside `!<...>` is the tag), for example
-        `!<tag:example.com,2024:note>`.
-    -   **Otherwise:** treat the text after the initial `!` up to the
-        next `!` (if any) as the handle and the rest as the suffix. If
-        no second `!` appears, the handle is `!` and the suffix is the
-        whole remainder (e.g., `!expr`). With another `!` later, a
-        custom handle appears before the suffix (e.g., `!foo!bar`). The
-        only user-facing effect of the handle is that it can be remapped
-        by a `%TAG` directive; otherwise, it just prefixes the suffix.
-        YAML also accepts URI-ish oddities like `!<str>`, `!<!str>`, or
-        `!<!!str>`; the entire string inside `!<...>` is treated as the
-        tag value, and if it matches a core name like `str` or `!!str`,
-        it resolves to the core tag.
-
-2.  **No explicit `!` tag?** Fall back to the core schema:
-
-    -   Sequences → `!!seq`; mappings → `!!map`.
-    -   Scalars are tested in order for `null`, `bool`, `int`, `float`,
-        `timestamp`; anything else becomes `str`.
-
-3.  yaml12 converts core-tagged nodes to the matching R type and drops
-    the core tag (it carries no extra information). Non-core tags stay
-    on the result as the `yaml_tag` attribute unless a handler consumes
-    them.
-
-### Tag directives (`%TAG`)
-
-YAML also lets you declare tag handles at the top of a document with
-`%TAG` directives. The syntax is `%TAG <handle> <prefix>`, and it applies
-to the rest of the document. For example:
-
-```
-%TAG !e! tag:example.com,2024:widgets/
----
-item: !e!gizmo
-```
-
-Here `!e!` becomes a handle that expands to the `tag:example.com,2024:widgets/`
-prefix, so `!e!gizmo` is the same as
-`!<tag:example.com,2024:widgets/gizmo>`. yaml12 respects `%TAG`
-directives when parsing; if you want to emit tags using a directive,
-you’d mirror the same handle/prefix mapping in your YAML.
-
-## Post-process tags yourself
-
-If you want more control, parse first without 'handlers' and then walk
-the result yourself. If you only care about `!expr`-tagged scalars, you
-can simply do this:
-
-```{r}
-eval_yaml_expr_nodes <- function(x) {
-  if (is.list(x)) {
-    x <- lapply(x, eval_yaml_expr_nodes)
-  }
-  if (identical(attr(x, "yaml_tag", TRUE), "!expr")) {
-    x <- eval(str2lang(x), globalenv())
-  }
-  x
-}
-```
-
-If you anticipate tagged mapping keys, you need a bit more bookkeeping.
-The `yaml_keys` attribute is materialized whenever any key is not a
-plain, untagged string scalar; you have to walk those keys alongside the
-values and optionally collapse `yaml_keys` back to `NULL` if all keys
-become plain strings after handling tagged nodes.
+If you anticipate tagged mapping keys that you want to process yourself,
+you'll need a bit more bookkeeping. The `yaml_keys` attribute is
+materialized whenever any key is not a plain, untagged string scalar;
+you'll want to walk those keys alongside the values and optionally
+collapse `yaml_keys` back to `NULL` if all keys become plain strings
+after handling tagged nodes. For example, here is the earlier
+`eval_yaml_expr_nodes` expanded to also handle tagged mapping keys.
+(This expanded postprocessor is equivalent to passing
+`handlers = list("!expr" = \(x) eval(str2lang(x), globalenv()))`)
 
 ```{r}
 is_bare_string <- \(x) {
-  is.character(key) && length(key) == 1 && is.null(attributes(key))
+  is.character(key) && length(key) == 1L && is.null(attributes(key))
 }
 
 eval_yaml_expr_nodes <- function(x) {
   if (is.list(x)) {
     x <- lapply(x, eval_yaml_expr_nodes)
 
-    keys <- attr(x, "yaml_keys", TRUE)
-    if (!is.null(keys)) {
+    if (!is.null(keys <- attr(x, "yaml_keys", TRUE))) {
       keys <- lapply(keys, eval_yaml_expr_nodes)
       names(x) <- sapply(
         \(name, key) if (name == "" && is_bare_string(key)) key else name,
@@ -269,7 +236,6 @@ eval_yaml_expr_nodes <- function(x) {
         if (all(sapply(keys, is_bare_string))) NULL else keys
     }
   }
-
   if (identical(attr(x, "yaml_tag", TRUE), "!expr")) {
     x <- eval(str2lang(x), globalenv())
   }
@@ -281,41 +247,57 @@ eval_yaml_expr_nodes <- function(x) {
 Because you control the traversal, you can add extra checks (for
 example, only allowing expressions under certain mapping keys).
 
-## Round-tripping tags when writing YAML
+## Document Streams and Markers
+
+Most YAML files contain a single YAML *document*. YAML also supports
+*document streams*, where a file or string holds multiple YAML
+documents. Documents are separated by a start marker (`---`) and may
+optionally include an end marker (`...`).
+
+### Reading Multiple Documents
+
+For the reading functions (`read_yaml()`, `parse_yaml()`), the `multi`
+argument defaults to `FALSE`. In this mode, only the first YAML document
+is read. If an end marker (`...`) or a new start marker (`---`) is
+encountered, the parser stops and returns only the first document. When
+`multi = TRUE`, all documents in the stream are returned.
+
+```{r}
+doc_stream <- "
+---
+doc 1
+---
+doc 2
+"
+parse_yaml(doc_stream)
+parse_yaml(doc_stream, multi = TRUE)
+```
+
+### Writing Multiple Documents
+
+For the writing functions (`write_yaml()`, `format_yaml()`), `multi`
+also defaults to `FALSE`, producing a single YAML document. When
+`multi = TRUE`, the provided R object is treated as a list of documents
+and written as a YAML document stream, with documents separated by the
+start marker `---`. Regardless of `multi`, `write_yaml()` always
+includes an initial start marker and a final end marker.
+
+```{r}
+write_yaml(list("foo", "bar"))
+write_yaml(list("foo", "bar"), multi = TRUE)
+```
+
+## Writing YAML with tags
 
 To emit a tag, attach `yaml_tag` to an R value before calling
 `format_yaml()` or `write_yaml()`.
 
 ```{r}
 tagged <- structure("1 + x", yaml_tag = "!expr")
-cat(format_yaml(tagged), "\n", sep = "")
+write_yaml(tagged)
 ```
 
-## Complex mapping keys and `yaml_keys`
-
-YAML allows any node to be a mapping key, not just strings. When a key
-is not a plain string (or carries a non-core tag), yaml12 stores the
-original keys in a `yaml_keys` attribute alongside the values.
-
-```{r}
-yaml <- "
-? [a, b]
-: tuple
-? {x: 1, y: 2}
-: map-key
-? !expr 1 + 1
-: tagged-key
-"
-
-doc <- parse_yaml(yaml, simplify = FALSE)
-names(doc)
-attr(doc, "yaml_keys")
-```
-
-Handlers run on keys first, so a tag handler can simplify keys before
-they land in `yaml_keys`.
-
-## Anchors, aliases, and merge keys
+## Anchors
 
 Anchors (`&id`) name a node; aliases (`*id`) copy it. Merge keys (`<<`)
 are YAML’s mapping merge helper. yaml12 resolves aliases and merges
@@ -323,26 +305,96 @@ before returning R objects, so aliases behave like copies rather than
 references.
 
 ```{r}
-yaml <- "
-defaults: &svc
-  retries: 3
-  timeout: 10
+str(parse_yaml("
+recycle-me: &anchor-name
+  a: b
+  c: d
 
-web:
-  <<: *svc
-  timeout: 30
-  secure: true
-
-cli:
-  <<: *svc
-  retries: 5
-"
-
-services <- parse_yaml(yaml, simplify = FALSE)
-services$web$timeout
-services$cli$retries
-identical(services$web$timeout, services$defaults$timeout)
+recycled:
+  - *anchor-name
+  - *anchor-name
+"))
 ```
 
-Use anchors and merge keys when you want YAML DRYness; once parsed, you
-work with ordinary R lists and vectors.
+## (Very) Advanced Tags
+
+The following are some YAML features that are rarely used, but are
+supported for 100% compliance with the YAML 1.2 spec.
+
+### Tag directives (`%TAG`)
+
+YAML lets you declare tag handles at the top of a document with `%TAG`
+directives. The syntax is `%TAG !<name>! <handle>`, and it applies to
+the rest of the document. The `!name!` is then automatically expanded in
+named tags:
+
+``` yaml
+%TAG !e! tag:example.com,2024:widgets/
+---
+item: !e!gizmo
+```
+
+Here the tag prefix `!e!` is automatically expanded to the full form
+upon parsing.
+
+```{r}
+dput(parse_yaml('
+%TAG !e! tag:example.com,2024:widgets/
+---
+item: !e!gizmo foo
+'))
+```
+
+You can also declare a global tag prefix, which will expand a bare "!"
+
+```{r}
+dput(parse_yaml('
+%TAG ! tag:example.com,2024:widgets/
+---
+item: !gizmo foo
+'))
+```
+
+### TAG URIs
+
+The above two forms are actually shorthands for resolving a tag "URI".
+You can bypass handle resolution by using the following tag syntax:
+`!<...>` Anything in `...` will not be expanded, but must be a valid URI
+(e.g., spaces must be escaped, like in a URL).
+
+```{r}
+dput(parse_yaml('
+%TAG ! tag:example.com,2024:widgets/
+---
+item: !<gizmo> foo
+'))
+```
+
+### Core schema tags
+
+You may also encounter tags that start with two `!!`. This is a special
+case of the `!name!suffix` tag syntax, where `name` is missing and
+implicitly resolved to the YAML Core schema handle:
+`tag:yaml.org,2002:`.
+
+The following three tags all resolve to the same internal representation
+and parse the same way:
+
+```{r}
+'
+- foo
+- !!str foo
+- !<tag:yaml.org,2002:str> foo
+' |> parse_yaml() |> dput()
+```
+
+Core schema tags are generally unnecessary since all nodes are resolved
+using the core schema already. However, they can be an alternative way
+to declare node types. The valid set of core schema tags: `map`, `seq`,
+`str`, `int`, `float`, `bool`, `null`.
+
+Note that YAML 1.2 [removed](https://yaml.org/spec/1.2.2/ext/changes/)
+some built-in types that were present in YAML 1.1.
+
+> The !!pairs, !!omap, !!set, !!timestamp and !!binary types have been
+> dropped.
