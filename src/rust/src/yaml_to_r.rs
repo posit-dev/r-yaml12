@@ -2,7 +2,7 @@ use crate::handlers::HandlerRegistry;
 use crate::timestamp::{is_timestamp_tag, parse_timestamp_scalar, timestamp_to_robj};
 use crate::unwind::EvalError;
 use crate::warning::emit_warning;
-use crate::{api_other, sym_yaml_keys, sym_yaml_tag, Fallible};
+use crate::{api_other, sym_yaml_keys, sym_yaml_tag, Fallible, TIMESTAMP_SUPPORT_ENABLED};
 use extendr_api::prelude::*;
 use saphyr::{Mapping, Scalar, Tag, Yaml, YamlLoader};
 use saphyr_parser::{Parser, ScalarStyle};
@@ -343,7 +343,7 @@ fn convert_tagged(
         }
     }
 
-    if is_timestamp_tag(tag) {
+    if TIMESTAMP_SUPPORT_ENABLED && is_timestamp_tag(tag) {
         let keep_empty_tzone = tag.handle.as_str() == "!";
         let preserve_tzone = true;
         if let Some(timestamp) = parse_timestamp_node(node, preserve_tzone, keep_empty_tzone)? {
@@ -384,6 +384,9 @@ enum TagClass {
 
 fn is_core_tag_without_attr(tag: &Tag) -> bool {
     if !tag.is_yaml_core_schema() {
+        return false;
+    }
+    if !TIMESTAMP_SUPPORT_ENABLED && is_timestamp_tag(tag) {
         return false;
     }
     matches!(
@@ -442,6 +445,10 @@ fn parse_timestamp_node(
 }
 
 fn simplify_timestamp_sequence(seq: &mut [Yaml]) -> Fallible<Option<Robj>> {
+    if !TIMESTAMP_SUPPORT_ENABLED {
+        return Ok(None);
+    }
+
     let mut date_vals: Vec<f64> = Vec::new();
     let mut posix_vals: Vec<f64> = Vec::new();
     let mut posix_tzone: Option<String> = None;

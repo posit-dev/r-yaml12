@@ -1,8 +1,11 @@
-use crate::timestamp::{
-    core_timestamp_tag, format_posix_precise, format_r_time, offset_minutes_from_tzone,
-    yaml_from_formatted_timestamp, yaml_from_formatted_timestamp_with_tag,
-};
 use crate::{api_other, sym_yaml_keys, sym_yaml_tag, Fallible};
+use crate::{
+    timestamp::{
+        core_timestamp_tag, format_posix_precise, format_r_time, offset_minutes_from_tzone,
+        yaml_from_formatted_timestamp, yaml_from_formatted_timestamp_with_tag,
+    },
+    TIMESTAMP_SUPPORT_ENABLED,
+};
 use extendr_api::prelude::*;
 use saphyr::{Mapping, Scalar, Tag, Yaml, YamlEmitter};
 use std::{borrow::Cow, fs, os::raw::c_char};
@@ -54,7 +57,7 @@ fn write_to_r_stdout(mut content: String) -> Fallible<()> {
 }
 
 fn robj_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
-    if robj.get_attrib(sym_yaml_tag()).is_none() {
+    if TIMESTAMP_SUPPORT_ENABLED && robj.get_attrib(sym_yaml_tag()).is_none() {
         if has_class(robj, "POSIXt") || has_class(robj, "POSIXct") {
             return posix_to_yaml(robj);
         }

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::{api_other, Fallible};
 use extendr_api::prelude::*;
 use saphyr::{Scalar, Tag, Yaml};

@@ -15,6 +15,8 @@ use unwind::EvalError;
 type Fallible<T> = StdResult<T, EvalError>;
 
 pub(crate) const R_STRING_MAX_BYTES: usize = i32::MAX as usize;
+/// Toggle timestamp parsing/formatting. Set to `true` to re-enable.
+pub(crate) const TIMESTAMP_SUPPORT_ENABLED: bool = false;
 
 fn api_other(msg: impl Into<String>) -> EvalError {
     EvalError::Api(Error::Other(msg.into()))
