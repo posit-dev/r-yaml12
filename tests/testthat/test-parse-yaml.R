@@ -243,6 +243,33 @@ test_that("parse_yaml handler errors propagate", {
   )
 })
 
+test_that("parse_yaml handles large handler sets (hash map backend)", {
+  tags <- sprintf("!h%d", seq_len(10))
+  called <- new.env(parent = emptyenv())
+  handlers <- stats::setNames(
+    lapply(tags, function(tag) {
+      force(tag)
+      function(x) {
+        called[[tag]] <<- x
+        paste0(tag, ":", x)
+      }
+    }),
+    tags
+  )
+
+  result <- parse_yaml("value: !h9 bar", handlers = handlers)
+  expect_identical(result, list(value = "!h9:bar"))
+  expect_identical(as.list(called, all.names = TRUE), list("!h9" = "bar"))
+})
+
+test_that("parse_yaml errors on duplicate handler names", {
+  dup_handlers <- list("!dup" = identity, "!dup" = as.integer)
+  expect_error(
+    parse_yaml("value: !dup 1", handlers = dup_handlers),
+    "Duplicate handler `!dup`"
+  )
+})
+
 test_that("parse_yaml validates handlers argument", {
   expect_error(parse_yaml("foo: !expr 1", handlers = 12), "named list")
   expect_error(

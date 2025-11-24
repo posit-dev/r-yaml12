@@ -72,44 +72,35 @@ impl<'a> HandlerRegistry<'a> {
             return Err(api_other("`handlers` must be a named list of functions"));
         };
 
-        let use_hash_map = list.len() >= HASHMAP_MIN_LEN;
+        let len = list.len();
+        let use_hash_map = len >= HASHMAP_MIN_LEN;
+
         if use_hash_map {
-            let mut handlers_map = HashMap::with_capacity(list.len());
+            let mut handlers_map = HashMap::with_capacity(len);
             for (name, value) in names_attr.zip(list.values()) {
-                if name.is_na() || name.is_empty() {
-                    return Err(api_other("`handlers` must be a named list of functions"));
+                let name_str: &str = name;
+                let entry = handler_entry_from_parts(name, &value)?;
+                if handlers_map.insert(entry.key, entry.handler).is_some() {
+                    return Err(api_other(format!(
+                        "Duplicate handler `{name_str}`; handler names must be unique"
+                    )));
                 }
-                let name_str = name;
-                let key = parse_handler_name(name_str)?;
-                let func = value.as_function().ok_or_else(|| {
-                    api_other(format!(
-                        "Handler `{name}` must be a function (closure or primitive)"
-                    ))
-                })?;
-                handlers_map.insert(key, func);
             }
             return Ok(Some(Self {
                 store: HandlerStore::Large(handlers_map),
             }));
         }
 
-        let mut entries: Vec<HandlerEntry<'a>> = Vec::with_capacity(list.len());
+        let mut entries: Vec<HandlerEntry<'a>> = Vec::with_capacity(len);
         for (name, value) in names_attr.zip(list.values()) {
-            if name.is_na() || name.is_empty() {
-                return Err(api_other("`handlers` must be a named list of functions"));
+            let name_str: &str = name;
+            let entry = handler_entry_from_parts(name, &value)?;
+            if entries.iter().any(|existing| existing.key == entry.key) {
+                return Err(api_other(format!(
+                    "Duplicate handler `{name_str}`; handler names must be unique"
+                )));
             }
-            let name_str = name;
-            let key = parse_handler_name(name_str)?;
-            let func = value.as_function().ok_or_else(|| {
-                api_other(format!(
-                    "Handler `{name}` must be a function (closure or primitive)"
-                ))
-            })?;
-            if let Some(existing) = entries.iter_mut().find(|entry| entry.key == key) {
-                existing.handler = func;
-            } else {
-                entries.push(HandlerEntry { key, handler: func });
-            }
+            entries.push(entry);
         }
 
         Ok(Some(Self {
@@ -167,6 +158,19 @@ impl<'a> HandlerRegistry<'a> {
             Err(token) => Err(EvalError::Jump(token)),
         }
     }
+}
+
+fn handler_entry_from_parts<'a>(name: &'a str, value: &Robj) -> Fallible<HandlerEntry<'a>> {
+    if name.is_na() || name.is_empty() {
+        return Err(api_other("`handlers` must be a named list of functions"));
+    }
+    let key = parse_handler_name(name)?;
+    let handler = value.as_function().ok_or_else(|| {
+        api_other(format!(
+            "Handler `{name}` must be a function (closure or primitive)"
+        ))
+    })?;
+    Ok(HandlerEntry { key, handler })
 }
 
 fn parse_handler_name<'a>(name: &'a str) -> Fallible<HandlerKey<'a>> {
