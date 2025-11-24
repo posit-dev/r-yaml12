@@ -6,7 +6,7 @@ use crate::{api_other, sym_yaml_keys, sym_yaml_tag, Fallible, TIMESTAMP_SUPPORT_
 use extendr_api::prelude::*;
 use saphyr::{Mapping, Scalar, Tag, Yaml, YamlLoader};
 use saphyr_parser::{Parser, ScalarStyle};
-use std::{borrow::Cow, fs, mem};
+use std::{fs, mem};
 
 fn resolve_representation(node: &mut Yaml, _simplify: bool) {
     let (value, style, tag) = match mem::replace(node, Yaml::BadValue) {
@@ -21,50 +21,36 @@ fn resolve_representation(node: &mut Yaml, _simplify: bool) {
 
     let parsed = match tag {
         Some(tag) => {
-            let owned_tag = tag.into_owned();
-            match classify_tag(&owned_tag) {
-                TagClass::Canonical(kind) => {
-                    if kind == CanonicalTagKind::CoreNull && is_plain_empty {
-                        Yaml::Value(Scalar::Null)
-                    } else {
-                        let canonical_tag = Cow::Owned(make_canonical_tag(kind));
-                        Yaml::value_from_cow_and_metadata(value, style, Some(&canonical_tag))
+            if tag.is_yaml_core_schema() {
+                match tag.suffix.as_str() {
+                    "str" => Yaml::value_from_cow_and_metadata(value, style, Some(&tag)),
+                    "null" => {
+                        if is_plain_empty {
+                            Yaml::Value(Scalar::Null)
+                        } else {
+                            Yaml::value_from_cow_and_metadata(value, style, Some(&tag))
+                        }
                     }
-                }
-                TagClass::Core => {
-                    let value_for_tagged = value.clone();
-                    let core_tag: Cow<'_, Tag> = Cow::Owned(owned_tag);
-                    if is_timestamp_tag(core_tag.as_ref()) {
-                        Yaml::Tagged(
-                            core_tag,
-                            Box::new(Yaml::Value(Scalar::String(value_for_tagged))),
-                        )
-                    } else {
+                    _ if is_timestamp_tag(tag.as_ref()) => {
+                        Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value))))
+                    }
+                    _ => {
                         let parsed =
-                            Yaml::value_from_cow_and_metadata(value, style, Some(&core_tag));
-                        if matches!(parsed, Yaml::BadValue) {
-                            let suffix = core_tag.as_ref().suffix.as_str();
-                            let is_known_core_scalar =
-                                matches!(suffix, "bool" | "int" | "float" | "null" | "str");
-                            // Preserve unknown core-schema tags (e.g., !!binary) as tagged strings;
-                            // keep failures for known core scalar tags as BadValue so they error.
-                            if is_known_core_scalar {
-                                parsed
-                            } else {
-                                Yaml::Tagged(
-                                    core_tag,
-                                    Box::new(Yaml::Value(Scalar::String(value_for_tagged))),
-                                )
-                            }
+                            Yaml::value_from_cow_and_metadata(value.clone(), style, Some(&tag));
+                        if matches!(parsed, Yaml::BadValue)
+                            && !matches!(
+                                tag.suffix.as_str(),
+                                "bool" | "int" | "float" | "null" | "str"
+                            )
+                        {
+                            Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value))))
                         } else {
                             parsed
                         }
                     }
                 }
-                TagClass::NonCore => Yaml::Tagged(
-                    Cow::Owned(owned_tag),
-                    Box::new(Yaml::Value(Scalar::String(value))),
-                ),
+            } else {
+                Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value))))
             }
         }
         None if is_plain_empty => Yaml::Value(Scalar::Null),
@@ -295,10 +281,7 @@ fn mapping_to_robj(
             Yaml::Tagged(tag, inner) => match inner.as_ref() {
                 Yaml::Value(Scalar::String(name)) => {
                     names.push(name);
-                    if !matches!(
-                        classify_tag(tag),
-                        TagClass::Canonical(CanonicalTagKind::CoreString)
-                    ) {
+                    if !is_core_string_tag(tag) {
                         needs_yaml_keys_attr = true;
                     }
                 }
@@ -356,26 +339,11 @@ fn convert_tagged(
     }
 
     let value = yaml_to_robj(node, simplify, handlers)?;
-    if is_core_tag_without_attr(tag) {
-        return Ok(value);
-    }
-    if matches!(classify_tag(tag), TagClass::Canonical(_)) {
+    if is_core_tag_without_attr(tag) || is_core_string_tag(tag) || is_core_null_tag(tag) {
         return Ok(value);
     }
 
     set_yaml_tag_attr(value, tag)
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-enum CanonicalTagKind {
-    CoreString,
-    CoreNull,
-}
-
-enum TagClass {
-    Canonical(CanonicalTagKind),
-    Core,
-    NonCore,
 }
 
 fn is_core_tag_without_attr(tag: &Tag) -> bool {
@@ -391,37 +359,12 @@ fn is_core_tag_without_attr(tag: &Tag) -> bool {
     )
 }
 
-fn canonical_tag_kind(tag: &Tag) -> Option<CanonicalTagKind> {
-    if !tag.is_yaml_core_schema() {
-        return None;
-    }
-
-    match tag.suffix.as_str() {
-        "str" => Some(CanonicalTagKind::CoreString),
-        "null" => Some(CanonicalTagKind::CoreNull),
-        _ => None,
-    }
+fn is_core_string_tag(tag: &Tag) -> bool {
+    tag.is_yaml_core_schema() && tag.suffix.as_str() == "str"
 }
 
-fn classify_tag(tag: &Tag) -> TagClass {
-    if let Some(kind) = canonical_tag_kind(tag) {
-        TagClass::Canonical(kind)
-    } else if tag.is_yaml_core_schema() {
-        TagClass::Core
-    } else {
-        TagClass::NonCore
-    }
-}
-
-fn make_canonical_tag(kind: CanonicalTagKind) -> Tag {
-    let suffix = match kind {
-        CanonicalTagKind::CoreString => "str",
-        CanonicalTagKind::CoreNull => "null",
-    };
-    Tag {
-        handle: "tag:yaml.org,2002:".to_string(),
-        suffix: suffix.to_string(),
-    }
+fn is_core_null_tag(tag: &Tag) -> bool {
+    tag.is_yaml_core_schema() && tag.suffix.as_str() == "null"
 }
 
 fn set_yaml_tag_attr(mut value: Robj, tag: &Tag) -> Fallible<Robj> {
@@ -434,7 +377,7 @@ fn set_yaml_tag_attr(mut value: Robj, tag: &Tag) -> Fallible<Robj> {
     }
 
     if value.is_null() {
-        if !matches!(canonical_tag_kind(tag), Some(CanonicalTagKind::CoreNull)) {
+        if !is_core_null_tag(tag) {
             let warn_msg = format!(
                 "yaml12: discarding tag `{rendered_tag}` on null scalar; R NULL cannot carry attributes"
             );
@@ -606,10 +549,7 @@ mod tests {
             handle: "tag:yaml.org,2002:".to_string(),
             suffix: "str".to_string(),
         };
-        assert_eq!(
-            canonical_tag_kind(&canonical_string),
-            Some(CanonicalTagKind::CoreString)
-        );
+        assert!(is_core_string_tag(&canonical_string));
 
         let cases = [
             ("!!str true", ParsedValueKind::String),
@@ -633,7 +573,7 @@ mod tests {
                 }
                 Yaml::Tagged(tag, inner) => {
                     assert_eq!(
-                        canonical_tag_kind(&tag).is_some(),
+                        is_core_string_tag(&tag),
                         tag.is_yaml_core_schema()
                             && normalized_suffix(tag.suffix.as_str()) == "str",
                         "input `{input}` canonical detection should match core `str` suffix",
@@ -663,10 +603,7 @@ mod tests {
             handle: "tag:yaml.org,2002:".to_string(),
             suffix: "null".to_string(),
         };
-        assert_eq!(
-            canonical_tag_kind(&canonical_null),
-            Some(CanonicalTagKind::CoreNull)
-        );
+        assert!(is_core_null_tag(&canonical_null));
 
         let cases = [
             "!!null null",
@@ -684,7 +621,7 @@ mod tests {
                 }
                 Yaml::Tagged(tag, inner) => {
                     assert_eq!(
-                        canonical_tag_kind(&tag).is_some(),
+                        is_core_null_tag(&tag),
                         tag.is_yaml_core_schema()
                             && normalized_suffix(tag.suffix.as_str()) == "null",
                         "input `{input}` canonical detection should match core `null` suffix",
