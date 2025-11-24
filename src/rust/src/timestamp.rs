@@ -27,15 +27,11 @@ pub(crate) fn is_timestamp_tag(tag: &Tag) -> bool {
     matches!(
         (tag.handle.as_str(), tag.suffix.as_str()),
         ("tag:yaml.org,2002:", "timestamp")
-            | ("!!", "timestamp")
             | ("!", "timestamp")
             | ("", "timestamp")
             | ("", "!timestamp")
             | ("", "!!timestamp")
             | ("", "tag:yaml.org,2002:timestamp")
-            | ("", "<tag:yaml.org,2002:timestamp>")
-            | ("!", "<tag:yaml.org,2002:timestamp>")
-            | ("!", "!timestamp")
     )
 }
 
