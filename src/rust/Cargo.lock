@@ -32,7 +32,7 @@ dependencies = [
 [[package]]
 name = "extendr-api"
 version = "0.8.1"
-source = "git+https://github.com/extendr/extendr#200422633dcdd3e84fa35915aa4d5acdea14f267"
+source = "git+https://github.com/extendr/extendr#46aa9ed47455a5188c362745e92166bc2ed7cab6"
 dependencies = [
  "extendr-ffi",
  "extendr-macros",
@@ -43,12 +43,12 @@ dependencies = [
 [[package]]
 name = "extendr-ffi"
 version = "0.8.1"
-source = "git+https://github.com/extendr/extendr#200422633dcdd3e84fa35915aa4d5acdea14f267"
+source = "git+https://github.com/extendr/extendr#46aa9ed47455a5188c362745e92166bc2ed7cab6"
 
 [[package]]
 name = "extendr-macros"
 version = "0.8.1"
-source = "git+https://github.com/extendr/extendr#200422633dcdd3e84fa35915aa4d5acdea14f267"
+source = "git+https://github.com/extendr/extendr#46aa9ed47455a5188c362745e92166bc2ed7cab6"
 dependencies = [
  "lazy_static",
  "proc-macro2",
@@ -137,7 +137,7 @@ dependencies = [
 [[package]]
 name = "saphyr"
 version = "0.0.6"
-source = "git+https://github.com/t-kalinowski/saphyr?branch=r-patched#55db1b5541ce33f82029f2285e167e56caf1137a"
+source = "git+https://github.com/t-kalinowski/saphyr?branch=r-patched#2a7d4a3a3ec74a880bb56201f91c3c5a132c6db0"
 dependencies = [
  "encoding_rs",
  "hashlink",
@@ -149,7 +149,7 @@ dependencies = [
 [[package]]
 name = "saphyr-parser"
 version = "0.0.6"
-source = "git+https://github.com/t-kalinowski/saphyr?branch=r-patched#55db1b5541ce33f82029f2285e167e56caf1137a"
+source = "git+https://github.com/t-kalinowski/saphyr?branch=r-patched#2a7d4a3a3ec74a880bb56201f91c3c5a132c6db0"
 dependencies = [
  "arraydeque",
  "thiserror",
@@ -157,9 +157,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.110"
+version = "2.0.111"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a99801b5bd34ede4cf3fc688c5919368fea4e4814a4664359503e6015b280aea"
+checksum = "390cc9a294ab71bdb1aa2e99d13be9c753cd2d7bd6560c77118597410c4d2e87"
 dependencies = [
  "proc-macro2",
  "quote",
