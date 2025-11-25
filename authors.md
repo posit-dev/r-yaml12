@@ -10,6 +10,9 @@
 
 ## Citation
 
+Source:
+[`DESCRIPTION`](https://github.com/t-kalinowski/r-yaml12/blob/main/DESCRIPTION)
+
 Kalinowski T (2025). *yaml12: Fast YAML 1.2 Parser and Formatter for R*.
 R package version 0.0.0.9000,
 <https://t-kalinowski.github.io/r-yaml12/>.
