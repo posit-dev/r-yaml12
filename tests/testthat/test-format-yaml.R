@@ -120,13 +120,14 @@ test_that("format_yaml errors clearly when multi = TRUE without a list", {
 })
 
 test_that("format_yaml preserves binary tags", {
-  tagged <- structure(b64::encode("hello world"), yaml_tag = "!!binary")
+  # b64::encode("hello world")
+  tagged <- structure("aGVsbG8gd29ybGQ=", yaml_tag = "!!binary")
   out <- format_yaml(tagged)
   expect_true(startsWith(out, "!!binary "))
   expect_true(grepl("!!binary", out, fixed = TRUE))
 
   reparsed <- parse_yaml(out)
-  expect_identical(as.character(reparsed), b64::encode("hello world"))
+  expect_identical(as.character(reparsed), "aGVsbG8gd29ybGQ=")
   expect_identical(
     attr(reparsed, "yaml_tag", exact = TRUE),
     "tag:yaml.org,2002:binary"

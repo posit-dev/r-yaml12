@@ -447,7 +447,7 @@ timestamp_handler <- function(x) {
 # Binary handler: decode Base64 into raw; leave as-is on failure.
 binary_handler <- function(x) {
   stopifnot(is.character(x), length(x) == 1)
-  b64::decode(gsub("[ \n]", "", x))[[1L]]
+  jsonlite::base64_dec(gsub("[ \n]", "", x))
 }
 ```
 
