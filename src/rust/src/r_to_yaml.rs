@@ -287,6 +287,17 @@ fn list_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
 
 fn apply_tag_if_present(robj: &Robj, node: Yaml<'static>) -> Fallible<Yaml<'static>> {
     if let Some(tag) = extract_yaml_tag(robj)? {
+        // saphyr represents a bare `!` tag as handle="" / suffix="!" when parsing,
+        // but the emitter cannot round-trip that shape. Normalize to handle="!" /
+        // suffix="" so the output is a single `!` tag that still round-trips.
+        let tag = if tag.handle.is_empty() && tag.suffix.as_str() == "!" {
+            Tag {
+                handle: "!".to_string(),
+                suffix: String::new(),
+            }
+        } else {
+            tag
+        };
         Ok(Yaml::Tagged(Cow::Owned(tag), Box::new(node)))
     } else {
         Ok(node)
@@ -304,57 +315,52 @@ fn extract_yaml_tag(robj: &Robj) -> Fallible<Option<Tag>> {
         ))
     })?;
     let tag_str = tag_str.trim();
-    if tag_str.is_empty() || is_core_schema_tag(tag_str) {
+    if tag_str.is_empty() {
         return Ok(None);
     }
-    parse_tag_string(tag_str).map(Some)
-}
 
-fn is_core_schema_tag(tag: &str) -> bool {
-    parse_tag_string(tag)
-        .map(|parsed| parsed.is_yaml_core_schema())
-        .unwrap_or(false)
-}
+    let invalid_tag_error = || api_other(format!("Invalid YAML tag `{tag_str}`"));
 
-fn parse_tag_string(tag: &str) -> Fallible<Tag> {
-    const YAML_CORE_HANDLE: &str = "tag:yaml.org,2002:";
-
-    let trimmed = tag.trim();
-    if trimmed.is_empty() {
-        return Err(api_other(
-            "`yaml_tag` attribute must not be the empty string",
-        ));
-    }
-
-    let Some((mut handle, mut suffix)) = split_tag_name(trimmed) else {
-        return Err(api_other(format!("Invalid YAML tag `{trimmed}`")));
+    let tag = if tag_str == "!" {
+        Tag {
+            handle: String::new(),
+            suffix: "!".to_string(),
+        }
+    } else if let Some(rest) = tag_str.strip_prefix("!!") {
+        if rest.is_empty() {
+            return Err(invalid_tag_error());
+        }
+        let mut suffix = String::with_capacity(rest.len() + 1);
+        suffix.push('!');
+        suffix.push_str(rest);
+        Tag {
+            handle: "!".to_string(),
+            suffix,
+        }
+    } else if let Some(rest) = tag_str.strip_prefix('!') {
+        if rest.is_empty() {
+            return Err(invalid_tag_error());
+        }
+        Tag {
+            handle: "!".to_string(),
+            suffix: rest.to_string(),
+        }
+    } else if let Some((handle, suffix)) = tag_str.rsplit_once('!') {
+        if suffix.is_empty() {
+            return Err(invalid_tag_error());
+        }
+        Tag {
+            handle: handle.to_string(),
+            suffix: suffix.to_string(),
+        }
+    } else {
+        Tag {
+            handle: String::new(),
+            suffix: tag_str.to_string(),
+        }
     };
 
-    if handle == "!!" {
-        handle = YAML_CORE_HANDLE;
-    } else if handle.is_empty() && suffix.starts_with(YAML_CORE_HANDLE) {
-        suffix = &suffix[YAML_CORE_HANDLE.len()..];
-        handle = YAML_CORE_HANDLE;
-    }
-
-    Ok(Tag {
-        handle: handle.to_string(),
-        suffix: suffix.to_string(),
-    })
-}
-
-fn split_tag_name(name: &str) -> Option<(&str, &str)> {
-    if let Some(pos) = name.rfind('!') {
-        if pos + 1 < name.len() {
-            return Some(name.split_at(pos + 1));
-        }
-    }
-    if let Some(pos) = name.rfind(':') {
-        if pos + 1 < name.len() {
-            return Some(name.split_at(pos + 1));
-        }
-    }
-    None
+    Ok(Some(tag))
 }
 
 pub(crate) fn format_yaml_impl(value: &Robj, multi: bool) -> Fallible<String> {

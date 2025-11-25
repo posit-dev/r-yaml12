@@ -38,33 +38,31 @@ test_that("format_yaml preserves yaml_tag attribute", {
   expect_identical(attr(reparsed$seq, "yaml_tag"), "!seq")
 })
 
-test_that("format_yaml ignores yaml_tag attributes using core schema handle", {
+test_that("format_yaml preserves yaml_tag attributes using core schema handle", {
   obj <- structure(
     list(
-      scalar = structure("bar", yaml_tag = "!!seq"),
-      seq = structure(list(1L, 2L), yaml_tag = "!!map")
+      seq = structure(list(1L, 2L), yaml_tag = "!!seq"),
+      map = structure(list(foo = "bar"), yaml_tag = "!!map")
     ),
     yaml_tag = "!custom"
   )
 
   encoded <- format_yaml(obj)
-  expect_false(grepl("!!seq", encoded, fixed = TRUE))
-  expect_false(grepl("!!map", encoded, fixed = TRUE))
-  expect_false(grepl("!seq", encoded, fixed = TRUE))
-  expect_false(grepl("!map", encoded, fixed = TRUE))
+  expect_true(grepl("!!seq", encoded, fixed = TRUE))
+  expect_true(grepl("!!map", encoded, fixed = TRUE))
   expect_true(grepl("!custom", encoded, fixed = TRUE))
 
-  reparsed <- parse_yaml(encoded)
-  expect_null(attr(reparsed$scalar, "yaml_tag", exact = TRUE))
-  expect_null(attr(reparsed$seq, "yaml_tag", exact = TRUE))
+  reparsed <- parse_yaml(encoded, simplify = FALSE)
   expect_identical(attr(reparsed, "yaml_tag", exact = TRUE), "!custom")
+  expect_null(attr(reparsed$seq, "yaml_tag", exact = TRUE))
+  expect_null(attr(reparsed$map, "yaml_tag", exact = TRUE))
 })
 
-test_that("format_yaml ignores literal core-schema yaml_tag attributes", {
-  obj <- structure("bar", yaml_tag = "tag:yaml.org,2002:str")
+test_that("format_yaml keeps fully-qualified yaml_tag strings intact", {
+  obj <- structure("bar", yaml_tag = "!<tag:yaml.org,2002:str>")
 
   encoded <- format_yaml(obj)
-  expect_false(grepl("tag:yaml.org,2002:str", encoded, fixed = TRUE))
+  expect_true(grepl("!<tag:yaml.org,2002:str>", encoded, fixed = TRUE))
 
   reparsed <- parse_yaml(encoded)
   expect_identical(reparsed, "bar")
@@ -118,6 +116,20 @@ test_that("format_yaml errors clearly when multi = TRUE without a list", {
     format_yaml(1L, multi = TRUE),
     "`value` must be a list when `multi = TRUE`",
     fixed = TRUE
+  )
+})
+
+test_that("format_yaml preserves binary tags", {
+  tagged <- structure(b64::encode("hello world"), yaml_tag = "!!binary")
+  out <- format_yaml(tagged)
+  expect_true(startsWith(out, "!!binary "))
+  expect_true(grepl("!!binary", out, fixed = TRUE))
+
+  reparsed <- parse_yaml(out)
+  expect_identical(as.character(reparsed), b64::encode("hello world"))
+  expect_identical(
+    attr(reparsed, "yaml_tag", exact = TRUE),
+    "tag:yaml.org,2002:binary"
   )
 })
 
@@ -182,12 +194,21 @@ test_that("format_yaml errors clearly on invalid yaml_tag", {
     "non-missing string.*Must not be NA"
   )
 
-  malformed <- structure("value", yaml_tag = "!")
+  malformed <- structure("value", yaml_tag = "!!")
   expect_error(
     format_yaml(malformed),
-    "Invalid YAML tag `!`",
+    "Invalid YAML tag `!!`",
     fixed = TRUE
   )
+})
+
+test_that("format_yaml round-trips bare local tag handle", {
+  tagged <- structure(1, yaml_tag = "!")
+  encoded <- format_yaml(tagged)
+  expect_identical(encoded, "! 1")
+
+  reparsed <- parse_yaml(encoded)
+  expect_identical(reparsed, structure("1", yaml_tag = "!"))
 })
 
 if (FALSE) {
