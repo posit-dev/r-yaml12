@@ -1,5 +1,9 @@
 ---
 output: github_document
+editor_options:
+  markdown:
+    wrap: 72
+    canonical: true
 ---
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
@@ -16,15 +20,20 @@ knitr::opts_chunk$set(
 # yaml12
 
 <!-- badges: start -->
+
 [![R-CMD-check](https://github.com/t-kalinowski/r-yaml12/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/t-kalinowski/r-yaml12/actions/workflows/R-CMD-check.yaml)
 [![extendr](https://img.shields.io/badge/extendr-*-276DC2)](https://extendr.github.io/extendr/extendr_api/)
+
 <!-- badges: end -->
 
-A YAML 1.2 parser/formatter for R, implemented in Rust for speed and correctness.
+A YAML 1.2 parser/formatter for R, implemented in Rust for speed and
+correctness. Built on the excellent
+[`saphyr`](https://github.com/saphyr-rs/saphyr) crate.
 
 ## Installation
 
-You can install the development version of yaml12 from [GitHub](https://github.com/) with:
+You can install the development version of yaml12 from
+[GitHub](https://github.com/) with:
 
 ``` r
 # install.packages("pak")
@@ -65,14 +74,15 @@ docs_in <- read_yaml("my-multi.yaml", multi = TRUE)
 
 stopifnot(identical(docs_in, docs_out))
 ```
+
 ```{r, echo = FALSE}
 unlink(c("my.yaml", "my-multi.yaml"))
 ```
 
-
 ### Tag handlers
 
-Handlers let you opt into custom behavior for tagged nodes while keeping the default parser strict and safe.
+Handlers let you opt into custom behavior for tagged nodes while keeping
+the default parser strict and safe.
 
 ```{r}
 yaml <- "
@@ -105,5 +115,7 @@ str(parse_yaml(yaml))  # tags preserved in `yaml_tag`
 
 ## Documentation
 
-- `vignette("yaml-2-minute-intro", package = "yaml12")` for a quick primer.
-- `vignette("yaml-tags-and-advanced-features", package = "yaml12")` for tags, handlers, anchors, and advanced YAML features.
+-   `vignette("yaml-2-minute-intro", package = "yaml12")` for a quick
+    primer.
+-   `vignette("yaml-tags-and-advanced-features", package = "yaml12")`
+    for tags, handlers, anchors, and advanced YAML features.

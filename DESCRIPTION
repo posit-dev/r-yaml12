@@ -18,6 +18,7 @@ Suggests:
     jsonlite,
     knitr,
     rmarkdown,
+    tidytemplate,
     testthat (>= 3.0.0),
     waldo,
     withr

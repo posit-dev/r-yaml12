@@ -59,7 +59,7 @@ settings:
 ```{r, echo = FALSE}
 first_example <- '
 title: A Modern YAML parser written in Rust
-properties: [correct, safe, fast, simple] 
+properties: [correct, safe, fast, simple]
 score: 9.5
 categories:
   - yaml
@@ -118,7 +118,7 @@ one space past the dash:
 
 ↓
 
-```         
+``` r
 list(
   list(name = "cat", toys = c("string", "box")),
   list(name = "dog", toys = c("ball", "bone"))

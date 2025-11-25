@@ -7,10 +7,12 @@
 
 [![R-CMD-check](https://github.com/t-kalinowski/r-yaml12/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/t-kalinowski/r-yaml12/actions/workflows/R-CMD-check.yaml)
 [![extendr](https://img.shields.io/badge/extendr-*-276DC2)](https://extendr.github.io/extendr/extendr_api/)
+
 <!-- badges: end -->
 
 A YAML 1.2 parser/formatter for R, implemented in Rust for speed and
-correctness.
+correctness. Built on the excellent
+[`saphyr`](https://github.com/saphyr-rs/saphyr) crate.
 
 ## Installation
 

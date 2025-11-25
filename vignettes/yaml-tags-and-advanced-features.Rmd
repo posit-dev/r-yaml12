@@ -41,9 +41,9 @@ most common form is a simple local short tag that starts with `!`:
 dput(parse_yaml("!some_tag some_value"))
 ```
 
-The presence of a custom tag bypasses normal scalar node type
-inference; the scalar is always returned as a string even when the
-content looks like another type.
+The presence of a custom tag bypasses normal scalar node type inference;
+the scalar is always returned as a string even when the content looks
+like another type.
 
 ```{r}
 parse_yaml("! true")
@@ -304,8 +304,8 @@ parse_yaml(rmd_lines)
 ```
 
 Here the parser returns just the YAML frontmatter because the second
-`---` technically ends the first _YAML document_ in a _YAML document
-stream_; with `multi = FALSE` the parser stops there and returns just
+`---` technically ends the first *YAML document* in a *YAML document
+stream*; with `multi = FALSE` the parser stops there and returns just
 the first YAML document.
 
 ## Writing YAML with tags
