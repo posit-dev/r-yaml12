@@ -1,0 +1,165 @@
+The binary compiled from the source code of this package contains the following Rust crates:
+
+
+-------------------------------------------------------------
+
+Name:        arraydeque
+Repository:  https://github.com/andylokandy/arraydeque
+Authors:     andylokandy
+License:     MIT/Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        autocfg
+Repository:  https://github.com/cuviper/autocfg
+Authors:     Josh Stone
+License:     Apache-2.0 OR MIT
+
+-------------------------------------------------------------
+
+Name:        cfg-if
+Repository:  https://github.com/rust-lang/cfg-if
+Authors:     Alex Crichton
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        encoding_rs
+Repository:  https://github.com/hsivonen/encoding_rs
+Authors:     Henri Sivonen
+License:     (Apache-2.0 OR MIT) AND BSD-3-Clause
+
+-------------------------------------------------------------
+
+Name:        extendr-api
+Repository:  https://github.com/extendr/extendr
+Authors:     andy-thomason, Thomas Down, Mossa Merhi Reimert, Josiah Parry, Claus O. Wilke, Hiroaki Yutani, Ilia A. Kosenkov, Michael Milton
+License:     MIT
+
+-------------------------------------------------------------
+
+Name:        extendr-ffi
+Repository:  https://github.com/extendr/extendr
+Authors:     andy-thomason, Thomas Down, Mossa Merhi Reimert, Josiah Parry, Claus O. Wilke, Hiroaki Yutani, Ilia A. Kosenkov, Michael Milton
+License:     MIT
+
+-------------------------------------------------------------
+
+Name:        extendr-macros
+Repository:  https://github.com/extendr/extendr
+Authors:     andy-thomason, Thomas Down, Mossa Merhi Reimert, Josiah Parry, Claus O. Wilke, Hiroaki Yutani, Ilia A. Kosenkov, Michael Milton
+License:     MIT
+
+-------------------------------------------------------------
+
+Name:        foldhash
+Repository:  https://github.com/orlp/foldhash
+Authors:     Orson Peters
+License:     Zlib
+
+-------------------------------------------------------------
+
+Name:        hashbrown
+Repository:  https://github.com/rust-lang/hashbrown
+Authors:     Amanieu d'Antras
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        hashlink
+Repository:  https://github.com/kyren/hashlink
+Authors:     kyren
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        lazy_static
+Repository:  https://github.com/rust-lang-nursery/lazy-static.rs
+Authors:     Marvin Löbel
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        num-traits
+Repository:  https://github.com/rust-num/num-traits
+Authors:     The Rust Project Developers
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        once_cell
+Repository:  https://github.com/matklad/once_cell
+Authors:     Aleksey Kladov
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        ordered-float
+Repository:  https://github.com/reem/rust-ordered-float
+Authors:     Jonathan Reem, Matt Brubeck
+License:     MIT
+
+-------------------------------------------------------------
+
+Name:        paste
+Repository:  https://github.com/dtolnay/paste
+Authors:     David Tolnay
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        proc-macro2
+Repository:  https://github.com/dtolnay/proc-macro2
+Authors:     David Tolnay, Alex Crichton
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        quote
+Repository:  https://github.com/dtolnay/quote
+Authors:     David Tolnay
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        saphyr
+Repository:  https://github.com/saphyr-rs/saphyr
+Authors:     Ethiraric, David Aguilar, Yuheng Chen
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        saphyr-parser
+Repository:  https://github.com/saphyr-rs/saphyr
+Authors:     Ethiraric, David Aguilar, Yuheng Chen
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        syn
+Repository:  https://github.com/dtolnay/syn
+Authors:     David Tolnay
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        thiserror
+Repository:  https://github.com/dtolnay/thiserror
+Authors:     David Tolnay
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        thiserror-impl
+Repository:  https://github.com/dtolnay/thiserror
+Authors:     David Tolnay
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        unicode-ident
+Repository:  https://github.com/dtolnay/unicode-ident
+Authors:     David Tolnay
+License:     (MIT OR Apache-2.0) AND Unicode-3.0
+
+-------------------------------------------------------------
