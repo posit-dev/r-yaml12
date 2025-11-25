@@ -28,8 +28,8 @@ pak::pak("t-kalinowski/r-yaml12")
 library(yaml12)
 
 yaml <- "
-title: A modern YAML parser written in Rust
-properties: [fast, correct, stable]
+title: A modern YAML parser and emitter written in Rust
+properties: [fast, correct, safe, simple]
 sequences:
   simplify: true
 "
@@ -37,8 +37,8 @@ sequences:
 doc <- parse_yaml(yaml)
 str(doc)
 #> List of 3
-#>  $ title     : chr "A modern YAML parser written in Rust"
-#>  $ properties: chr [1:3] "fast" "correct" "stable"
+#>  $ title     : chr "A modern YAML parser and emitter written in Rust"
+#>  $ properties: chr [1:4] "fast" "correct" "safe" "simple"
 #>  $ sequences :List of 1
 #>   ..$ simplify: logi TRUE
 ```
@@ -55,6 +55,7 @@ stopifnot(identical(value_out, value_in))
 
 # Multi-document streams
 docs_out <- list(list(foo = 1L), list(bar = c(2L, NA)))
+
 write_yaml(docs_out, "my-multi.yaml", multi = TRUE)
 docs_in <- read_yaml("my-multi.yaml", multi = TRUE)
 

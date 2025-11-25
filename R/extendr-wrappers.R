@@ -12,13 +12,45 @@ NULL
 
 #' Parse YAML 1.2 document(s) into base R structures.
 #'
-#' Supports scalars, sequences, and mappings; YAML tags are preserved in a
-#' `yaml_tag` attribute when possible. YAML anchors and aliases are resolved
-#' by the parser, so aliases behave like copies of their target nodes.
+#' `parse_yaml()` takes strings of YAML; `read_yaml()` reads from a file path.
+#'
+#' YAML tags without a corresponding `handler` are preserved in a `yaml_tag` attribute.
+#' Mappings with keys that are not all simple scalar strings are returned as a named list with a `yaml_keys` attribute.
+#'
 #' @param text Character vector; elements are concatenated with `"\n"`.
+#' @param path Scalar string path to a YAML file`.
 #' @param multi When `TRUE`, return a list containing all documents in the stream.
 #' @param simplify When `FALSE`, keep YAML sequences as R lists instead of simplifying to atomic vectors.
-#' @param handlers Named list of R functions keyed by YAML tag strings; matching handlers transform tagged values.
+#' @param handlers Named list of R functions with names corresponding to YAML tags; matching handlers transform tagged values.
+#' @return When `multi = FALSE`, returns a parsed R object for the first document.
+#'   When `multi = TRUE`, returns a list of parsed documents.
+#' @rdname parse_yaml
+#' @examples
+#' dput(parse_yaml("foo: [1, 2, 3]"))
+#'
+#' # homogenous sequences simplify by default.
+#' # YAML null maps to NA in otherwise hogenous sequences.
+#' dput(parse_yaml("foo: [1, 2, 3, null]"))
+#'
+#' # mixed type sequence never simplify
+#' dput(parse_yaml("[1, true, cat]"))
+#'
+#' # use `simplify=FALSE` to always return sequences as lists.
+#' str(parse_yaml("foo: [1, 2, 3, null]", simplify = FALSE))
+#'
+#' # Parse multiple documents when requested.
+#' stream <- "
+#' ---
+#' first: 1
+#' ---
+#' second: 2
+#' "
+#' str(parse_yaml(stream, multi = TRUE))
+#'
+#' # Read from a file; keep sequences as lists.
+#' path <- tempfile(fileext = ".yaml")
+#' writeLines("alpha: [true, null]\nbeta: 3.5", path)
+#' str(read_yaml(path, simplify = FALSE))
 #' @export
 parse_yaml <- function(text, multi = FALSE, simplify = TRUE, handlers = NULL) .Call(wrap__parse_yaml, text, multi, simplify, handlers)
 
@@ -27,16 +59,20 @@ parse_yaml <- function(text, multi = FALSE, simplify = TRUE, handlers = NULL) .C
 #' @noRd
 dbg_yaml <- function(text) invisible(.Call(wrap__dbg_yaml, text))
 
-#' Format an R object as YAML 1.2.
+#' Format or write R objects as YAML 1.2.
 #'
-#' When `multi = TRUE`, emits document start markers (`---`) and ends the
-#' stream with a trailing newline. When `multi = FALSE`, writes a single
-#' document node without a start marker and no final newline. Honors a
-#' `yaml_tag` attribute on values (see examples).
+#' `format_yaml()` returns YAML as a character string. `write_yaml()` writes a
+#' YAML stream to a file or stdout and always emits document start (`---`)
+#' markers and a final end (`...`) marker. Both functions honor a `yaml_tag`
+#' attribute on values (see examples).
 #'
 #' @param value Any R object composed of lists, atomic vectors, and scalars.
+#' @param path Scalar string file path to write YAML to when using `write_yaml()`.
+#'   When `NULL` (the default), write to R's standard output connection.
 #' @param multi When `TRUE`, treat `value` as a list of YAML documents and encode a stream.
-#' @return A scalar character string containing YAML.
+#' @return `format_yaml()` returns a scalar character string containing YAML.
+#'   `write_yaml()` invisibly returns `value`.
+#' @rdname format_yaml
 #' @export
 #' @examples
 #' cat(format_yaml(list(foo = 1, bar = list(TRUE, NA))))
@@ -46,37 +82,29 @@ dbg_yaml <- function(text) invisible(.Call(wrap__dbg_yaml, text))
 #'
 #' tagged <- structure("1 + 1", yaml_tag = "!expr")
 #' cat(tagged_yaml <- format_yaml(tagged), "\n")
-#' attr(parse_yaml(tagged_yaml), "yaml_tag")
+#'
+#' dput(parse_yaml(tagged_yaml))
 format_yaml <- function(value, multi = FALSE) .Call(wrap__format_yaml, value, multi)
 
 #' Read YAML 1.2 document(s) from a file path.
 #'
-#' @param path Scalar string path to a YAML file.
-#' @param multi When `TRUE`, return a list containing all documents in the stream.
-#' @param simplify When `FALSE`, keep YAML sequences as R lists instead of simplifying to atomic vectors.
-#' @param handlers Named list of R functions keyed by YAML tag strings; matching handlers transform tagged values.
+#' @rdname parse_yaml
 #' @export
 read_yaml <- function(path, multi = FALSE, simplify = TRUE, handlers = NULL) .Call(wrap__read_yaml, path, multi, simplify, handlers)
 
 #' Write an R object as YAML 1.2 to a file.
 #'
-#' Writes the YAML stream to a file or stdout and always emits explicit document
-#' start (`---`) markers and a final end (`...`) marker. Respects `yaml_tag`
-#' attributes when encoding values.
-#'
-#' @param value Any R object composed of lists, atomic vectors, and scalars.
-#' @param path Scalar string file path to write YAML to. When `NULL` (the default),
-#'   write to R's standard output connection.
-#' @param multi When `TRUE`, treat `value` as a list of YAML documents and encode a stream.
-#' @return Invisibly returns `value`.
-#' @export
+#' @rdname format_yaml
 #' @examples
+#'
+#'
 #' write_yaml(list(foo = 1, bar = list(2, "baz")))
 #'
 #' write_yaml(list("foo", "bar"), multi = TRUE)
 #'
 #' tagged <- structure("1 + 1", yaml_tag = "!expr")
 #' write_yaml(tagged)
+#' @export
 write_yaml <- function(value, path = NULL, multi = FALSE) invisible(.Call(wrap__write_yaml, value, path, multi))
 
 

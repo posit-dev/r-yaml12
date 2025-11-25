@@ -2,23 +2,30 @@
 % Please edit documentation in R/extendr-wrappers.R
 \name{format_yaml}
 \alias{format_yaml}
-\title{Format an R object as YAML 1.2.}
+\alias{write_yaml}
+\title{Format or write R objects as YAML 1.2.}
 \usage{
 format_yaml(value, multi = FALSE)
+
+write_yaml(value, path = NULL, multi = FALSE)
 }
 \arguments{
 \item{value}{Any R object composed of lists, atomic vectors, and scalars.}
 
 \item{multi}{When \code{TRUE}, treat \code{value} as a list of YAML documents and encode a stream.}
+
+\item{path}{Scalar string file path to write YAML to when using \code{write_yaml()}.
+When \code{NULL} (the default), write to R's standard output connection.}
 }
 \value{
-A scalar character string containing YAML.
+\code{format_yaml()} returns a scalar character string containing YAML.
+\code{write_yaml()} invisibly returns \code{value}.
 }
 \description{
-When \code{multi = TRUE}, emits document start markers (\verb{---}) and ends the
-stream with a trailing newline. When \code{multi = FALSE}, writes a single
-document node without a start marker and no final newline. Honors a
-\code{yaml_tag} attribute on values (see examples).
+\code{format_yaml()} returns YAML as a character string. \code{write_yaml()} writes a
+YAML stream to a file or stdout and always emits document start (\verb{---})
+markers and a final end (\code{...}) marker. Both functions honor a \code{yaml_tag}
+attribute on values (see examples).
 }
 \examples{
 cat(format_yaml(list(foo = 1, bar = list(TRUE, NA))))
@@ -28,5 +35,14 @@ cat(format_yaml(docs, multi = TRUE))
 
 tagged <- structure("1 + 1", yaml_tag = "!expr")
 cat(tagged_yaml <- format_yaml(tagged), "\n")
-attr(parse_yaml(tagged_yaml), "yaml_tag")
+
+dput(parse_yaml(tagged_yaml))
+
+
+write_yaml(list(foo = 1, bar = list(2, "baz")))
+
+write_yaml(list("foo", "bar"), multi = TRUE)
+
+tagged <- structure("1 + 1", yaml_tag = "!expr")
+write_yaml(tagged)
 }

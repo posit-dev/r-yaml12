@@ -287,6 +287,27 @@ write_yaml(list("foo", "bar"))
 write_yaml(list("foo", "bar"), multi = TRUE)
 ```
 
+When `multi = FALSE`, parsing stops after the first document—even if
+later content is not valid YAML. That makes it easy to extract front
+matter from files that mix YAML with other text (like R Markdown):
+
+```{r}
+rmd_lines <- c(
+  "---",
+  "title: Front matter only",
+  "params:",
+  "  answer: 42",
+  "---",
+  "# Body that is not YAML"
+)
+parse_yaml(rmd_lines)
+```
+
+Here the parser returns just the YAML frontmatter because the second
+`---` technically ends the first _YAML document_ in a _YAML document
+stream_; with `multi = FALSE` the parser stops there and returns just
+the first YAML document.
+
 ## Writing YAML with tags
 
 To emit a tag, attach `yaml_tag` to an R value before calling
@@ -299,10 +320,8 @@ write_yaml(tagged)
 
 ## Anchors
 
-Anchors (`&id`) name a node; aliases (`*id`) copy it. Merge keys (`<<`)
-are YAML’s mapping merge helper. yaml12 resolves aliases and merges
-before returning R objects, so aliases behave like copies rather than
-references.
+Anchors (`&id`) name a node; aliases (`*id`) copy it. yaml12 resolves
+aliases before returning R objects.
 
 ```{r}
 str(parse_yaml("
@@ -405,9 +424,10 @@ Note that the `pairs`, `omap`, and `set` are generally not meaningful in
 R, since all the R objects returned are ordered (and *yaml12*
 automatically preserves the order of mapping entries).
 
-The `!!timestamp` and `!!binary` tags are occasionally useful, but the
-logic for handing richer types is encouraged to live at the application
-level, and not in the core schema.
+The [`!!timestamp`](https://yaml.org/type/timestamp.html) and
+[`!!binary`](https://yaml.org/type/binary.html) tags are occasionally
+useful, but the logic for handing richer types is encouraged to live at
+the application level, and not in the core schema.
 
 Note that with `!!`, the parser expands the first global prefix to
 `tag:yaml.org,2002:` (unless a tag directive changed the meaning of
@@ -426,7 +446,8 @@ You can supply a handler for them if you want to convert them from a
 character string to some other R object:
 
 ```{r}
-# Timestamp handler: date-only stays Date, otherwise try common POSIX formats,
+# Timestamp handler: Convert date-only into Date, otherwise try (some of) the
+# YAML 1.1 spec valid timestamp formats as POSIX formats.
 # return NA on failure.
 timestamp_handler <- function(x) {
   stopifnot(is.character(x), length(x) == 1)
@@ -438,13 +459,12 @@ timestamp_handler <- function(x) {
     "%Y-%m-%d %H:%M:%OS%z",
     "%Y-%m-%dT%H:%M:%OS",
     "%Y-%m-%d %H:%M:%OS",
-    "%Y-%m-%d %H:%M",
-    "%Y-%m-%d"
+    "%Y-%m-%d %H:%M"
   )
   as.POSIXct(x, tryFormats = formats, optional = TRUE)
 }
 
-# Binary handler: decode Base64 into raw; leave as-is on failure.
+# Binary handler: decode Base64 into raw
 binary_handler <- function(x) {
   stopifnot(is.character(x), length(x) == 1)
   jsonlite::base64_dec(gsub("[ \n]", "", x))

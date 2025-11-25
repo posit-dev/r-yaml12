@@ -2,9 +2,12 @@
 % Please edit documentation in R/extendr-wrappers.R
 \name{parse_yaml}
 \alias{parse_yaml}
+\alias{read_yaml}
 \title{Parse YAML 1.2 document(s) into base R structures.}
 \usage{
 parse_yaml(text, multi = FALSE, simplify = TRUE, handlers = NULL)
+
+read_yaml(path, multi = FALSE, simplify = TRUE, handlers = NULL)
 }
 \arguments{
 \item{text}{Character vector; elements are concatenated with \code{"\\n"}.}
@@ -13,10 +16,45 @@ parse_yaml(text, multi = FALSE, simplify = TRUE, handlers = NULL)
 
 \item{simplify}{When \code{FALSE}, keep YAML sequences as R lists instead of simplifying to atomic vectors.}
 
-\item{handlers}{Named list of R functions keyed by YAML tag strings; matching handlers transform tagged values.}
+\item{handlers}{Named list of R functions with names corresponding to YAML tags; matching handlers transform tagged values.}
+
+\item{path}{Scalar string path to a YAML file`.}
+}
+\value{
+When \code{multi = FALSE}, returns a parsed R object for the first document.
+When \code{multi = TRUE}, returns a list of parsed documents.
 }
 \description{
-Supports scalars, sequences, and mappings; YAML tags are preserved in a
-\code{yaml_tag} attribute when possible. YAML anchors and aliases are resolved
-by the parser, so aliases behave like copies of their target nodes.
+\code{parse_yaml()} takes strings of YAML; \code{read_yaml()} reads from a file path.
+}
+\details{
+YAML tags without a corresponding \code{handler} are preserved in a \code{yaml_tag} attribute.
+Mappings with keys that are not all simple scalar strings are returned as a named list with a \code{yaml_keys} attribute.
+}
+\examples{
+dput(parse_yaml("foo: [1, 2, 3]"))
+
+# homogenous sequences simplify by default.
+# YAML null maps to NA in otherwise hogenous sequences.
+dput(parse_yaml("foo: [1, 2, 3, null]"))
+
+# mixed type sequence never simplify
+dput(parse_yaml("[1, true, cat]"))
+
+# use `simplify=FALSE` to always return sequences as lists.
+str(parse_yaml("foo: [1, 2, 3, null]", simplify = FALSE))
+
+# Parse multiple documents when requested.
+stream <- "
+---
+first: 1
+---
+second: 2
+"
+str(parse_yaml(stream, multi = TRUE))
+
+# Read from a file; keep sequences as lists.
+path <- tempfile(fileext = ".yaml")
+writeLines("alpha: [true, null]\nbeta: 3.5", path)
+str(read_yaml(path, simplify = FALSE))
 }
