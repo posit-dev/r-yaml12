@@ -24,7 +24,7 @@ library(yaml12)
 
 This vignette picks up where the “YAML in 2 Minutes” intro leaves off.
 It shows what YAML tags are and how to work with them in yaml12 with tag
-handlers. Along the way we also cover complex valued keys and node
+handlers. Along the way we also cover complex-valued keys and node
 anchors, so you can work with any advanced YAML (version 1.2) you might
 see in the wild.
 
@@ -41,8 +41,8 @@ most common form is a simple local short tag that starts with `!`:
 dput(parse_yaml("!some_tag some_value"))
 ```
 
-The presence of a custom tag bypasses normal scalar node typing
-inferencing; the scalar is always returned as a string even when the
+The presence of a custom tag bypasses normal scalar node type
+inference; the scalar is always returned as a string even when the
 content looks like another type.
 
 ```{r}

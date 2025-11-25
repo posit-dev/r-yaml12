@@ -34,8 +34,8 @@ Mappings with keys that are not all simple scalar strings are returned as a name
 \examples{
 dput(parse_yaml("foo: [1, 2, 3]"))
 
-# homogenous sequences simplify by default.
-# YAML null maps to NA in otherwise hogenous sequences.
+# homogeneous sequences simplify by default.
+# YAML null maps to NA in otherwise homogeneous sequences.
 dput(parse_yaml("foo: [1, 2, 3, null]"))
 
 # mixed type sequence never simplify

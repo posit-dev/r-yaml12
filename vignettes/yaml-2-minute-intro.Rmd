@@ -189,7 +189,7 @@ lines keep breaks). Block scalars always become strings.
 
 Like block scalars, quoted scalars always resolve to strings. Double
 quotes interpret escapes (`\n`, `\t`, `\\`, `\"`). Single quotes are
-literal and do not interpert escapes, except for `''` which is parsed as
+literal and do not interpret escapes, except for `''` which is parsed as
 a single `'`.
 
 ``` yaml
@@ -207,7 +207,7 @@ a single `'`.
 ## Plain (unquoted) scalars
 
 If a node is not a sequence, mapping, block scalar, or quoted scalar, it
-is *plain* scalar.
+is a *plain* scalar.
 
 Plain nodes can resolve to one of five types: string, int, float, bool,
 or null.
@@ -288,5 +288,5 @@ list(
 -   `null` maps to `NULL` (or `NA` inside simplified vectors).
 
 These essentials cover most YAML you’ll run into in practice. If you
-encounter Yaml tags or non-string mapping keys, checkout the "Advanced
+encounter YAML tags or non-string mapping keys, check out the "Advanced
 YAML" vignette.
