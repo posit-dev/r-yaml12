@@ -18,12 +18,12 @@ Suggests:
     jsonlite,
     knitr,
     rmarkdown,
-    tidytemplate,
     testthat (>= 3.0.0),
     waldo,
     withr
-VignetteBuilder: 
+VignetteBuilder:
     knitr
+Config/Needs/website: tidyverse/tidytemplate
 Config/rextendr/version: 0.4.2.9000
 Config/testthat/edition: 3
 Config/testthat/parallel: false
