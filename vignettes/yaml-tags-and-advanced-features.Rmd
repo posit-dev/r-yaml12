@@ -374,7 +374,7 @@ item: !<gizmo> foo
 
 You may also encounter tags that start with two `!!`. This is a special
 case of the `!name!suffix` tag syntax, where `name` is missing and
-implicitly resolved to the YAML Core schema handle:
+undefined and implicitly resolved to the YAML Core schema handle:
 `tag:yaml.org,2002:`.
 
 The following three tags all resolve to the same internal representation
@@ -398,3 +398,62 @@ some built-in types that were present in YAML 1.1.
 
 > The !!pairs, !!omap, !!set, !!timestamp and !!binary types have been
 > dropped.
+
+Correspondingly, in *yaml12* these formerly core tags come into R as any
+other unhandled tagged scalar, as strings with a `yaml_tag` attribute.
+Note that the `pairs`, `omap`, and `set` are generally not meaningful in
+R, since all the R objects returned are ordered (and *yaml12*
+automatically preserves the order of mapping entries).
+
+The `!!timestamp` and `!!binary` tags are occasionally useful, but the
+logic for handing richer types is encouraged to live at the application
+level, and not in the core schema.
+
+Note that with `!!`, the parser expands the first global prefix to
+`tag:yaml.org,2002:` (unless a tag directive changed the meaning of
+`!!`), and the tags come in with a fully resolved core schema URI.
+
+```{r}
+yaml <- "
+- !!timestamp 2025-01-01
+- !!timestamp 2025-01-01 21:59:43.10 -5
+- !!binary UiBpcyBBd2Vzb21l
+"
+str(parse_yaml(yaml))
+```
+
+You can supply a handler for them if you want to convert them from a
+character string to some other R object:
+
+```{r}
+# Timestamp handler: date-only stays Date, otherwise try common POSIX formats,
+# return NA on failure.
+timestamp_handler <- function(x) {
+  stopifnot(is.character(x), length(x) == 1)
+  if (grepl("^\\d{4}-\\d{2}-\\d{2}$", x)) {
+    return(as.Date(x))
+  }
+  formats <- c(
+    "%Y-%m-%dT%H:%M:%OS%z",
+    "%Y-%m-%d %H:%M:%OS%z",
+    "%Y-%m-%dT%H:%M:%OS",
+    "%Y-%m-%d %H:%M:%OS",
+    "%Y-%m-%d %H:%M",
+    "%Y-%m-%d"
+  )
+  as.POSIXct(x, tryFormats = formats, optional = TRUE)
+}
+
+# Binary handler: decode Base64 into raw; leave as-is on failure.
+binary_handler <- function(x) {
+  stopifnot(is.character(x), length(x) == 1)
+  b64::decode(gsub("[ \n]", "", x))[[1L]]
+}
+```
+
+```{r}
+str(parse_yaml(yaml, handlers = list(
+  "tag:yaml.org,2002:timestamp" = timestamp_handler,
+  "tag:yaml.org,2002:binary" = binary_handler
+)))
+```
