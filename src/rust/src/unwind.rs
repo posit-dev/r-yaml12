@@ -37,6 +37,37 @@ impl LongjmpToken {
 }
 
 /// Run f inside R_UnwindProtect; returns Err when R longjmps.
+///
+/// Call this only after the entrypoint's Rust scope is clear of owned locals,
+/// because `EvalError::Jump` resumes R's continuation and skips the rest of the
+/// current frame. Wrap per-call work in a block that produces the `Fallible`
+/// result so drops occur before delegating here.
+///
+/// Good:
+/// ```
+/// fn entrypoint() -> Robj {
+///     let result: Fallible<_> = {
+///         let _buf = String::from("tmp"); // drops before handle_eval_error
+///         do_work()
+///     };
+///     match result {
+///         Ok(val) => val,
+///         Err(err) => handle_eval_error(err),
+///     }
+/// }
+/// ```
+///
+/// Bad (skips `_buf` drop if a jump occurs):
+/// ```
+/// fn entrypoint_bad() -> Robj {
+///     let _buf = String::from("tmp");
+///     let result = do_work();
+///     match result {
+///         Ok(val) => val,
+///         Err(err) => handle_eval_error(err), // jumps before _buf can drop
+///     }
+/// }
+/// ```
 pub fn run_with_unwind_protect<F>(f: F) -> StdResult<(), LongjmpToken>
 where
     F: FnOnce() + Copy,
