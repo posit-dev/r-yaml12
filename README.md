@@ -6,6 +6,7 @@
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/t-kalinowski/r-yaml12/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/t-kalinowski/r-yaml12/actions/workflows/R-CMD-check.yaml)
+[![extendr](https://img.shields.io/badge/extendr-*-276DC2)](https://extendr.github.io/extendr/extendr_api/)
 <!-- badges: end -->
 
 A YAML 1.2 parser/formatter for R, implemented in Rust for speed and
@@ -53,17 +54,11 @@ value_in <- read_yaml("my.yaml")
 stopifnot(identical(value_out, value_in))
 
 # Multi-document streams
-docs <- list(list(foo = 1), list(bar = c(2, NA)))
-write_yaml(docs, "my-multi.yaml", multi = TRUE)
-read_yaml("my-multi.yaml", multi = TRUE)
-#> [[1]]
-#> [[1]]$foo
-#> [1] 1
-#> 
-#> 
-#> [[2]]
-#> [[2]]$bar
-#> [1]  2 NA
+docs_out <- list(list(foo = 1L), list(bar = c(2L, NA)))
+write_yaml(docs_out, "my-multi.yaml", multi = TRUE)
+docs_in <- read_yaml("my-multi.yaml", multi = TRUE)
+
+stopifnot(identical(docs_in, docs_out))
 ```
 
 ### Tag handlers
