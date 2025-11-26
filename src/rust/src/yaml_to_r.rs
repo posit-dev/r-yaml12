@@ -262,7 +262,7 @@ fn mapping_to_robj(
     }
 
     let mut values: Vec<Robj> = Vec::with_capacity(len);
-    let mut keys_for_names: Vec<Yaml> = Vec::with_capacity(len);
+    let mut keys: Vec<Yaml> = Vec::with_capacity(len);
     let mut key_handler_results: Vec<Option<Robj>> = Vec::with_capacity(len);
 
     // 1st pass: resolve keys/values while consuming the mapping to avoid cloning keys.
@@ -283,12 +283,12 @@ fn mapping_to_robj(
             None
         };
 
-        keys_for_names.push(key);
+        keys.push(key);
         key_handler_results.push(key_handler_result);
         values.push(yaml_to_robj(&mut value, simplify, handlers)?);
     }
 
-    // 2nd pass: build names as &str from keys_for_names.
+    // 2nd pass: build names as &str from keys.
     // String mapping keys should contribute regular R names. `needs_yaml_keys_attr`
     // tracks whether we must attach the `yaml_keys` attribute because at least
     // one key cannot be represented purely by R names: either a non-string key,
@@ -296,39 +296,27 @@ fn mapping_to_robj(
     // core string tags are treated as "no information" for this purpose.
     let mut needs_yaml_keys_attr = false;
     let mut names: Vec<&str> = Vec::with_capacity(len);
-    for (key_for_name, key_handler_result) in keys_for_names.iter().zip(key_handler_results.iter())
-    {
+    for (key, key_handler_result) in keys.iter().zip(key_handler_results.iter()) {
         if let Some(handled) = key_handler_result {
-            if let Some(name) = handled.as_str() {
-                // Handler returned a string: use it for the R name.
-                names.push(name);
-                continue;
+            if let Some(name_from_handler) = name_if_bare_string(handled) {
+                names.push(name_from_handler);
             } else {
-                // Handler returned a non-string; we'll still need yaml_keys.
                 needs_yaml_keys_attr = true;
+                names.push("");
             }
-        }
-
-        match key_for_name {
-            Yaml::Value(Scalar::String(name)) => {
-                // Plain string key: representable as an R name with no extra metadata.
-                names.push(name);
-            }
-            Yaml::Tagged(tag, inner) => match inner.as_ref() {
-                Yaml::Value(Scalar::String(name)) => {
-                    names.push(name);
-                    if !is_core_string_tag(tag) {
-                        needs_yaml_keys_attr = true;
-                    }
+        } else {
+            match key {
+                Yaml::Value(Scalar::String(string_key)) => {
+                    // Plain string key: representable as an R name with no extra metadata.
+                    names.push(string_key.as_ref());
                 }
                 _ => {
+                    // Tagged or non-string keys get tracked in `yaml_keys`. Core string tags are
+                    // normalized to plain strings by `resolve_representation`, so any tagged key
+                    // reaching here carries extra information.
                     needs_yaml_keys_attr = true;
                     names.push("");
                 }
-            },
-            _ => {
-                needs_yaml_keys_attr = true;
-                names.push("");
             }
         }
     }
@@ -337,8 +325,8 @@ fn mapping_to_robj(
         .map_err(|err| api_other(err.to_string()))?;
 
     if needs_yaml_keys_attr {
-        let mut yaml_keys = Vec::with_capacity(keys_for_names.len());
-        for (mut key, handled_value) in keys_for_names.into_iter().zip(key_handler_results) {
+        let mut yaml_keys = Vec::with_capacity(keys.len());
+        for (mut key, handled_value) in keys.into_iter().zip(key_handler_results) {
             if let Some(val) = handled_value {
                 yaml_keys.push(val);
             } else {
@@ -351,6 +339,12 @@ fn mapping_to_robj(
     }
 
     Ok(list.into())
+}
+
+fn name_if_bare_string(robj: &Robj) -> Option<&str> {
+    let name = robj.as_str()?;
+    let attributes = call!("attributes", robj.clone()).ok()?;
+    attributes.is_null().then_some(name)
 }
 
 fn convert_tagged(
@@ -389,6 +383,7 @@ fn convert_tagged(
     set_yaml_tag_attr(value, tag)
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn is_core_string_tag(tag: &Tag) -> bool {
     tag.is_yaml_core_schema() && tag.suffix.as_str() == "str"
 }

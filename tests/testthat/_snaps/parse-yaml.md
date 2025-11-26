@@ -108,7 +108,7 @@
       str(parse_yaml("!custom foo: 1\n", simplify = TRUE))
     Output
       List of 1
-       $ foo: int 1
+       $ : int 1
        - attr(*, "yaml_keys")=List of 1
         ..$ : chr "foo"
         .. ..- attr(*, "yaml_tag")= chr "!custom"
@@ -119,7 +119,7 @@
       str(parse_yaml("!custom foo: 1\n", simplify = FALSE))
     Output
       List of 1
-       $ foo: int 1
+       $ : int 1
        - attr(*, "yaml_keys")=List of 1
         ..$ : chr "foo"
         .. ..- attr(*, "yaml_tag")= chr "!custom"

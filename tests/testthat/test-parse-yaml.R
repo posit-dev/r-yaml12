@@ -276,15 +276,37 @@ test_that("parse_yaml applies handlers to tagged mapping keys", {
   expect_identical(result, list(KEY = "value"))
 })
 
-test_that("parse_yaml keeps original name when key handler returns non-string", {
+test_that("parse_yaml leaves names empty when key handler returns non-string", {
   handlers <- list(
     "!meta" = function(x) list(label = toupper(x))
   )
 
   result <- parse_yaml("!meta key: value", handlers = handlers)
-  expect_identical(names(result), "key")
+  expect_identical(names(result), "")
+  expect_identical(result[[1]], "value")
   expect_true(!is.null(attr(result, "yaml_keys")))
   expect_identical(attr(result, "yaml_keys")[[1]], list(label = "KEY"))
+})
+
+test_that("parse_yaml leaves names empty when key handler returns attributed string", {
+  handlers <- list(
+    "!decorated" = function(x) {
+      structure(
+        toupper(x),
+        names = "ignored",
+        class = "decorated"
+      )
+    }
+  )
+
+  result <- parse_yaml("!decorated key: value", handlers = handlers)
+  expect_identical(names(result), "")
+  expect_identical(result[[1]], "value")
+  yaml_keys <- attr(result, "yaml_keys", exact = TRUE)
+  expect_true(is.list(yaml_keys))
+  expect_identical(attr(yaml_keys[[1]], "names", exact = TRUE), "ignored")
+  expect_s3_class(yaml_keys[[1]], "decorated")
+  expect_identical(as.character(yaml_keys[[1]]), "KEY")
 })
 
 test_that("parse_yaml applies handlers inside sequences before returning", {
@@ -339,6 +361,25 @@ test_that("parse_yaml validates handlers argument", {
     parse_yaml("foo: !expr 1", handlers = list("!expr" = "not a function")),
     "must be a function"
   )
+})
+
+test_that("parse_yaml leaves names empty for tagged string keys without handlers", {
+  yaml <- "!tagged foo: 1\n"
+
+  parsed <- parse_yaml(yaml, simplify = TRUE)
+  expect_identical(
+    parsed,
+    structure(
+      list(1L),
+      names = "",
+      yaml_keys = list(structure("foo", yaml_tag = "!tagged"))
+    )
+  )
+  expect_identical(names(parsed), "")
+  yaml_keys <- attr(parsed, "yaml_keys", exact = TRUE)
+  expect_true(is.list(yaml_keys))
+  expect_identical(attr(yaml_keys[[1]], "yaml_tag", exact = TRUE), "!tagged")
+  expect_identical(as.character(yaml_keys[[1]]), "foo")
 })
 
 test_that("parse_yaml() warnings are catchable and respect options(warn)", {
@@ -440,12 +481,24 @@ test_that("parse_yaml mapping key tags respect simplify flag", {
   )))
 })
 
+test_that("parse_yaml omits yaml_keys for core string tagged mapping keys", {
+  yaml <- "!!str foo: 1\n"
+
+  simplified <- parse_yaml(yaml, simplify = TRUE)
+  expect_identical(simplified, list(foo = 1L))
+  expect_null(attr(simplified, "yaml_keys", exact = TRUE))
+
+  unsimplified <- parse_yaml(yaml, simplify = FALSE)
+  expect_identical(unsimplified, list(foo = 1L))
+  expect_null(attr(unsimplified, "yaml_keys", exact = TRUE))
+})
+
 test_that("parse_yaml preserves non-core tags on mapping keys via yaml_keys", {
   yaml <- "!custom foo: 1\n"
 
   expected <- structure(
     list(1L),
-    names = "foo",
+    names = "",
     yaml_keys = list(structure("foo", yaml_tag = "!custom"))
   )
 
