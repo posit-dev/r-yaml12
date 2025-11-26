@@ -1,6 +1,6 @@
 Package: yaml12
 Title: Fast YAML 1.2 Parser and Formatter for R
-Version: 0.0.0.9000
+Version: 0.1.0
 Authors@R: c(
     person("Tomasz", "Kalinowski", , "tomasz@posit.co", role = c("aut", "cre")),
     person("Posit Software, PBC", role = c("cph", "fnd"),
