@@ -5,6 +5,19 @@ test_that("parse_yaml handles scalars", {
   expect_identical(parse_yaml("hello"), "hello")
 })
 
+test_that("parse_yaml ignores YAML comments", {
+  yaml <- "
+# whole-line comment
+title: example # inline comment
+items: [a, b] # trailing comment
+"
+
+  expect_identical(
+    parse_yaml(yaml),
+    list(title = "example", items = c("a", "b"))
+  )
+})
+
 test_that("parse_yaml normalizes literal core-schema tags", {
   inputs <- c(
     "!!str true",

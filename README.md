@@ -93,13 +93,49 @@ parse_yaml(yaml, handlers = handlers)
 #> [1] 42
 ```
 
+### Non-string mapping keys
+
+YAML mappings can use keys that R cannot store directly as names (for
+example, booleans, numbers, or tagged strings). When that happens,
+`parse_yaml()` still returns a named list but also attaches a
+`yaml_keys` attribute containing the original YAML keys:
+
+``` r
+yaml <- "
+true: a
+null: b
+!custom foo: c
+"
+
+parsed <- parse_yaml(yaml)
+
+stopifnot(identical(
+  parsed,
+  structure(
+    list("a", "b", "c"),
+    names = c("", "", ""),
+    yaml_keys = list(TRUE, NULL, structure("foo", yaml_tag = "!custom"))
+  )
+))
+```
+
 ### Formatting and round-tripping
+
+The `yaml_tag` and `yaml_keys` attributes are also hooks for customizing
+output: tags on values round-trip, and `yaml_keys` allows you to emit
+mappings with non-string or tagged keys that can’t be represented as an
+R name.
 
 ``` r
 obj <- list(
   seq = 1:2,
   map = list(key = "value"),
-  tagged = structure("1 + 1", yaml_tag = "!expr")
+  tagged = structure("1 + 1", yaml_tag = "!expr"),
+  keys = structure(
+    list("a", "b", "c"),
+    names = c("plain", "", ""),
+    yaml_keys = list("plain", TRUE, structure("foo", yaml_tag = "!custom"))
+  )
 )
 
 yaml <- format_yaml(obj)
@@ -110,14 +146,14 @@ cat(yaml)
 #> map:
 #>   key: value
 #> tagged: !expr 1 + 1
+#> keys:
+#>   plain: a
+#>   true: b
+#>   !custom foo: c
 
-str(parse_yaml(yaml))  # tags preserved in `yaml_tag`
-#> List of 3
-#>  $ seq   : int [1:2] 1 2
-#>  $ map   :List of 1
-#>   ..$ key: chr "value"
-#>  $ tagged: chr "1 + 1"
-#>   ..- attr(*, "yaml_tag")= chr "!expr"
+roundtripped <- parse_yaml(yaml)
+identical(obj, roundtripped)
+#> [1] TRUE
 ```
 
 ## Documentation
