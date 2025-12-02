@@ -271,7 +271,21 @@ fn list_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
                 } else {
                     Yaml::Value(Scalar::String(name.into()))
                 };
-                mapping.insert(key, robj_to_yaml(value)?);
+                if mapping.insert(key, robj_to_yaml(value)?).is_some() {
+                    let duplicate = if name.is_na() {
+                        String::from("null")
+                    } else {
+                        let key_str: &str = name.as_ref();
+                        if key_str.is_empty() {
+                            String::from("(empty string)")
+                        } else {
+                            key_str.to_string()
+                        }
+                    };
+                    return Err(api_other(format!(
+                        "Duplicate mapping key `{duplicate}`; list names must be unique"
+                    )));
+                }
             }
             Ok(Yaml::Mapping(mapping))
         }

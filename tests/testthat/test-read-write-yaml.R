@@ -131,6 +131,49 @@ test_that("write_yaml flushes a final newline for files", {
   expect_identical(read_yaml(path), value)
 })
 
+test_that("write_yaml errors on duplicate names", {
+  expect_error(
+    write_yaml(list(a = 1, a = 2)),
+    "Duplicate mapping key `a`",
+    fixed = TRUE
+  )
+
+  dup_na <- list(1, 2)
+  names(dup_na) <- c(NA, NA)
+  expect_error(
+    write_yaml(dup_na),
+    "Duplicate mapping key `null`",
+    fixed = TRUE
+  )
+
+  dup_empty <- list(1, 2)
+  names(dup_empty) <- c("", "")
+  expect_error(
+    write_yaml(dup_empty),
+    "Duplicate mapping key `(empty string)`",
+    fixed = TRUE
+  )
+})
+
+test_that("write_yaml round-trips mixed NA and empty names", {
+  path <- tempfile("yaml12-", fileext = ".yaml")
+  on.exit(unlink(path), add = TRUE)
+
+  obj <- list(1L, 2L, 3L)
+  names(obj) <- c("a", NA, "")
+
+  write_yaml(obj, path)
+  round_tripped <- read_yaml(path, simplify = TRUE)
+
+  expected <- structure(
+    list(1L, 2L, 3L),
+    names = c("a", "", ""),
+    yaml_keys = list("a", NULL, "")
+  )
+
+  expect_identical(round_tripped, expected)
+})
+
 test_that("format_yaml multi-doc output stays stable", {
   docs <- list(list(foo = 1L), list(bar = list(2L, NULL)))
   expect_identical(

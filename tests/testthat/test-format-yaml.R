@@ -19,6 +19,45 @@ test_that("format_yaml round-trips basic R lists", {
   expect_identical(parse_yaml(encoded, simplify = FALSE), obj)
 })
 
+test_that("format_yaml errors on duplicate names", {
+  expect_error(
+    format_yaml(list(a = 1, a = 2)),
+    "Duplicate mapping key `a`"
+  )
+
+  dup_na <- list(1, 2)
+  names(dup_na) <- c(NA, NA)
+  expect_error(
+    format_yaml(dup_na),
+    "Duplicate mapping key `null`",
+    fixed = TRUE
+  )
+
+  dup_empty <- list(1, 2)
+  names(dup_empty) <- c("", "")
+  expect_error(
+    format_yaml(dup_empty),
+    "Duplicate mapping key `(empty string)`",
+    fixed = TRUE
+  )
+})
+
+test_that("format_yaml round-trips mixed NA and empty names", {
+  obj <- list(1L, 2L, 3L)
+  names(obj) <- c("a", NA, "")
+
+  encoded <- format_yaml(obj)
+  reparsed <- parse_yaml(encoded, simplify = TRUE)
+
+  expected <- structure(
+    list(1L, 2L, 3L),
+    names = c("a", "", ""),
+    yaml_keys = list("a", NULL, "")
+  )
+
+  expect_identical(reparsed, expected)
+})
+
 test_that("format_yaml preserves yaml_tag attribute", {
   obj <- structure(
     list(
@@ -182,10 +221,13 @@ test_that("format_yaml converts NA names to null YAML keys", {
   names(obj)[2] <- NA_character_
   encoded <- format_yaml(obj)
   reparsed <- parse_yaml(encoded)
-  expect_named(reparsed, c("a", ""))
-  yaml_keys <- attr(reparsed, "yaml_keys", exact = TRUE)
-  expect_identical(yaml_keys[[1]], "a")
-  expect_null(yaml_keys[[2]])
+
+  expected <- structure(
+    list(1L, 2L),
+    names = c("a", ""),
+    yaml_keys = list("a", NULL)
+  )
+  expect_identical(reparsed, expected)
 })
 
 test_that("format_yaml errors clearly on invalid yaml_tag", {
