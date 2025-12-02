@@ -136,13 +136,41 @@
 <span><span class="co">#&gt; [1] 42</span></span></code></pre></div>
 </div>
 <div class="section level3">
+<h3 id="non-string-mapping-keys">Non-string mapping keys<a class="anchor" aria-label="anchor" href="#non-string-mapping-keys"></a>
+</h3>
+<p>YAML mappings can use keys that R cannot store directly as names (for example, booleans, numbers, or tagged strings). When that happens, <code><a href="reference/parse_yaml.html">parse_yaml()</a></code> still returns a named list but also attaches a <code>yaml_keys</code> attribute containing the original YAML keys:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">yaml</span> <span class="op">&lt;-</span> <span class="st">"</span></span>
+<span><span class="st">true: a</span></span>
+<span><span class="st">null: b</span></span>
+<span><span class="st">!custom foo: c</span></span>
+<span><span class="st">"</span></span>
+<span></span>
+<span><span class="va">parsed</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/parse_yaml.html">parse_yaml</a></span><span class="op">(</span><span class="va">yaml</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span></span>
+<span>  <span class="va">parsed</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/structure.html" class="external-link">structure</a></span><span class="op">(</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"a"</span>, <span class="st">"b"</span>, <span class="st">"c"</span><span class="op">)</span>,</span>
+<span>    names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">""</span>, <span class="st">""</span>, <span class="st">""</span><span class="op">)</span>,</span>
+<span>    yaml_keys <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="cn">TRUE</span>, <span class="cn">NULL</span>, <span class="fu"><a href="https://rdrr.io/r/base/structure.html" class="external-link">structure</a></span><span class="op">(</span><span class="st">"foo"</span>, yaml_tag <span class="op">=</span> <span class="st">"!custom"</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
 <h3 id="formatting-and-round-tripping">Formatting and round-tripping<a class="anchor" aria-label="anchor" href="#formatting-and-round-tripping"></a>
 </h3>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<p>The <code>yaml_tag</code> and <code>yaml_keys</code> attributes are also hooks for customizing output: tags on values round-trip, and <code>yaml_keys</code> allows you to emit mappings with non-string or tagged keys that can’t be represented as an R name.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">obj</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  seq <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>,</span>
 <span>  map <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>key <span class="op">=</span> <span class="st">"value"</span><span class="op">)</span>,</span>
-<span>  tagged <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/structure.html" class="external-link">structure</a></span><span class="op">(</span><span class="st">"1 + 1"</span>, yaml_tag <span class="op">=</span> <span class="st">"!expr"</span><span class="op">)</span></span>
+<span>  tagged <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/structure.html" class="external-link">structure</a></span><span class="op">(</span><span class="st">"1 + 1"</span>, yaml_tag <span class="op">=</span> <span class="st">"!expr"</span><span class="op">)</span>,</span>
+<span>  keys <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/structure.html" class="external-link">structure</a></span><span class="op">(</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"a"</span>, <span class="st">"b"</span>, <span class="st">"c"</span><span class="op">)</span>,</span>
+<span>    names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"plain"</span>, <span class="st">""</span>, <span class="st">""</span><span class="op">)</span>,</span>
+<span>    yaml_keys <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"plain"</span>, <span class="cn">TRUE</span>, <span class="fu"><a href="https://rdrr.io/r/base/structure.html" class="external-link">structure</a></span><span class="op">(</span><span class="st">"foo"</span>, yaml_tag <span class="op">=</span> <span class="st">"!custom"</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">yaml</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/format_yaml.html">format_yaml</a></span><span class="op">(</span><span class="va">obj</span><span class="op">)</span></span>
@@ -153,14 +181,14 @@
 <span><span class="co">#&gt; map:</span></span>
 <span><span class="co">#&gt;   key: value</span></span>
 <span><span class="co">#&gt; tagged: !expr 1 + 1</span></span>
+<span><span class="co">#&gt; keys:</span></span>
+<span><span class="co">#&gt;   plain: a</span></span>
+<span><span class="co">#&gt;   true: b</span></span>
+<span><span class="co">#&gt;   !custom foo: c</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="reference/parse_yaml.html">parse_yaml</a></span><span class="op">(</span><span class="va">yaml</span><span class="op">)</span><span class="op">)</span>  <span class="co"># tags preserved in `yaml_tag`</span></span>
-<span><span class="co">#&gt; List of 3</span></span>
-<span><span class="co">#&gt;  $ seq   : int [1:2] 1 2</span></span>
-<span><span class="co">#&gt;  $ map   :List of 1</span></span>
-<span><span class="co">#&gt;   ..$ key: chr "value"</span></span>
-<span><span class="co">#&gt;  $ tagged: chr "1 + 1"</span></span>
-<span><span class="co">#&gt;   ..- attr(*, "yaml_tag")= chr "!expr"</span></span></code></pre></div>
+<span><span class="va">roundtripped</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/parse_yaml.html">parse_yaml</a></span><span class="op">(</span><span class="va">yaml</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">obj</span>, <span class="va">roundtripped</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">

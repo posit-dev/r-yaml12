@@ -51,6 +51,20 @@ str(parse_yaml(first_example))
 #>   ..$ note_literal: chr "This is a literal block\nthat keeps\nline breaks.\n"
 ```
 
+## Comments
+
+Comments start with `#` and run to the end of the line. They must be
+separated from values by whitespace and can sit on their own line or at
+line ends; they are ignored by the parser.
+
+``` yaml
+# Whole-line comment
+title: example # inline comment
+items: [a, b] # trailing comment
+```
+
+→ `list(title = "example", items = c("a", "b"))`
+
 ## Collections
 
 There are two “collection” types: Sequences and Mappings.

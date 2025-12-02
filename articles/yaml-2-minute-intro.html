@@ -115,6 +115,17 @@ same way.</p>
 <span><span class="co">#&gt;   ..$ note_literal: chr "This is a literal block\nthat keeps\nline breaks.\n"</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="comments">Comments<a class="anchor" aria-label="anchor" href="#comments"></a>
+</h2>
+<p>Comments start with <code>#</code> and run to the end of the line.
+They must be separated from values by whitespace and can sit on their
+own line or at line ends; they are ignored by the parser.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># Whole-line comment</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="fu">title</span><span class="kw">:</span><span class="at"> example</span><span class="co"> # inline comment</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="fu">items</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">a</span><span class="kw">,</span><span class="at"> b</span><span class="kw">]</span><span class="co"> # trailing comment</span></span></code></pre></div>
+<p>→ <code>list(title = "example", items = c("a", "b"))</code></p>
+</div>
+<div class="section level2">
 <h2 id="collections">Collections<a class="anchor" aria-label="anchor" href="#collections"></a>
 </h2>
 <p>There are two “collection” types: Sequences and Mappings.</p>
@@ -123,21 +134,21 @@ same way.</p>
 </h3>
 <p>A sequence is a list of items. Each item begins with <code>-</code>
 at the parent indent.</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="kw">-</span><span class="at"> cat</span></span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="kw">-</span><span class="at"> dog</span></span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="kw">-</span><span class="at"> cat</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="kw">-</span><span class="at"> dog</span></span></code></pre></div>
 <p>→ <code>c("cat", "dog")</code> (or <code>list("cat", "dog")</code>
 when <code>simplify = FALSE</code>)</p>
 <p>JSON-style arrays work too:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="kw">[</span><span class="at">cat</span><span class="kw">,</span><span class="at"> dog</span><span class="kw">]</span></span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="kw">[</span><span class="at">cat</span><span class="kw">,</span><span class="at"> dog</span><span class="kw">]</span></span></code></pre></div>
 <p>→ same result</p>
 <p>Anything belonging to one of the sequence entries is indented at
 least one space past the dash:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> cat</span></span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="at">  </span><span class="fu">toys</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">string</span><span class="kw">,</span><span class="at"> box</span><span class="kw">]</span></span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> dog</span></span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="at">  </span><span class="fu">toys</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">ball</span><span class="kw">,</span><span class="at"> bone</span><span class="kw">]</span></span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> cat</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="at">  </span><span class="fu">toys</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">string</span><span class="kw">,</span><span class="at"> box</span><span class="kw">]</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> dog</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="at">  </span><span class="fu">toys</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">ball</span><span class="kw">,</span><span class="at"> bone</span><span class="kw">]</span></span></code></pre></div>
 <p>↓</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>name <span class="op">=</span> <span class="st">"cat"</span>, toys <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"string"</span>, <span class="st">"box"</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>name <span class="op">=</span> <span class="st">"dog"</span>, toys <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ball"</span>, <span class="st">"bone"</span><span class="op">)</span><span class="op">)</span></span>
@@ -148,17 +159,17 @@ least one space past the dash:</p>
 </h3>
 <p>A mapping is a set of <code>key: value</code> pairs at the same
 indent:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">foo</span><span class="kw">:</span><span class="at"> </span><span class="dv">1</span></span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="fu">bar</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">foo</span><span class="kw">:</span><span class="at"> </span><span class="dv">1</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="fu">bar</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span></code></pre></div>
 <p>→ <code>list(foo = 1L, bar = TRUE)</code></p>
 <p>A key at its indent owns anything indented more:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">settings</span><span class="kw">:</span></span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="at">  </span><span class="fu">simplify</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="at">  </span><span class="fu">max_items</span><span class="kw">:</span><span class="at"> </span><span class="dv">3</span></span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">settings</span><span class="kw">:</span></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="at">  </span><span class="fu">simplify</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="at">  </span><span class="fu">max_items</span><span class="kw">:</span><span class="at"> </span><span class="dv">3</span></span></code></pre></div>
 <p>→
 <code>list(settings = list(simplify = TRUE, max_items = 3L))</code></p>
 <p>JSON-style objects also work:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="kw">{</span><span class="fu">a</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="kw">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="kw">{</span><span class="fu">a</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="kw">}</span></span></code></pre></div>
 <p>→ <code>list(a = TRUE)</code></p>
 <p>Mappings become named lists in R.</p>
 </div>
@@ -176,13 +187,13 @@ nodes of a YAML document.</p>
 newlines; <code>&gt;</code> starts a <strong>folded</strong> block that
 joins lines with spaces (except blank/indented lines keep breaks). Block
 scalars always become strings.</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="ch">|</span></span>
-<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  hello</span>
-<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  world</span></code></pre></div>
-<p>→ <code>"hello\nworld\n"</code></p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="ch">&gt;</span></span>
+<div class="sourceCode" id="cb12"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="ch">|</span></span>
 <span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>  hello</span>
 <span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  world</span></code></pre></div>
+<p>→ <code>"hello\nworld\n"</code></p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="ch">&gt;</span></span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>  hello</span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  world</span></code></pre></div>
 <p>→ <code>"hello world\n"</code></p>
 </div>
 </div>
@@ -194,9 +205,9 @@ quotes interpret escapes (<code>\n</code>, <code>\t</code>,
 <code>\\</code>, <code>\"</code>). Single quotes are literal and do not
 interpret escapes, except for <code>''</code> which is parsed as a
 single <code>'</code>.</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="kw">[</span><span class="st">"line</span><span class="sc">\n</span><span class="st">break"</span><span class="kw">,</span><span class="at"> </span><span class="st">"quote: </span><span class="sc">\"</span><span class="st">here</span><span class="sc">\"</span><span class="st">"</span><span class="kw">]</span></span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="kw">[</span><span class="st">"line</span><span class="sc">\n</span><span class="st">break"</span><span class="kw">,</span><span class="at"> </span><span class="st">"quote: </span><span class="sc">\"</span><span class="st">here</span><span class="sc">\"</span><span class="st">"</span><span class="kw">]</span></span></code></pre></div>
 <p>→ <code>c("line\nbreak", 'quote: "here"')</code></p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="kw">[</span><span class="st">'line\nbreak'</span><span class="kw">,</span><span class="at"> </span><span class="st">'quote: </span><span class="sc">''</span><span class="st">here</span><span class="sc">''</span><span class="st">'</span><span class="kw">]</span></span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="kw">[</span><span class="st">'line\nbreak'</span><span class="kw">,</span><span class="at"> </span><span class="st">'quote: </span><span class="sc">''</span><span class="st">here</span><span class="sc">''</span><span class="st">'</span><span class="kw">]</span></span></code></pre></div>
 <p>→ <code>c("line\\nbreak", "quote: 'here'")</code></p>
 </div>
 <div class="section level2">
@@ -224,7 +235,7 @@ node:</p>
 <code>on</code>, <code>off</code> and other aliases remain strings in
 YAML 1.2)</li>
 </ul>
-<div class="sourceCode" id="cb15"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="kw">[</span><span class="ch">true</span><span class="kw">,</span><span class="at"> </span><span class="dv">123</span><span class="kw">,</span><span class="at"> </span><span class="fl">4.5e2</span><span class="kw">,</span><span class="at"> </span><span class="dv">0x10</span><span class="kw">,</span><span class="at"> </span><span class="fl">.inf</span><span class="kw">,</span><span class="at"> </span><span class="ch">yes</span><span class="kw">]</span></span></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="kw">[</span><span class="ch">true</span><span class="kw">,</span><span class="at"> </span><span class="dv">123</span><span class="kw">,</span><span class="at"> </span><span class="fl">4.5e2</span><span class="kw">,</span><span class="at"> </span><span class="dv">0x10</span><span class="kw">,</span><span class="at"> </span><span class="fl">.inf</span><span class="kw">,</span><span class="at"> </span><span class="ch">yes</span><span class="kw">]</span></span></code></pre></div>
 <p>→ <code>list(TRUE, 123L, 450, 16L, Inf, "yes")</code></p>
 <p>If a sequence is homogeneous and <code>simplify = TRUE</code>, nulls
 become the appropriate <code>NA_*</code> values.</p>
@@ -232,26 +243,26 @@ become the appropriate <code>NA_*</code> values.</p>
 <div class="section level2">
 <h2 id="end-to-end-example">End-to-end example<a class="anchor" aria-label="anchor" href="#end-to-end-example"></a>
 </h2>
-<div class="sourceCode" id="cb16"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="fu">doc</span><span class="kw">:</span></span>
-<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="at">  </span><span class="fu">pets</span><span class="kw">:</span></span>
-<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> cat</span></span>
-<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> dog</span></span>
-<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a><span class="at">  </span><span class="fu">numbers</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">1</span><span class="kw">,</span><span class="at"> </span><span class="fl">2.5</span><span class="kw">,</span><span class="at"> </span><span class="dv">0x10</span><span class="kw">,</span><span class="at"> </span><span class="fl">.inf</span><span class="kw">,</span><span class="at"> </span><span class="ch">null</span><span class="kw">]</span></span>
-<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a><span class="at">  </span><span class="fu">integers</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">1</span><span class="kw">,</span><span class="at"> </span><span class="dv">2</span><span class="kw">,</span><span class="at"> </span><span class="dv">3</span><span class="kw">,</span><span class="at"> </span><span class="dv">0x10</span><span class="kw">,</span><span class="at"> </span><span class="ch">null</span><span class="kw">]</span></span>
-<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a><span class="at">  </span><span class="fu">flags</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="kw">,</span><span class="at"> </span><span class="fu">label</span><span class="kw">:</span><span class="at"> </span><span class="ch">on</span><span class="kw">}</span></span>
-<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a><span class="fu">  literal</span><span class="kw">: </span><span class="ch">|</span></span>
-<span id="cb16-9"><a href="#cb16-9" tabindex="-1"></a>    hello</span>
-<span id="cb16-10"><a href="#cb16-10" tabindex="-1"></a>    world</span>
-<span id="cb16-11"><a href="#cb16-11" tabindex="-1"></a><span class="fu">  folded</span><span class="kw">: </span><span class="ch">&gt;</span></span>
-<span id="cb16-12"><a href="#cb16-12" tabindex="-1"></a>    hello</span>
-<span id="cb16-13"><a href="#cb16-13" tabindex="-1"></a>    world</span>
-<span id="cb16-14"><a href="#cb16-14" tabindex="-1"></a><span class="at">  </span><span class="fu">quoted</span><span class="kw">:</span></span>
-<span id="cb16-15"><a href="#cb16-15" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="st">"line</span><span class="sc">\n</span><span class="st">break"</span></span>
-<span id="cb16-16"><a href="#cb16-16" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="st">'quote: </span><span class="sc">''</span><span class="st">here</span><span class="sc">''</span><span class="st">'</span></span>
-<span id="cb16-17"><a href="#cb16-17" tabindex="-1"></a><span class="at">  </span><span class="fu">plain</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="ch">yes</span><span class="kw">,</span><span class="at"> </span><span class="ch">no</span><span class="kw">]</span></span>
-<span id="cb16-18"><a href="#cb16-18" tabindex="-1"></a><span class="at">  </span><span class="fu">mixed</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">won</span><span class="st">'t simplify, 123, true]</span></span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="fu">doc</span><span class="kw">:</span></span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="at">  </span><span class="fu">pets</span><span class="kw">:</span></span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> cat</span></span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> dog</span></span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a><span class="at">  </span><span class="fu">numbers</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">1</span><span class="kw">,</span><span class="at"> </span><span class="fl">2.5</span><span class="kw">,</span><span class="at"> </span><span class="dv">0x10</span><span class="kw">,</span><span class="at"> </span><span class="fl">.inf</span><span class="kw">,</span><span class="at"> </span><span class="ch">null</span><span class="kw">]</span></span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a><span class="at">  </span><span class="fu">integers</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">1</span><span class="kw">,</span><span class="at"> </span><span class="dv">2</span><span class="kw">,</span><span class="at"> </span><span class="dv">3</span><span class="kw">,</span><span class="at"> </span><span class="dv">0x10</span><span class="kw">,</span><span class="at"> </span><span class="ch">null</span><span class="kw">]</span></span>
+<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a><span class="at">  </span><span class="fu">flags</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="kw">,</span><span class="at"> </span><span class="fu">label</span><span class="kw">:</span><span class="at"> </span><span class="ch">on</span><span class="kw">}</span></span>
+<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a><span class="fu">  literal</span><span class="kw">: </span><span class="ch">|</span></span>
+<span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a>    hello</span>
+<span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a>    world</span>
+<span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a><span class="fu">  folded</span><span class="kw">: </span><span class="ch">&gt;</span></span>
+<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a>    hello</span>
+<span id="cb17-13"><a href="#cb17-13" tabindex="-1"></a>    world</span>
+<span id="cb17-14"><a href="#cb17-14" tabindex="-1"></a><span class="at">  </span><span class="fu">quoted</span><span class="kw">:</span></span>
+<span id="cb17-15"><a href="#cb17-15" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="st">"line</span><span class="sc">\n</span><span class="st">break"</span></span>
+<span id="cb17-16"><a href="#cb17-16" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="st">'quote: </span><span class="sc">''</span><span class="st">here</span><span class="sc">''</span><span class="st">'</span></span>
+<span id="cb17-17"><a href="#cb17-17" tabindex="-1"></a><span class="at">  </span><span class="fu">plain</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="ch">yes</span><span class="kw">,</span><span class="at"> </span><span class="ch">no</span><span class="kw">]</span></span>
+<span id="cb17-18"><a href="#cb17-18" tabindex="-1"></a><span class="at">  </span><span class="fu">mixed</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">won</span><span class="st">'t simplify, 123, true]</span></span></code></pre></div>
 <p>R result (<code><a href="../reference/parse_yaml.html">parse_yaml()</a></code> with defaults):</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  doc <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>    pets <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"cat"</span>, <span class="st">"dog"</span><span class="op">)</span>,</span>
