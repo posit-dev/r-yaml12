@@ -1,5 +1,5 @@
 Package: yaml12
-Title: Fast YAML 1.2 Parser and Formatter for R
+Title: Fast 'YAML' 1.2 Parser and Formatter
 Version: 0.1.0
 Authors@R: c(
     person("Tomasz", "Kalinowski", , "tomasz@posit.co", role = c("aut", "cre")),
@@ -8,11 +8,13 @@ Authors@R: c(
     person("Authors of the dependency Rust crates", role = "cph",
            comment = "See inst/AUTHORS and LICENSE.note for vendored Rust dependency authors and licenses.")
   )
-Description: A fast, correct, ergonomic YAML 1.2 parser and generator
-    written in Rust. Convert between YAML and simple R objects. Full
-    support for multi-document streams, tags, anchors, and aliases.
-    Offers opt-in handlers for custom tag behavior and round-trips common
-    R data structures. Proudly supported by Posit.
+Description: A fast, correct, safe, and ergonomic 'YAML' 1.2 parser and
+    generator written in 'Rust'. Convert between 'YAML' and simple 'R'
+    objects with full support for multi-document streams, tags, anchors,
+    and aliases. Offers opt-in handlers for custom tag behavior and
+    round-trips common 'R' data structures. Implements the 'YAML' 1.2.2
+    specification from the 'YAML' Language Development Team (2021)
+    <https://yaml.org/spec/1.2.2/>. Proudly supported by Posit.
 License: MIT + file LICENSE
 URL: https://posit-dev.github.io/r-yaml12/,
     https://github.com/posit-dev/r-yaml12
