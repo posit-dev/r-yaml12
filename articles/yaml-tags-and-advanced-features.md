@@ -392,6 +392,12 @@ recycled:
 #>   .. ..$ c: chr "d"
 ```
 
+## Debugging
+
+If you want to inspect how YAML nodes are parsed directly, you can reach
+for the internal helper `yaml12:::dbg_yaml()` to print the raw (Rust)
+`saphyr::Yaml` structures without converting to R objects.
+
 ## (Very) Advanced Tags
 
 The following are some YAML features that are rarely used, but are

@@ -423,6 +423,14 @@ objects.</p>
 <span><span class="co">#&gt;   .. ..$ c: chr "d"</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="debugging">Debugging<a class="anchor" aria-label="anchor" href="#debugging"></a>
+</h2>
+<p>If you want to inspect how YAML nodes are parsed directly, you can
+reach for the internal helper <code>yaml12:::dbg_yaml()</code> to print
+the raw (Rust) <code>saphyr::Yaml</code> structures without converting
+to R objects.</p>
+</div>
+<div class="section level2">
 <h2 id="very-advanced-tags">(Very) Advanced Tags<a class="anchor" aria-label="anchor" href="#very-advanced-tags"></a>
 </h2>
 <p>The following are some YAML features that are rarely used, but are
