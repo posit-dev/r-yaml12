@@ -4,7 +4,9 @@ Version: 0.1.0
 Authors@R: c(
     person("Tomasz", "Kalinowski", , "tomasz@posit.co", role = c("aut", "cre")),
     person("Posit Software, PBC", role = c("cph", "fnd"),
-           comment = c(ROR = "03wc8by49"))
+           comment = c(ROR = "03wc8by49")),
+    person("Authors of the dependency Rust crates", role = "cph",
+           comment = "See inst/AUTHORS and LICENSE.note for vendored Rust dependency authors and licenses.")
   )
 Description: A fast, correct, ergonomic YAML 1.2 parser and generator
     written in Rust. Convert between YAML and simple R objects. Full
