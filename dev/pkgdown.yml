@@ -1,0 +1,10 @@
+pandoc: 3.1.11
+pkgdown: 2.2.0
+pkgdown_sha: ~
+articles:
+  yaml-2-minute-intro: yaml-2-minute-intro.html
+  yaml-tags-and-advanced-features: yaml-tags-and-advanced-features.html
+last_built: 2025-12-12T16:45Z
+urls:
+  reference: https://posit-dev.github.io/r-yaml12/reference
+  article: https://posit-dev.github.io/r-yaml12/articles
