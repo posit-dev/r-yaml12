@@ -1,0 +1,170 @@
+---
+title: "Benchmarks"
+editor_options:
+  markdown:
+    wrap: 72
+    canonical: true
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Goal
+
+Compare `yaml12` and `yaml` for reading and writing YAML over a range of
+document sizes.
+
+We intentionally avoid testing semantic differences between YAML 1.1 and
+1.2, as well as less-used YAML features like tags and streams. Instead,
+we focus on the simple default usage of both.
+
+Operations:
+
+-   **read**: YAML file → R object
+-   **write**: R object → YAML (written to `nullfile()`)
+
+## Setup
+
+```{r}
+library(dplyr, warn.conflicts = FALSE)
+library(ggplot2)
+```
+
+### Generate inputs
+
+To benchmark, we create YAML files consisting of a repeating sequence of
+a small, fixed "mixed" node, repeated `2^(1:15)` times. This node is
+designed to exercise the full YAML 1.2 core schema (every core type is
+represented). We generate these files with `yaml12::write_yaml()`.
+
+Each file is written to a temporary file and then we measure read time.
+Note that on macOS and Linux, `tempfile()` paths often live on a `tmpfs`
+in RAM, so this typically won’t trigger a write to disk under most
+circumstances.
+
+```{r}
+# A YAML node that exercises every core schema type:
+#   seq, map, str, bool, int, float, null
+mixed_node <- list(
+  str = c(
+    "Lorem ipsum dolor sit amet, vel accumsan vitae faucibus ultrices leo",
+    "neque? Et cursus lacinia, ut, sit donec facilisi eu interdum. Dui",
+    "ipsum, vitae ligula commodo convallis ac sed nunc. Ipsum at nec lacus",
+    "eros suscipit vitae."
+  ),
+  block_str = "lorem \n ipsum \n dolor\n",
+  bools = c(TRUE, FALSE),
+  ints = c(123L, -123L),
+  floats = c(123.456, -123.456),
+  null = NULL
+)
+```
+
+```{r}
+make_yaml_doc <- function(size = 1) {
+  path <- tempfile(fileext = ".yaml")
+  yaml12::write_yaml(rep(list(mixed_node), size), path)
+  path
+}
+
+docs <- sapply(2^(1:15), make_yaml_doc)
+```
+
+## Read performance
+
+```{r}
+read_results <- lapply(docs, function(doc) {
+  result <- bench::mark(
+    yaml12::read_yaml(doc),
+    yaml::read_yaml(doc),
+    check = FALSE
+  )
+  result$file_size <- file.info(doc)$size
+  result
+})
+```
+
+### Read results summary
+
+```{r}
+read_results_df <- bind_rows(read_results) |>
+  mutate(expression = as.factor(sapply(expression, deparse1)))
+```
+
+```{r}
+read_results_df |>
+  ggplot(aes(x = file_size, y = median, color = expression)) +
+  labs(
+    y = "Median Run Time",
+    x = "File Size",
+    title = "Read Performance"
+  ) +
+  geom_point() +
+  geom_smooth(linewidth = .5) +
+  scale_x_log10(labels = scales::label_bytes()) +
+  scale_y_continuous(trans = bench::bench_time_trans())
+```
+
+### Read results (detailed)
+
+```{r}
+invisible(lapply(read_results, \(result) {
+  print(plot(result) + ggplot2::ggtitle(scales::label_bytes()(result$file_size[1])))
+  print(summary(result, filter_gc = FALSE))
+}))
+```
+
+## Write performance
+
+```{r}
+objs <- lapply(2^(1:15), function(n) rep(list(mixed_node), n))
+
+write_results <- lapply(objs, function(obj) {
+  result <- bench::mark(
+    yaml12::write_yaml(obj, nullfile()),
+    yaml::write_yaml(obj, nullfile()),
+    check = FALSE
+  )
+  result$obj_size <- object.size(obj)
+  result
+})
+```
+
+### Write results summary:
+
+```{r}
+write_results_df <- bind_rows(write_results) |>
+  mutate(expression = as.factor(sapply(expression, deparse1)))
+```
+
+```{r}
+write_results_df |>
+  ggplot(aes(x = obj_size, y = median, color = expression)) +
+  labs(
+    y = "Median Run Time",
+    x = "Object Size",
+    title = "Write Performance"
+  ) +
+  geom_point() +
+  geom_smooth(linewidth = .5) +
+  scale_x_log10(labels = scales::label_bytes()) +
+  scale_y_continuous(trans = bench::bench_time_trans())
+```
+
+### Write results (detailed)
+
+```{r}
+invisible(lapply(write_results, \(result) {
+  print(plot(result) + ggplot2::ggtitle(scales::label_bytes()(as.numeric(result$obj_size[1]))))
+  print(summary(result, filter_gc = FALSE))
+}))
+```
+
+## Conclusion
+
+Across all tested file sizes and for this workload, `yaml12` is faster
+than `yaml` at reading and writing YAML.

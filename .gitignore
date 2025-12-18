@@ -6,3 +6,4 @@ src/vendor
 stash
 inst/doc
 docs
+benchmarks.pdf

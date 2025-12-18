@@ -30,7 +30,7 @@ Suggests:
     withr
 VignetteBuilder:
     knitr
-Config/Needs/website: tidyverse/tidytemplate
+Config/Needs/website: tidyverse/tidytemplate, rmarkdown, bench, ggplot2, dplyr, yaml
 Config/rextendr/version: 0.4.2.9000
 Config/testthat/edition: 3
 Config/testthat/parallel: false
