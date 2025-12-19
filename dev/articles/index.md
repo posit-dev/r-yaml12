@@ -2,6 +2,7 @@
 
 ### All vignettes
 
+- [Benchmarks](https://posit-dev.github.io/r-yaml12/dev/articles/benchmarks.md):
 - [YAML in 2 Minutes: A Gentle Introduction for R
   Users](https://posit-dev.github.io/r-yaml12/dev/articles/yaml-2-minute-intro.md):
 - [YAML Tags, Anchors, and Advanced Features with
