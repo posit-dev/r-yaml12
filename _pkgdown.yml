@@ -10,3 +10,10 @@ template:
 
 development:
   mode: auto
+
+articles:
+  - title: "Articles"
+    contents:
+      - yaml-2-minute-intro
+      - yaml-tags-and-advanced-features
+      - articles/benchmarks
