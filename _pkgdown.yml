@@ -13,6 +13,7 @@ development:
 
 articles:
   - title: "Articles"
+    navbar: ~
     contents:
       - yaml-2-minute-intro
       - yaml-tags-and-advanced-features
