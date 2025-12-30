@@ -37,9 +37,9 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/benchmarks.html">Benchmarks</a></li>
-    <li><a class="dropdown-item" href="../articles/yaml-2-minute-intro.html">YAML in 2 Minutes: A Gentle Introduction for R Users</a></li>
+<li><a class="dropdown-item" href="../articles/yaml-2-minute-intro.html">YAML in 2 Minutes: A Gentle Introduction for R Users</a></li>
     <li><a class="dropdown-item" href="../articles/yaml-tags-and-advanced-features.html">YAML Tags, Anchors, and Advanced Features with yaml12</a></li>
+    <li><a class="dropdown-item" href="../articles/benchmarks.html">Benchmarks</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -61,8 +61,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-
-      <h1>Benchmarks</h1>
+      <img src="../logo.png" class="logo" alt=""><h1>Benchmarks</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/posit-dev/r-yaml12/blob/main/vignettes/articles/benchmarks.Rmd" class="external-link"><code>vignettes/articles/benchmarks.Rmd</code></a></small>
@@ -170,7 +169,7 @@ write to disk under most circumstances.</p>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_continuous.html" class="external-link">scale_x_log10</a></span><span class="op">(</span>labels <span class="op">=</span> <span class="fu">scales</span><span class="fu">::</span><span class="fu"><a href="https://scales.r-lib.org/reference/label_bytes.html" class="external-link">label_bytes</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_continuous.html" class="external-link">scale_y_continuous</a></span><span class="op">(</span>trans <span class="op">=</span> <span class="fu">bench</span><span class="fu">::</span><span class="fu"><a href="https://bench.r-lib.org/reference/bench_time_trans.html" class="external-link">bench_time_trans</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; `geom_smooth()` using method = 'loess' and formula = 'y ~ x'</span></span></code></pre></div>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-7-1.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-7-1.png" class="r-plt" alt="" width="700"></p>
 </div>
 <div class="section level3">
 <h3 id="read-results-detailed">Read results (detailed)<a class="anchor" aria-label="anchor" href="#read-results-detailed"></a>
@@ -180,124 +179,124 @@ write to disk under most circumstances.</p>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">ggtitle</a></span><span class="op">(</span><span class="fu">scales</span><span class="fu">::</span><span class="fu"><a href="https://scales.r-lib.org/reference/label_bytes.html" class="external-link">label_bytes</a></span><span class="op">(</span><span class="op">)</span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">file_size</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">result</span>, filter_gc <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-1.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-1.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>         <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::read_…       856  33.8µs  35.4µs    <span style="text-decoration: underline;">25</span>211.     2.6KB     2.52</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_ya…       856   101µs 105.5µs     <span style="text-decoration: underline;">8</span>800.    34.8KB    16.0 </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::read_…       856  34.4µs  35.9µs    <span style="text-decoration: underline;">22</span>533.     2.6KB     2.25</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_ya…       856 102.1µs 114.6µs     <span style="text-decoration: underline;">8</span>415.    34.8KB     2.00</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-2.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-2.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
-<span><span class="co">#&gt;   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>         <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::read_…      <span style="text-decoration: underline;">1</span>704  59.5µs  62.8µs    <span style="text-decoration: underline;">15</span>509.        0B     2.00</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_ya…      <span style="text-decoration: underline;">1</span>704 145.5µs 164.2µs     <span style="text-decoration: underline;">5</span>097.    10.9KB     6.00</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
-<span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-3.png" class="r-plt" width="700"></p>
+<span><span class="co">#&gt;   expression file_size   min  median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::r…      <span style="text-decoration: underline;">1</span>704  61µs  63.7µs    <span style="text-decoration: underline;">15</span>253.        0B     2.00  <span style="text-decoration: underline;">7</span>622</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::rea…      <span style="text-decoration: underline;">1</span>704 148µs 153.6µs     <span style="text-decoration: underline;">6</span>261.    10.9KB     4.00  <span style="text-decoration: underline;">3</span>130</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-3.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression  file_size   min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::re…      <span style="text-decoration: underline;">3</span>400 113µs  119µs     <span style="text-decoration: underline;">8</span>262.        0B     0     <span style="text-decoration: underline;">4</span>130</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read…      <span style="text-decoration: underline;">3</span>400 233µs  244µs     <span style="text-decoration: underline;">3</span>971.    13.7KB     4.00  <span style="text-decoration: underline;">1</span>986</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::re…      <span style="text-decoration: underline;">3</span>400 118µs  122µs     <span style="text-decoration: underline;">8</span>026.        0B     0     <span style="text-decoration: underline;">4</span>012</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read…      <span style="text-decoration: underline;">3</span>400 237µs  243µs     <span style="text-decoration: underline;">3</span>971.    13.7KB     4.00  <span style="text-decoration: underline;">1</span>986</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-4.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-4.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression  file_size   min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::re…      <span style="text-decoration: underline;">6</span>792 226µs  238µs     <span style="text-decoration: underline;">4</span>116.        0B     0     <span style="text-decoration: underline;">2</span>058</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read…      <span style="text-decoration: underline;">6</span>792 412µs  429µs     <span style="text-decoration: underline;">2</span>293.    19.4KB     4.00  <span style="text-decoration: underline;">1</span>147</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::re…      <span style="text-decoration: underline;">6</span>792 232µs  240µs     <span style="text-decoration: underline;">4</span>073.        0B     0     <span style="text-decoration: underline;">2</span>037</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read…      <span style="text-decoration: underline;">6</span>792 416µs  433µs     <span style="text-decoration: underline;">2</span>239.    19.4KB     4.00  <span style="text-decoration: underline;">1</span>120</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-5.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-5.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression  file_size   min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::re…     <span style="text-decoration: underline;">13</span>576 462µs  480µs     <span style="text-decoration: underline;">2</span>068.      304B     0     <span style="text-decoration: underline;">1</span>034</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read…     <span style="text-decoration: underline;">13</span>576 767µs  794µs     <span style="text-decoration: underline;">1</span>234.    31.1KB     3.99   618</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::re…     <span style="text-decoration: underline;">13</span>576 472µs  492µs     <span style="text-decoration: underline;">2</span>030.      304B     0     <span style="text-decoration: underline;">1</span>015</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read…     <span style="text-decoration: underline;">13</span>576 783µs  810µs     <span style="text-decoration: underline;">1</span>202.    31.1KB     4.00   601</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-6.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-6.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression   file_size      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:tm&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:tm&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::rea…     <span style="text-decoration: underline;">27</span>144 924.49µs 949.44µs     <span style="text-decoration: underline;">1</span>048.      560B     0   </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_…     <span style="text-decoration: underline;">27</span>144   1.52ms   1.54ms      635.    69.8KB     3.99</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::rea…     <span style="text-decoration: underline;">27</span>144 943.75µs 982.86µs     <span style="text-decoration: underline;">1</span>006.      560B     2.00</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_…     <span style="text-decoration: underline;">27</span>144   1.54ms   1.56ms      624.    69.8KB     3.99</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-7.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-7.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression file_size    min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::r…     <span style="text-decoration: underline;">54</span>280 1.85ms 1.89ms      523.    1.05KB     2.00   262</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::rea…     <span style="text-decoration: underline;">54</span>280 3.07ms  3.1ms      311.  147.06KB     3.96   157</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::r…     <span style="text-decoration: underline;">54</span>280  1.9ms 1.93ms      517.    1.05KB     0      259</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::rea…     <span style="text-decoration: underline;">54</span>280 3.11ms 3.15ms      309.  147.06KB     3.99   155</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-8.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-8.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression file_size    min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::r…    <span style="text-decoration: underline;">108</span>552 3.59ms 3.71ms      268.    2.05KB     0      135</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::rea…    <span style="text-decoration: underline;">108</span>552 6.55ms 6.66ms      147.   301.6KB     3.99    74</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::r…    <span style="text-decoration: underline;">108</span>552 3.75ms 3.83ms      261.    2.05KB     0      131</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::rea…    <span style="text-decoration: underline;">108</span>552 6.64ms 6.74ms      144.   301.6KB     3.96    73</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-9.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-9.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>         <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::read_…    <span style="text-decoration: underline;">217</span>096  7.19ms  7.26ms     137.     4.05KB     0   </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_ya…    <span style="text-decoration: underline;">217</span>096 15.68ms 15.85ms      62.5  610.65KB     1.95</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::read_…    <span style="text-decoration: underline;">217</span>096  7.32ms  7.38ms     135.     4.05KB     0   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_ya…    <span style="text-decoration: underline;">217</span>096 15.83ms 15.98ms      61.8  610.65KB     1.99</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-10.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-10.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression file_size    min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::r…    <span style="text-decoration: underline;">434</span>184 14.2ms 14.3ms      69.5    8.05KB     0       35</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::rea…    <span style="text-decoration: underline;">434</span>184 41.4ms   42ms      23.5     1.2MB     1.96    12</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::r…    <span style="text-decoration: underline;">434</span>184 14.4ms 14.7ms      68.0    8.05KB     0       34</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::rea…    <span style="text-decoration: underline;">434</span>184 41.9ms 42.2ms      23.4     1.2MB     1.95    12</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-11.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-11.png" class="r-plt" alt="" width="700"></p>
+<pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
+<span><span class="co">#&gt;   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>         <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::read_…    <span style="text-decoration: underline;">868</span>360  28.5ms  30.6ms     32.2    16.05KB     1.89</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_ya…    <span style="text-decoration: underline;">868</span>360 141.4ms 147.6ms      6.81    2.41MB     0   </span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-12.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression      file_size     min median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::read_y…    <span style="text-decoration: underline;">868</span>360  27.6ms   28ms     35.0    16.05KB     1.94</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_yam…    <span style="text-decoration: underline;">868</span>360 138.4ms  142ms      7.04    2.41MB     0   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::read_y…   1<span style="text-decoration: underline;">736</span>712  58.8ms   61ms     16.5    32.05KB        0</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_yam…   1<span style="text-decoration: underline;">736</span>712   839ms  839ms      1.19    4.82MB        0</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-12.png" class="r-plt" width="700"></p>
-<pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
-<span><span class="co">#&gt;   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>         <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::read_…   1<span style="text-decoration: underline;">736</span>712  56.6ms  57.8ms     16.7    32.05KB        0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_ya…   1<span style="text-decoration: underline;">736</span>712 838.5ms 838.5ms      1.19    4.82MB        0</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
-<span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-13.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-13.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression   file_size      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:tm&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:tm&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::rea…   3<span style="text-decoration: underline;">473</span>416 116.23ms 118.32ms     8.26    64.05KB    1.65 </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_…   3<span style="text-decoration: underline;">473</span>416    4.13s    4.13s     0.242    9.65MB    0.242</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::rea…   3<span style="text-decoration: underline;">473</span>416 121.62ms 125.12ms     7.98    64.05KB    1.99 </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_…   3<span style="text-decoration: underline;">473</span>416    4.17s    4.17s     0.240    9.65MB    0.240</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-14.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-14.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>         <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::read_…   6<span style="text-decoration: underline;">946</span>824 244.6ms 251.1ms    3.98       128KB    1.99 </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_ya…   6<span style="text-decoration: underline;">946</span>824   17.3s   17.3s    0.057<span style="text-decoration: underline;">9</span>    19.3MB    0.116</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::read_…   6<span style="text-decoration: underline;">946</span>824 271.9ms 282.7ms    3.54       128KB    3.54 </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_ya…   6<span style="text-decoration: underline;">946</span>824   17.8s   17.8s    0.056<span style="text-decoration: underline;">3</span>    19.3MB    0.113</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-15.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-8-15.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>         <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::read_…  13<span style="text-decoration: underline;">893</span>640 477.1ms 486.7ms    2.05       256KB   0     </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_ya…  13<span style="text-decoration: underline;">893</span>640   57.4s   57.4s    0.017<span style="text-decoration: underline;">4</span>    38.6MB   0.052<span style="text-decoration: underline;">3</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::read_…  13<span style="text-decoration: underline;">893</span>640 483.3ms 490.7ms    2.04       256KB   1.02  </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::read_ya…  13<span style="text-decoration: underline;">893</span>640   54.2s   54.2s    0.018<span style="text-decoration: underline;">4</span>    38.6MB   0.073<span style="text-decoration: underline;">8</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
 </div>
@@ -338,7 +337,7 @@ write to disk under most circumstances.</p>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_continuous.html" class="external-link">scale_x_log10</a></span><span class="op">(</span>labels <span class="op">=</span> <span class="fu">scales</span><span class="fu">::</span><span class="fu"><a href="https://scales.r-lib.org/reference/label_bytes.html" class="external-link">label_bytes</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_continuous.html" class="external-link">scale_y_continuous</a></span><span class="op">(</span>trans <span class="op">=</span> <span class="fu">bench</span><span class="fu">::</span><span class="fu"><a href="https://bench.r-lib.org/reference/bench_time_trans.html" class="external-link">bench_time_trans</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; `geom_smooth()` using method = 'loess' and formula = 'y ~ x'</span></span></code></pre></div>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-11-1.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-11-1.png" class="r-plt" alt="" width="700"></p>
 </div>
 <div class="section level3">
 <h3 id="write-results-detailed">Write results (detailed)<a class="anchor" aria-label="anchor" href="#write-results-detailed"></a>
@@ -348,124 +347,124 @@ write to disk under most circumstances.</p>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">ggtitle</a></span><span class="op">(</span><span class="fu">scales</span><span class="fu">::</span><span class="fu"><a href="https://scales.r-lib.org/reference/label_bytes.html" class="external-link">label_bytes</a></span><span class="op">(</span><span class="op">)</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">obj_size</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">result</span>, filter_gc <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-1.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-1.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression  obj_size    min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wr… 3360 by… 15.5µs 16.2µs    <span style="text-decoration: underline;">60</span>666.    3.02KB     0    <span style="text-decoration: underline;">10</span>000</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::writ… 3360 by… 69.8µs   73µs    <span style="text-decoration: underline;">12</span>585.   33.67KB     2.00  <span style="text-decoration: underline;">6</span>290</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wr… 3360 by… 15.4µs 15.8µs    <span style="text-decoration: underline;">62</span>261.    3.02KB     0    <span style="text-decoration: underline;">10</span>000</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::writ… 3360 by… 69.9µs 74.7µs    <span style="text-decoration: underline;">12</span>569.   33.67KB     4.00  <span style="text-decoration: underline;">6</span>282</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-2.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-2.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression  obj_size    min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wr… 6672 by… 24.1µs 25.1µs    <span style="text-decoration: underline;">39</span>219.        0B     0    <span style="text-decoration: underline;">10</span>000</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::writ… 6672 by… 91.2µs 95.6µs     <span style="text-decoration: underline;">9</span>836.    1.56KB     4.00  <span style="text-decoration: underline;">4</span>917</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wr… 6672 by… 24.1µs 24.7µs    <span style="text-decoration: underline;">39</span>668.        0B     0    <span style="text-decoration: underline;">10</span>000</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::writ… 6672 by… 92.3µs 97.1µs     <span style="text-decoration: underline;">9</span>638.    1.56KB     4.00  <span style="text-decoration: underline;">4</span>818</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-3.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-3.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression      obj_size     min  median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::write_… 13296 b…  42.7µs  44.4µs    <span style="text-decoration: underline;">22</span>185.        0B     0   </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write_ya… 13296 b… 135.7µs   141µs     <span style="text-decoration: underline;">6</span>799.    3.07KB     2.00</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::write_… 13296 b…  41.9µs  42.8µs    <span style="text-decoration: underline;">22</span>575.        0B     2.26</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write_ya… 13296 b… 134.8µs 141.4µs     <span style="text-decoration: underline;">4</span>774.    3.07KB     3.04</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-4.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-4.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression      obj_size     min  median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::write_… 26544 b…  78.4µs  81.7µs    <span style="text-decoration: underline;">12</span>020.        0B     0   </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write_ya… 26544 b… 221.3µs   230µs     <span style="text-decoration: underline;">4</span>200.    6.09KB     2.00</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::write_… 26544 b…  77.3µs  78.7µs    <span style="text-decoration: underline;">12</span>439.        0B     0   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write_ya… 26544 b… 219.8µs 228.1µs     <span style="text-decoration: underline;">4</span>250.    6.09KB     2.00</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-5.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-5.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression   obj_size   min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wri… 53040 b… 155µs  163µs     <span style="text-decoration: underline;">6</span>050.        0B     0     <span style="text-decoration: underline;">3</span>025</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write… 53040 b… 405µs  425µs     <span style="text-decoration: underline;">2</span>275.    12.1KB     4.00  <span style="text-decoration: underline;">1</span>138</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wri… 53040 b… 149µs  152µs     <span style="text-decoration: underline;">6</span>470.        0B     0     <span style="text-decoration: underline;">3</span>235</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write… 53040 b… 400µs  418µs     <span style="text-decoration: underline;">2</span>339.    12.1KB     4.00  <span style="text-decoration: underline;">1</span>170</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-6.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-6.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression   obj_size   min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wri… 106032 … 308µs  320µs     <span style="text-decoration: underline;">3</span>103.        0B     0     <span style="text-decoration: underline;">1</span>552</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write… 106032 … 768µs  796µs     <span style="text-decoration: underline;">1</span>228.    24.2KB     2.00   615</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wri… 106032 … 295µs  301µs     <span style="text-decoration: underline;">3</span>277.        0B     0     <span style="text-decoration: underline;">1</span>639</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write… 106032 … 759µs  783µs     <span style="text-decoration: underline;">1</span>251.    24.2KB     4.00   626</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-7.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-7.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
-<span><span class="co">#&gt;   expression     obj_size     min   median `itr/sec` mem_alloc `gc/sec`</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:tm&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::write… 212016 … 617.7µs 638.18µs     <span style="text-decoration: underline;">1</span>565.        0B     0   </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write_y… 212016 …   1.5ms   1.54ms      628.    48.3KB     3.99</span></span>
+<span><span class="co">#&gt;   expression    obj_size      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:tm&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:tm&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::writ… 212016 … 606.85µs 619.37µs     <span style="text-decoration: underline;">1</span>613.        0B     0   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write_… 212016 …   1.48ms   1.51ms      647.    48.3KB     3.99</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-8.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-8.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression  obj_size    min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wr… 423984 … 1.21ms 1.24ms      807.        0B     0      404</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::writ… 423984 … 2.93ms    3ms      325.    96.6KB     1.99   163</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wr… 423984 …  1.2ms 1.21ms      824.        0B     0      412</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::writ… 423984 … 2.92ms 2.97ms      329.    96.6KB     3.99   165</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-9.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-9.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression  obj_size    min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wr… 847920 … 2.37ms  2.4ms      417.        0B     0      209</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::writ… 847920 … 5.86ms 5.95ms      164.     193KB     1.98    83</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wr… 847920 … 2.35ms 2.37ms      421.        0B     0      211</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::writ… 847920 … 5.81ms 5.87ms      167.     193KB     3.97    84</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-10.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-10.png" class="r-plt" alt="" width="700"></p>
+<pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
+<span><span class="co">#&gt;   expression obj_size    min  median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span> <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::w… 1695792…  4.6ms  4.63ms     215.         0B     0      108</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::wri… 1695792… 11.6ms 11.77ms      83.3     386KB     3.97    42</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-11.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression      obj_size     min  median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::write_… 1695792…  4.62ms  4.68ms     213.         0B     0   </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write_ya… 1695792… 11.71ms 11.88ms      81.3     386KB     3.96</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::write_… 3391536…  9.07ms  9.12ms     109.         0B     0   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write_ya… 3391536… 23.13ms 23.59ms      41.4     772KB     3.94</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-11.png" class="r-plt" width="700"></p>
-<pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
-<span><span class="co">#&gt;   expression      obj_size     min  median `itr/sec` mem_alloc `gc/sec`</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::write_… 3391536…  9.07ms  9.15ms     109.         0B     0   </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write_ya… 3391536… 23.32ms 23.75ms      41.4     772KB     1.97</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
-<span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-12.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-12.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression  obj_size    min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wr… 6783024… 18.1ms 18.3ms      54.6        0B     0       28</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::writ… 6783024…   47ms 47.6ms      20.4    1.51MB     3.71    11</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wr… 6783024… 17.9ms 18.1ms      55.1        0B     0       28</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::writ… 6783024… 46.5ms 47.7ms      20.7    1.51MB     3.77    11</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-13.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-13.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression  obj_size    min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wr… 1356600… 36.3ms 38.8ms     26.0         0B     0       14</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::writ… 1356600… 94.4ms 95.3ms      9.90    3.02MB     1.98     5</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wr… 1356600… 37.5ms   39ms      25.5        0B     0       13</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::writ… 1356600… 93.5ms 96.6ms      10.3    3.02MB     5.17     6</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-14.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-14.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression      obj_size     min  median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:t&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::write_… 2713195…  79.3ms  80.3ms     12.5         0B     0   </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write_ya… 2713195… 192.9ms 199.2ms      5.07    6.03MB     3.38</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::write_… 2713195…  78.9ms  80.5ms     12.5         0B     0   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write_ya… 2713195… 190.5ms 193.2ms      5.20    6.03MB     3.46</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 7 more variables: n_itr &lt;int&gt;, n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
-<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-15.png" class="r-plt" width="700"></p>
+<p><img src="benchmarks_files/figure-html/unnamed-chunk-12-15.png" class="r-plt" alt="" width="700"></p>
 <pre><code><span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 14</span></span></span>
 <span><span class="co">#&gt;   expression   obj_size   min median `itr/sec` mem_alloc `gc/sec` n_itr</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;bch:expr&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;objct_&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;bch:byt&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wri… 5426385… 166ms  166ms      5.98        0B     0        3</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write… 5426385… 379ms  380ms      2.63    12.1MB     2.63     2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> yaml12::wri… 5426385… 158ms  158ms      6.30        0B     0        4</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> yaml::write… 5426385… 382ms  383ms      2.61    12.1MB     3.92     2</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</span></span></span></code></pre>
 </div>

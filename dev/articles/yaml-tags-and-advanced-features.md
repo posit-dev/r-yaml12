@@ -61,7 +61,8 @@ Any errors from a handler stop parsing:
 
 ``` r
 parse_yaml("!expr stop('boom')", handlers = handlers)
-#> Error in eval(str2lang(x), globalenv()): boom
+#> Error:
+#> ! boom
 ```
 
 Any tag without a matching handler is left preserved as `yaml_tag`
