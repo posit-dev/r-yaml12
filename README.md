@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# yaml12
+# yaml12 <a href="https://posit-dev.github.io/r-yaml12/"><img src="man/figures/logo.png" align="right" height="136" alt="yaml12 website" /></a>
 
 <!-- badges: start -->
 
