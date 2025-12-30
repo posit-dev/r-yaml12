@@ -1,6 +1,7 @@
 # YAML in 2 Minutes: A Gentle Introduction for R Users
 
 ``` r
+
 library(yaml12)
 ```
 
@@ -39,6 +40,7 @@ settings:
 ```
 
 ``` r
+
 str(parse_yaml(first_example))
 #> List of 5
 #>  $ title     : chr "A Modern YAML parser written in Rust"
@@ -102,6 +104,7 @@ one space past the dash:
 ↓
 
 ``` r
+
 list(
   list(name = "cat", toys = c("string", "box")),
   list(name = "dog", toys = c("ball", "bone"))
@@ -242,6 +245,7 @@ R result
 with defaults):
 
 ``` r
+
 list(
   doc = list(
     pets = c("cat", "dog"),

@@ -11,11 +11,11 @@
   the results when it’s ready for review.
 - When roxygen or Rust doc comments change, regenerate docs/wrappers
   from the package root with:
-  `rextendr::document(); devtools::document()`.
+  [`rextendr::document(); devtools::document()`](https://extendr.github.io/rextendr/reference/document.html).
 - If you add/remove exports or otherwise change Rd-facing surface
   (including new internal exports), always rerun
-  `rextendr::document(); devtools::document()` before finishing the
-  task.
+  [`rextendr::document(); devtools::document()`](https://extendr.github.io/rextendr/reference/document.html)
+  before finishing the task.
 - Before wrapping up, run formatters: `cargo fmt` and `air format .`.
 - When working on Rust code, prefer to iterate by switching to the
   `src/rust` directory and running `cargo check` there. Before you

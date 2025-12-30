@@ -1,6 +1,7 @@
 # YAML Tags, Anchors, and Advanced Features with yaml12
 
 ``` r
+
 library(yaml12)
 ```
 
@@ -20,6 +21,7 @@ not part of the scalar text itself.
 most common form is a simple local short tag that starts with `!`:
 
 ``` r
+
 dput(parse_yaml("!some_tag some_value"))
 #> structure("some_value", yaml_tag = "!some_tag")
 ```
@@ -29,6 +31,7 @@ the scalar is always returned as a string even when the content looks
 like another type.
 
 ``` r
+
 parse_yaml("! true")
 #> [1] "true"
 #> attr(,"yaml_tag")
@@ -50,6 +53,7 @@ mappings, it receives an R vector representing that node.
 Here is an example of using a handler to evaluate `!expr` nodes.
 
 ``` r
+
 handlers <- list(
   "!expr" = function(x) eval(str2lang(x), globalenv())
 )
@@ -60,6 +64,7 @@ parse_yaml("!expr 1+1", handlers = handlers)
 Any errors from a handler stop parsing:
 
 ``` r
+
 parse_yaml("!expr stop('boom')", handlers = handlers)
 #> Error in eval(str2lang(x), globalenv()): boom
 ```
@@ -68,6 +73,7 @@ Any tag without a matching handler is left preserved as `yaml_tag`
 attribute, and handlers without matching tags are left unused.
 
 ``` r
+
 handlers <- list(
   "!expr" = function(x) eval(str2lang(x), globalenv()),
   "!upper" = toupper,
@@ -93,6 +99,7 @@ list, potentially with a `yaml_keys` attribute (more on this in the next
 section).
 
 ``` r
+
 handlers <- list(
   "!some_seq_tag" = function(x) {
     stopifnot(identical(x, c("a", "b")))
@@ -126,6 +133,7 @@ then walk the result yourself. For example, you can process
 this:
 
 ``` r
+
 eval_yaml_expr_nodes <- function(x) {
   if (is.list(x)) {
     x <- lapply(x, eval_yaml_expr_nodes)
@@ -158,6 +166,7 @@ it keeps the original keys in a `yaml_keys` attribute next to the
 values:
 
 ``` r
+
 dput(parse_yaml("true: true"))
 #> structure(list(TRUE), names = "", yaml_keys = list(TRUE))
 ```
@@ -176,6 +185,7 @@ mapping, and the following line that starts with `:` holds its value:
 In yaml12 you can see those keys via the `yaml_keys` attribute:
 
 ``` r
+
 yaml <- "
 true: true
 ? [a, b]
@@ -205,6 +215,7 @@ attached. If all the mapping keys resolve to bare scalar strings, then a
 `yaml_keys` attribute is not attached.
 
 ``` r
+
 handlers <- list(
   "!upper" = toupper,
   "!airport" = function(x) paste0("IATA:", toupper(x))
@@ -232,6 +243,7 @@ after handling tagged nodes. For example, here is the earlier
 `handlers = list("!expr" = \(x) eval(str2lang(x), globalenv()))`)
 
 ``` r
+
 is_bare_string <- \(x) {
   is.character(key) && length(key) == 1L && is.null(attributes(key))
 }
@@ -280,6 +292,7 @@ YAML document is read. If an end marker (`...`) or a new start marker
 document. When `multi = TRUE`, all documents in the stream are returned.
 
 ``` r
+
 doc_stream <- "
 ---
 doc 1
@@ -309,6 +322,7 @@ start marker `---`. Regardless of `multi`,
 always includes an initial start marker and a final end marker.
 
 ``` r
+
 write_yaml(list("foo", "bar"))
 #> ---
 #> - foo
@@ -327,6 +341,7 @@ later content is not valid YAML. That makes it easy to extract front
 matter from files that mix YAML with other text (like R Markdown):
 
 ``` r
+
 rmd_lines <- c(
   "---",
   "title: Front matter only",
@@ -357,6 +372,7 @@ or
 [`write_yaml()`](https://posit-dev.github.io/r-yaml12/reference/format_yaml.md).
 
 ``` r
+
 tagged <- structure("1 + x", yaml_tag = "!expr")
 write_yaml(tagged)
 #> ---
@@ -370,6 +386,7 @@ Anchors (`&id`) name a node; aliases (`*id`) copy it. yaml12 resolves
 aliases before returning R objects.
 
 ``` r
+
 str(parse_yaml("
 recycle-me: &anchor-name
   a: b
@@ -420,6 +437,7 @@ Here the tag prefix `!e!` is automatically expanded to the full form
 upon parsing.
 
 ``` r
+
 dput(parse_yaml('
 %TAG !e! tag:example.com,2024:widgets/
 ---
@@ -431,6 +449,7 @@ item: !e!gizmo foo
 You can also declare a global tag prefix, which will expand a bare “!”
 
 ``` r
+
 dput(parse_yaml('
 %TAG ! tag:example.com,2024:widgets/
 ---
@@ -447,6 +466,7 @@ You can bypass handle resolution by using the following tag syntax:
 (e.g., spaces must be escaped, like in a URL).
 
 ``` r
+
 dput(parse_yaml('
 %TAG ! tag:example.com,2024:widgets/
 ---
@@ -466,6 +486,7 @@ The following three tags all resolve to the same internal representation
 and parse the same way:
 
 ``` r
+
 '
 - foo
 - !!str foo
@@ -501,6 +522,7 @@ Note that with `!!`, the parser expands the first global prefix to
 `!!`), and the tags come in with a fully resolved core schema URI.
 
 ``` r
+
 yaml <- "
 - !!timestamp 2025-01-01
 - !!timestamp 2025-01-01 21:59:43.10 -5
@@ -520,6 +542,7 @@ You can supply a handler for them if you want to convert them from a
 character string to some other R object:
 
 ``` r
+
 # Timestamp handler: Convert date-only into Date, otherwise try (some of) the
 # YAML 1.1 spec valid timestamp formats as POSIX formats.
 # return NA on failure.
@@ -546,6 +569,7 @@ binary_handler <- function(x) {
 ```
 
 ``` r
+
 str(parse_yaml(yaml, handlers = list(
   "tag:yaml.org,2002:timestamp" = timestamp_handler,
   "tag:yaml.org,2002:binary" = binary_handler
