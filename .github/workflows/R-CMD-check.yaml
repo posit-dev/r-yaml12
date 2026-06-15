@@ -12,6 +12,7 @@ permissions: read-all
 jobs:
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
+    continue-on-error: ${{ matrix.config.experimental }}
 
     name: ${{ matrix.config.os }} (${{ matrix.config.r }})
 
@@ -19,11 +20,12 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: macos-latest,   r: 'release'}
-          - {os: windows-latest, r: 'release'}
-          - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
-          - {os: ubuntu-latest,   r: 'release'}
-          - {os: ubuntu-latest,   r: 'oldrel-1'}
+          - {os: macos-latest,   r: 'release', experimental: false, rust-target: ''}
+          - {os: windows-latest, r: 'release', experimental: false, rust-target: 'x86_64-pc-windows-gnu'}
+          - {os: windows-11-arm, r: 'release', experimental: true,  rust-target: 'aarch64-pc-windows-gnullvm'}
+          - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release', experimental: false, rust-target: ''}
+          - {os: ubuntu-latest,   r: 'release', experimental: false, rust-target: ''}
+          - {os: ubuntu-latest,   r: 'oldrel-1', experimental: false, rust-target: ''}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -39,6 +41,10 @@ jobs:
           r-version: ${{ matrix.config.r }}
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
+
+      - name: Add Rust target
+        if: ${{ matrix.config.rust-target != '' }}
+        run: rustup target add ${{ matrix.config.rust-target }}
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
