@@ -1,6 +1,25 @@
+source_file <- function(...) {
+  paths <- list(...)
+  candidates <- c(
+    do.call(test_path, c(list("..", ".."), paths)),
+    do.call(
+      file.path,
+      c(list(getwd(), "..", "..", "00_pkg_src", "yaml12"), paths)
+    )
+  )
+
+  for (candidate in candidates) {
+    if (file.exists(candidate)) {
+      return(candidate)
+    }
+  }
+
+  skip("Source file is not available in this test layout")
+}
+
 load_windows_rust_target <- function() {
   env <- new.env(parent = baseenv())
-  source(test_path("../../tools/windows-rust-target.R"), local = env)
+  source(source_file("tools", "windows-rust-target.R"), local = env)
   env$windows_rust_target
 }
 
@@ -36,7 +55,7 @@ test_that("windows Rust target selection supports ARM Windows", {
 })
 
 test_that("windows Makevars uses the Rust target helper", {
-  makevars_win <- readLines(test_path("../../src/Makevars.win.in"))
+  makevars_win <- readLines(source_file("src", "Makevars.win.in"))
 
   expect_true(any(grepl("windows-rust-target.R", makevars_win, fixed = TRUE)))
   expect_false(any(grepl(
