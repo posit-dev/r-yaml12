@@ -64,3 +64,32 @@ test_that("windows Makevars uses the Rust target helper", {
     fixed = TRUE
   )))
 })
+
+test_that("windows Rust target check reports missing targets", {
+  env <- new.env(parent = baseenv())
+  source(source_file("tools", "windows-rust-target.R"), local = env)
+
+  expect_no_error(env$check_windows_rust_target(
+    target = "aarch64-pc-windows-gnullvm",
+    installed_targets = "aarch64-pc-windows-gnullvm"
+  ))
+
+  expect_error(
+    env$check_windows_rust_target(
+      target = "aarch64-pc-windows-gnullvm",
+      installed_targets = "x86_64-pc-windows-gnu"
+    ),
+    "rustup target add aarch64-pc-windows-gnullvm",
+    fixed = TRUE
+  )
+})
+
+test_that("configure.win checks the Rust target before configuring", {
+  configure_win <- readLines(source_file("configure.win"))
+  check_line <- grep("windows-rust-target.R.*--check", configure_win)
+  config_line <- grep("tools/config.R", configure_win, fixed = TRUE)
+
+  expect_length(check_line, 1L)
+  expect_length(config_line, 1L)
+  expect_lt(check_line, config_line)
+})
