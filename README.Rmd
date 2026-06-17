@@ -45,6 +45,20 @@ You can install the development version of yaml12 from
 pak::pak("posit-dev/r-yaml12")
 ```
 
+### Windows ARM64 source installs
+
+On Windows ARM64, source installs require the Rust target used by
+Rtools45:
+
+``` sh
+rustup target add aarch64-pc-windows-gnullvm
+```
+
+They also require Microsoft C++ Build Tools with ARM64 components. Cargo
+uses the Microsoft linker for host-side Rust procedural macros during
+the source build. Binary installs do not run Cargo and do not need this
+setup.
+
 ## Quick start
 
 ```{r}
