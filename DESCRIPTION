@@ -31,7 +31,6 @@ Suggests:
 VignetteBuilder:
     knitr
 Config/Needs/website: tidyverse/tidytemplate, rmarkdown, bench, ggplot2, ggbeeswarm, dplyr, tidyr, yaml
-Config/rextendr/version: 0.5.0
 Config/testthat/edition: 3
 Config/testthat/parallel: false
 Encoding: UTF-8

@@ -1,15 +1,15 @@
+use crate::r::{global_env, Function, Protect, Robj, Rstr};
 use crate::unwind::{run_with_unwind_protect, EvalError};
 use crate::{api_other, Fallible};
-use extendr_api::prelude::*;
-use extendr_ffi as ffi;
 use saphyr::Tag;
+use savvy_ffi as ffi;
 use std::collections::HashMap;
 use std::mem;
 
 #[allow(improper_ctypes)]
 extern "C" {
-    fn Rf_eval(expr: extendr_ffi::SEXP, env: extendr_ffi::SEXP) -> extendr_ffi::SEXP;
-    fn Rf_lang2(x1: extendr_ffi::SEXP, x2: extendr_ffi::SEXP) -> extendr_ffi::SEXP;
+    fn Rf_eval(expr: ffi::SEXP, env: ffi::SEXP) -> ffi::SEXP;
+    fn Rf_lang2(x1: ffi::SEXP, x2: ffi::SEXP) -> ffi::SEXP;
 }
 
 const HASHMAP_MIN_LEN: usize = 8;
@@ -61,9 +61,9 @@ impl<'a> HandlerRegistry<'a> {
             return Ok(None);
         }
 
-        let list: List = handlers
-            .try_into()
-            .map_err(|_| api_other("`handlers` must be a named list of functions"))?;
+        let list = handlers
+            .as_list()
+            .ok_or_else(|| api_other("`handlers` must be a named list of functions"))?;
 
         if list.is_empty() {
             return Ok(None);
@@ -79,7 +79,7 @@ impl<'a> HandlerRegistry<'a> {
         if use_hash_map {
             let mut handlers_map = HashMap::with_capacity(len);
             for (name, value) in names_attr.zip(list.values()) {
-                let name_str: &str = name;
+                let name_str = name.as_str();
                 let entry = handler_entry_from_parts(name, &value)?;
                 if handlers_map.insert(entry.key, entry.handler).is_some() {
                     return Err(api_other(format!(
@@ -94,7 +94,7 @@ impl<'a> HandlerRegistry<'a> {
 
         let mut entries: Vec<HandlerEntry<'a>> = Vec::with_capacity(len);
         for (name, value) in names_attr.zip(list.values()) {
-            let name_str: &str = name;
+            let name_str = name.as_str();
             let entry = handler_entry_from_parts(name, &value)?;
             if entries.iter().any(|existing| existing.key == entry.key) {
                 return Err(api_other(format!(
@@ -130,8 +130,8 @@ impl<'a> HandlerRegistry<'a> {
     }
 
     pub(crate) fn apply(&self, handler: &Function, arg: Robj) -> Fallible<Robj> {
-        struct CallState<'a> {
-            handler: &'a Function,
+        struct CallState {
+            handler: Function,
             arg: Robj,
             env: ffi::SEXP,
             result: ffi::SEXP,
@@ -139,13 +139,14 @@ impl<'a> HandlerRegistry<'a> {
 
         let env = handler.environment().unwrap_or_else(global_env);
         let mut state = CallState {
-            handler,
+            handler: *handler,
             arg,
-            env: unsafe { env.get() },
+            env: env.get(),
             result: unsafe { ffi::R_NilValue },
         };
         let state_ptr = &mut state as *mut CallState;
 
+        let _arg_guard = Protect::new(arg.get());
         let protect_result = run_with_unwind_protect(|| unsafe {
             let st = &mut *state_ptr;
             // Build a call of the form handler(arg) as a language object.
@@ -161,10 +162,11 @@ impl<'a> HandlerRegistry<'a> {
     }
 }
 
-fn handler_entry_from_parts<'a>(name: &'a str, value: &Robj) -> Fallible<HandlerEntry<'a>> {
+fn handler_entry_from_parts<'a>(name: Rstr, value: &Robj) -> Fallible<HandlerEntry<'a>> {
     if name.is_na() || name.is_empty() {
         return Err(api_other("`handlers` must be a named list of functions"));
     }
+    let name: &'static str = name.as_str();
     let key = parse_handler_name(name)?;
     let handler = value.as_function().ok_or_else(|| {
         api_other(format!(

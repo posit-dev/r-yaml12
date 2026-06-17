@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
+use crate::r::{self, Robj};
 use crate::{api_other, Fallible, TIMESTAMP_SUPPORT_ENABLED};
-use extendr_api::prelude::*;
 use saphyr::{Scalar, Tag, Yaml};
 use std::borrow::Cow;
 
@@ -175,9 +175,8 @@ pub(crate) fn timestamp_to_robj(
 ) -> Fallible<Robj> {
     match value {
         TimestampValue::Date(days) => {
-            let mut robj = r!(days as f64);
-            robj.set_class(&["Date"])
-                .map_err(|err| api_other(err.to_string()))?;
+            let mut robj = r::real_scalar(days as f64)?;
+            robj.set_class(&["Date"])?;
             Ok(robj)
         }
         TimestampValue::DateTime(DateTimeValue {
@@ -185,23 +184,21 @@ pub(crate) fn timestamp_to_robj(
             tz,
             space_separated,
         }) => {
-            let mut robj = r!(seconds);
-            robj.set_class(&["POSIXct", "POSIXt"])
-                .map_err(|err| api_other(err.to_string()))?;
+            let mut robj = r::real_scalar(seconds)?;
+            robj.set_class(&["POSIXct", "POSIXt"])?;
             if preserve_tzone {
                 match tz {
                     ParsedTz::Z => {
-                        robj.set_attrib("tzone", Strings::from_values(["UTC"]))
-                            .map_err(|err| api_other(err.to_string()))?;
+                        robj.set_attrib_str("tzone", r::string_vector_from_iter(["UTC"])?)?;
                     }
                     ParsedTz::Offset { minutes } if !space_separated => {
                         if let Some(tzone) = tzone_from_offset_minutes(minutes) {
-                            let tzone = Strings::from_values([tzone]);
-                            robj.set_attrib("tzone", tzone)
-                                .map_err(|err| api_other(err.to_string()))?;
+                            robj.set_attrib_str(
+                                "tzone",
+                                r::string_vector_from_iter([tzone.as_str()])?,
+                            )?;
                         } else if keep_empty_tzone {
-                            robj.set_attrib("tzone", Strings::from_values([""]))
-                                .map_err(|err| api_other(err.to_string()))?;
+                            robj.set_attrib_str("tzone", r::string_vector_from_iter([""])?)?;
                         }
                     }
                     ParsedTz::Offset { .. } | ParsedTz::None => {
@@ -272,12 +269,15 @@ where
                 .ok_or_else(|| api_other("Expected POSIXct scalar"))?;
             posix_vals.push(slice);
 
-            if let Some(tzone_attr) = val.get_attrib("tzone") {
+            if let Some(tzone_attr) = val.get_attrib_str("tzone")? {
                 if let Some(mut iter) = tzone_attr.as_str_iter() {
                     if let Some(tz) = iter.next() {
+                        if tz.is_na() {
+                            continue;
+                        }
                         match &posix_tzone {
-                            None => posix_tzone = Some(tz.to_string()),
-                            Some(existing) if existing != tz => return Ok(None),
+                            None => posix_tzone = Some(tz.as_str().to_string()),
+                            Some(existing) if existing != tz.as_str() => return Ok(None),
                             _ => {}
                         }
                     }
@@ -290,19 +290,16 @@ where
     }
 
     if !date_vals.is_empty() && posix_vals.is_empty() {
-        let mut out = Doubles::from_values(date_vals).into_robj();
-        out.set_class(&["Date"])
-            .map_err(|err| api_other(err.to_string()))?;
+        let mut out = r::real_vector_from_iter(date_vals.len(), date_vals)?;
+        out.set_class(&["Date"])?;
         return Ok(Some(out));
     }
 
     if !posix_vals.is_empty() && date_vals.is_empty() {
-        let mut out = Doubles::from_values(posix_vals).into_robj();
-        out.set_class(&["POSIXct", "POSIXt"])
-            .map_err(|err| api_other(err.to_string()))?;
+        let mut out = r::real_vector_from_iter(posix_vals.len(), posix_vals)?;
+        out.set_class(&["POSIXct", "POSIXt"])?;
         if let Some(tz) = posix_tzone {
-            out.set_attrib("tzone", Strings::from_values([tz]))
-                .map_err(|err| api_other(err.to_string()))?;
+            out.set_attrib_str("tzone", r::string_vector_from_iter([tz.as_str()])?)?;
         }
         return Ok(Some(out));
     }
@@ -446,24 +443,10 @@ pub(crate) fn format_r_time(
     format: &str,
     tz: Option<&str>,
 ) -> Fallible<Vec<Option<String>>> {
-    with_digits_secs(9, || {
-        let call = match tz {
-            Some(tz) => lang!(
-                "format",
-                robj.clone(),
-                format = format,
-                tz = tz,
-                usetz = false
-            ),
-            None => lang!("format", robj.clone(), format = format),
-        };
-        let res = call.eval()?;
-        let strings: Strings = res.try_into()?;
-        Ok(strings
-            .iter()
-            .map(|s| if s.is_na() { None } else { Some(s.to_string()) })
-            .collect())
-    })
+    let _ = (robj, format, tz);
+    Err(api_other(
+        "Timestamp formatting is disabled; set TIMESTAMP_SUPPORT_ENABLED to true and port R formatting calls first",
+    ))
 }
 
 pub(crate) fn format_posix_precise(
@@ -504,36 +487,6 @@ pub(crate) fn format_posix_precise(
         }
     }
     Ok(out)
-}
-
-struct DigitsSecsGuard {
-    old: Robj,
-}
-
-impl Drop for DigitsSecsGuard {
-    fn drop(&mut self) {
-        // Ignore restoration errors; best-effort reset.
-        let _ = set_digits_secs_option(self.old.clone());
-    }
-}
-
-fn with_digits_secs<F, T>(digits: i32, f: F) -> Fallible<T>
-where
-    F: FnOnce() -> Fallible<T>,
-{
-    let old = call!("getOption", "digits.secs")?;
-    set_digits_secs_option(r!(digits))?;
-    let guard = DigitsSecsGuard { old };
-    let result = f();
-    drop(guard);
-    result
-}
-
-fn set_digits_secs_option(value: Robj) -> Fallible<()> {
-    let opts = List::from_names_and_values(&["digits.secs"], vec![value])
-        .map_err(|err| api_other(err.to_string()))?;
-    call!("do.call", "options", opts)?;
-    Ok(())
 }
 
 fn posix_seconds_from_robj(robj: &Robj) -> Fallible<Vec<Option<f64>>> {

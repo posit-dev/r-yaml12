@@ -1,13 +1,15 @@
+use crate::r::{self, List, Robj, Rtype};
 use crate::{api_other, sym_yaml_keys, sym_yaml_tag, Fallible};
 use crate::{
     timestamp::{
         core_timestamp_tag, format_posix_precise, format_r_time, offset_minutes_from_tzone,
         yaml_from_formatted_timestamp, yaml_from_formatted_timestamp_with_tag,
     },
+    unwind::{run_with_unwind_protect, EvalError},
     TIMESTAMP_SUPPORT_ENABLED,
 };
-use extendr_api::prelude::*;
 use saphyr::{Mapping, Scalar, Tag, Yaml, YamlEmitter};
+use savvy_ffi as ffi;
 use std::{borrow::Cow, fs, os::raw::c_char};
 
 const PRINTF_NO_FMT_CSTRING: &[c_char] = &[37, 115, 0]; // "%s\0"
@@ -51,17 +53,17 @@ fn write_to_r_stdout(mut content: String) -> Fallible<()> {
         "R character data cannot contain embedded NULs",
     );
     content.push('\0');
-    unsafe {
-        extendr_ffi::Rprintf(
+    run_with_unwind_protect(|| unsafe {
+        ffi::Rprintf(
             PRINTF_NO_FMT_CSTRING.as_ptr(),
             content.as_ptr() as *const c_char,
         );
-    }
-    Ok(())
+    })
+    .map_err(EvalError::Jump)
 }
 
 fn robj_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
-    if TIMESTAMP_SUPPORT_ENABLED && robj.get_attrib(sym_yaml_tag()).is_none() {
+    if TIMESTAMP_SUPPORT_ENABLED && robj.get_attrib_sym(sym_yaml_tag()).is_none() {
         if has_class(robj, "POSIXt") || has_class(robj, "POSIXct") {
             return posix_to_yaml(robj);
         }
@@ -88,20 +90,20 @@ fn robj_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
 fn logical_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
     let slice = robj
         .as_logical_slice()
-        .ok_or_else(|| Error::Other("Expected a logical vector".to_string()))?;
+        .ok_or_else(|| api_other("Expected a logical vector"))?;
     if let [value] = slice {
-        return Ok(if value.is_na() {
+        return Ok(if *value == r::r_na_int() {
             Yaml::Value(Scalar::Null)
         } else {
-            Yaml::Value(Scalar::Boolean(value.to_bool()))
+            Yaml::Value(Scalar::Boolean(*value != 0))
         });
     }
     let mut values = Vec::with_capacity(slice.len());
     for value in slice {
-        if value.is_na() {
+        if *value == r::r_na_int() {
             values.push(Yaml::Value(Scalar::Null));
         } else {
-            values.push(Yaml::Value(Scalar::Boolean(value.to_bool())));
+            values.push(Yaml::Value(Scalar::Boolean(*value != 0)));
         }
     }
     Ok(Yaml::Sequence(values))
@@ -110,7 +112,7 @@ fn logical_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
 fn integer_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
     let slice = robj
         .as_integer_slice()
-        .ok_or_else(|| Error::Other("Expected an integer vector".to_string()))?;
+        .ok_or_else(|| api_other("Expected an integer vector"))?;
     if let [value] = slice {
         return Ok(if *value == i32::MIN {
             Yaml::Value(Scalar::Null)
@@ -132,7 +134,7 @@ fn integer_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
 fn real_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
     let slice = robj
         .as_real_slice()
-        .ok_or_else(|| Error::Other("Expected a numeric vector".to_string()))?;
+        .ok_or_else(|| api_other("Expected a numeric vector"))?;
     if let [value] = slice {
         return Ok(if value.is_nan() {
             Yaml::Value(Scalar::Null)
@@ -154,7 +156,7 @@ fn real_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
 fn character_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
     let mut strings = robj
         .as_str_iter()
-        .ok_or_else(|| Error::Other("Expected a character vector".to_string()))?;
+        .ok_or_else(|| api_other("Expected a character vector"))?;
     if robj.len() == 1 {
         let value = strings
             .next()
@@ -162,6 +164,7 @@ fn character_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
         return Ok(if value.is_na() {
             Yaml::Value(Scalar::Null)
         } else {
+            let value: &'static str = value.as_str();
             Yaml::Value(Scalar::String(Cow::Borrowed(value)))
         });
     }
@@ -170,6 +173,7 @@ fn character_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
         if value.is_na() {
             values.push(Yaml::Value(Scalar::Null));
         } else {
+            let value: &'static str = value.as_str();
             values.push(Yaml::Value(Scalar::String(Cow::Borrowed(value))));
         }
     }
@@ -177,17 +181,13 @@ fn character_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
 }
 
 fn has_class(robj: &Robj, class: &str) -> bool {
-    if robj.inherits(class) {
-        return true;
-    }
-    robj.class()
-        .map(|iter| iter.into_iter().any(|c| c == class))
-        .unwrap_or(false)
+    robj.inherits(class)
 }
 
 fn posix_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
-    let tz_name = robj
-        .get_attrib("tzone")
+    let tzone_attr = robj.get_attrib_str("tzone")?;
+    let tz_name = tzone_attr
+        .as_ref()
         .and_then(|tz| tz.as_str())
         .filter(|s| !s.is_empty());
 
@@ -241,41 +241,40 @@ fn local_offset_minutes(robj: &Robj) -> Fallible<i32> {
 }
 
 fn list_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
-    let list = robj
-        .as_list()
-        .ok_or_else(|| Error::Other("Expected a list".to_string()))?;
-    if let Some(keys_attr) = robj.get_attrib(sym_yaml_keys()) {
+    let list = robj.as_list().ok_or_else(|| api_other("Expected a list"))?;
+    if let Some(keys_attr) = robj.get_attrib_sym(sym_yaml_keys()) {
         if !keys_attr.is_null() {
             let keys: List = keys_attr
                 .try_into()
-                .map_err(|_| Error::Other("`yaml_keys` attribute must be a list".to_string()))?;
+                .map_err(|_| api_other("`yaml_keys` attribute must be a list"))?;
             if keys.len() != list.len() {
                 return Err(api_other(
                     "`yaml_keys` attribute must have the same length as the list",
                 ));
             }
             let mut mapping = Mapping::with_capacity(list.len());
-            for ((_, value), (_, key)) in list.iter().zip(keys.iter()) {
+            for (value, key) in list.values().zip(keys.values()) {
                 mapping.insert(robj_to_yaml(&key)?, robj_to_yaml(&value)?);
             }
             return Ok(Yaml::Mapping(mapping));
         }
     }
 
-    match robj.names() {
+    match list.names() {
         Some(names) => {
             let mut mapping = Mapping::with_capacity(list.len());
-            for (value, name) in list.as_slice().iter().zip(names) {
+            for (value, name) in list.values().zip(names) {
                 let key = if name.is_na() {
                     Yaml::Value(Scalar::Null)
                 } else {
-                    Yaml::Value(Scalar::String(name.into()))
+                    let name: &'static str = name.as_str();
+                    Yaml::Value(Scalar::String(Cow::Borrowed(name)))
                 };
-                if mapping.insert(key, robj_to_yaml(value)?).is_some() {
+                if mapping.insert(key, robj_to_yaml(&value)?).is_some() {
                     let duplicate = if name.is_na() {
                         String::from("null")
                     } else {
-                        let key_str: &str = name;
+                        let key_str = name.as_str();
                         if key_str.is_empty() {
                             String::from("(empty string)")
                         } else {
@@ -291,9 +290,8 @@ fn list_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
         }
         None => {
             let seq = list
-                .as_slice()
-                .iter()
-                .map(robj_to_yaml)
+                .values()
+                .map(|value| robj_to_yaml(&value))
                 .collect::<Fallible<Vec<_>>>()?;
             Ok(Yaml::Sequence(seq))
         }
@@ -320,14 +318,14 @@ fn apply_tag_if_present(robj: &Robj, node: Yaml<'static>) -> Fallible<Yaml<'stat
 }
 
 fn extract_yaml_tag(robj: &Robj) -> Fallible<Option<Tag>> {
-    let attr = match robj.get_attrib(sym_yaml_tag()) {
+    let attr = match robj.get_attrib_sym(sym_yaml_tag()) {
         Some(value) => value,
         None => return Ok(None),
     };
-    let tag_str: &str = (&attr).try_into().map_err(|err: Error| {
-        Error::Other(format!(
-            "Invalid `yaml_tag` attribute: expected a single, non-missing string ({err})"
-        ))
+    let tag_str = attr.as_str().ok_or_else(|| {
+        api_other(
+            "Invalid `yaml_tag` attribute: expected a single, non-missing string. Must not be NA",
+        )
     })?;
     let tag_str = tag_str.trim();
     if tag_str.is_empty() {
@@ -380,9 +378,9 @@ fn extract_yaml_tag(robj: &Robj) -> Fallible<Option<Tag>> {
 
 pub(crate) fn format_yaml_impl(value: &Robj, multi: bool) -> Fallible<String> {
     if multi {
-        let list = value.as_list().ok_or_else(|| {
-            Error::Other("`value` must be a list when `multi = TRUE`".to_string())
-        })?;
+        let list = value
+            .as_list()
+            .ok_or_else(|| api_other("`value` must be a list when `multi = TRUE`"))?;
         if list.names().is_some() {
             return Err(api_other(
                 "`value` must be an unnamed list when `multi = TRUE` (names must be NULL)",

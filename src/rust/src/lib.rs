@@ -1,17 +1,17 @@
 mod handlers;
+mod r;
 mod r_to_yaml;
 mod timestamp;
 mod unwind;
 mod warning;
 mod yaml_to_r;
 
+use crate::r::{rprintln, sym_yaml_keys, sym_yaml_tag, Robj, Strings, NULL};
 use crate::r_to_yaml::yaml_body;
-use extendr_api::prelude::*;
-use extendr_ffi as ffi;
 use saphyr::{LoadableYamlNode, Yaml};
+use savvy_ffi as ffi;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::result::Result as StdResult;
-use std::{cell::OnceCell, thread_local};
 use unwind::EvalError;
 
 type Fallible<T> = StdResult<T, EvalError>;
@@ -21,31 +21,30 @@ pub(crate) const R_STRING_MAX_BYTES: usize = i32::MAX as usize;
 pub(crate) const TIMESTAMP_SUPPORT_ENABLED: bool = false;
 
 fn api_other(msg: impl Into<String>) -> EvalError {
-    EvalError::Api(Error::Other(msg.into()))
+    EvalError::Api(msg.into())
 }
 
 const TAGGED_POINTER_MASK: usize = 1;
 
 fn tagged_error_message(message: &str) -> ffi::SEXP {
-    unsafe {
-        let string = ffi::Rf_mkCharLenCE(
+    let result = unwind::run_with_unwind_value(|| unsafe {
+        ffi::Rf_mkCharLenCE(
             message.as_ptr() as *const std::os::raw::c_char,
             message.len() as i32,
-            ffi::cetype_t::CE_UTF8,
-        );
-        (string as usize | TAGGED_POINTER_MASK) as ffi::SEXP
+            ffi::cetype_t_CE_UTF8,
+        )
+    });
+    match result {
+        Ok(string) => (string as usize | TAGGED_POINTER_MASK) as ffi::SEXP,
+        Err(token) => token.into_tagged_sexp(),
     }
 }
 
 fn ffi_result(result: Fallible<Robj>) -> ffi::SEXP {
     match result {
-        Ok(value) => unsafe { value.get() },
+        Ok(value) => value.get(),
         Err(EvalError::Jump(token)) => token.into_tagged_sexp(),
-        Err(EvalError::Api(err)) => {
-            let message = err.to_string();
-            drop(err);
-            tagged_error_message(&message)
-        }
+        Err(EvalError::Api(err)) => tagged_error_message(&err),
     }
 }
 
@@ -88,11 +87,13 @@ fn robj_arg(sexp: ffi::SEXP) -> Robj {
 }
 
 fn strings_arg(sexp: ffi::SEXP) -> Fallible<Strings> {
-    Ok(robj_from_sexp(sexp).try_into()?)
+    Strings::try_from(robj_from_sexp(sexp))
 }
 
 fn bool_arg_from_robj(value: &Robj, name: &str) -> Fallible<bool> {
-    bool::try_from(value).map_err(|_| api_other(format!("`{name}` must be TRUE or FALSE")))
+    value
+        .as_bool_scalar()
+        .ok_or_else(|| api_other(format!("`{name}` must be TRUE or FALSE")))
 }
 
 fn bool_arg(sexp: ffi::SEXP, name: &str) -> Fallible<bool> {
@@ -102,8 +103,8 @@ fn bool_arg(sexp: ffi::SEXP, name: &str) -> Fallible<bool> {
 
 fn path_arg<'a>(value: &'a Robj, name: &str) -> Fallible<&'a str> {
     value
-        .try_into()
-        .map_err(|_| api_other(format!("`{name}` must be a single, non-missing string")))
+        .as_str()
+        .ok_or_else(|| api_other(format!("`{name}` must be a single, non-missing string")))
 }
 
 fn optional_path_arg(value: &Robj) -> Fallible<Option<&str>> {
@@ -115,22 +116,6 @@ fn optional_path_arg(value: &Robj) -> Fallible<Option<&str>> {
         })?))
     }
 }
-
-macro_rules! cached_sym {
-    ($cell:ident, $name:ident, $getter:ident) => {
-        thread_local! {
-            static $cell: OnceCell<Robj> = OnceCell::new();
-        }
-
-        #[inline]
-        pub(crate) fn $getter() -> Robj {
-            $cell.with(|cell| cell.get_or_init(|| sym!($name)).clone())
-        }
-    };
-}
-
-cached_sym!(YAML_KEYS_SYM, yaml_keys, sym_yaml_keys);
-cached_sym!(YAML_TAG_SYM, yaml_tag, sym_yaml_tag);
 
 /// Format or write R objects as YAML 1.2.
 ///
@@ -165,7 +150,7 @@ fn format_yaml(value: Robj, multi: bool) -> Fallible<Robj> {
             "Formatted YAML exceeds R's 2^31-1 byte string limit",
         ));
     }
-    Ok(Robj::from(body))
+    r::string_scalar(body)
 }
 
 r_entrypoint! {
@@ -247,12 +232,12 @@ fn dbg_yaml(text: Strings) -> Fallible<Robj> {
         if idx > 0 {
             joined.push('\n');
         }
-        joined.push_str(part.as_ref());
+        joined.push_str(part.as_str());
     }
 
     let docs = Yaml::load_from_str(&joined)
         .map_err(|err| api_other(format!("YAML parse error: {err}")))?;
-    rprintln!("{:#?}", docs);
+    rprintln(&format!("{:#?}", docs))?;
     Ok(NULL.into())
 }
 

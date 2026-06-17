@@ -3,11 +3,13 @@
 
 #include <Rinternals.h>
 #include <R_ext/Rdynload.h>
+#include <Rversion.h>
 #include <setjmp.h>
 #include <stdint.h>
 
 SEXP unwind_protect_wrapper(SEXP (*fun)(void *data), void *data);
-void not_so_long_jump(void *jmpbuf, Rboolean jump);
+static void yaml12_not_so_long_jump(void *jmpbuf, Rboolean jump);
+SEXP yaml12_closure_env(SEXP fun);
 
 SEXP yaml12_dbg_yaml_ffi(SEXP text);
 SEXP yaml12_format_yaml_ffi(SEXP value, SEXP multi);
@@ -22,6 +24,7 @@ static SEXP handle_result(SEXP res_, const char *call_name) {
     if ((res & TAGGED_POINTER_MASK) == 1) {
         SEXP res_aligned = (SEXP)(res & ~TAGGED_POINTER_MASK);
         if (TYPEOF(res_aligned) == CHARSXP) {
+            PROTECT(res_aligned);
             SEXP call = PROTECT(Rf_lang1(Rf_install(call_name)));
             Rf_errorcall(call, "%s", CHAR(res_aligned));
         } else {
@@ -78,13 +81,21 @@ SEXP unwind_protect_wrapper(SEXP (*fun)(void *data), void *data) {
         UNPROTECT(1);
         return (SEXP)((uintptr_t)token | 1);
     }
-    SEXP res = R_UnwindProtect(fun, data, (void (*)(void *, Rboolean)) not_so_long_jump, &jmpbuf, token);
+    SEXP res = R_UnwindProtect(fun, data, (void (*)(void *, Rboolean)) yaml12_not_so_long_jump, &jmpbuf, token);
     UNPROTECT(1);
     return res;
 }
 
-void not_so_long_jump(void *jmpbuf, Rboolean jump) {
+static void yaml12_not_so_long_jump(void *jmpbuf, Rboolean jump) {
     if (jump == TRUE) {
         longjmp(*(jmp_buf *)jmpbuf, 1);
     }
+}
+
+SEXP yaml12_closure_env(SEXP fun) {
+#if R_VERSION < R_Version(4, 5, 0)
+    return CLOENV(fun);
+#else
+    return R_ClosureEnv(fun);
+#endif
 }

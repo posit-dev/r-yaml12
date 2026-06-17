@@ -1,12 +1,12 @@
 use crate::handlers::HandlerRegistry;
+use crate::r::{self, List, ProtectedRobj, Robj, Strings, NULL};
 use crate::timestamp::{is_timestamp_tag, parse_timestamp_node, simplify_timestamp_sequence};
 use crate::unwind::EvalError;
 use crate::warning::emit_warning;
 use crate::{api_other, sym_yaml_keys, sym_yaml_tag, Fallible, TIMESTAMP_SUPPORT_ENABLED};
-use extendr_api::prelude::*;
 use saphyr::{Mapping, Scalar, Tag, Yaml, YamlLoader};
 use saphyr_parser::{Parser, ScalarStyle};
-use std::{borrow::Cow, fs, mem};
+use std::{fs, mem};
 
 fn resolve_representation(node: &mut Yaml, _simplify: bool) {
     let (value, style, tag) = match mem::replace(node, Yaml::BadValue) {
@@ -69,7 +69,7 @@ fn yaml_to_robj(
     handlers: Option<&HandlerRegistry<'_>>,
 ) -> Fallible<Robj> {
     match node {
-        Yaml::Value(scalar) => Ok(scalar_to_robj(scalar)),
+        Yaml::Value(scalar) => scalar_to_robj(scalar),
         Yaml::Tagged(tag, inner) => convert_tagged(tag, inner.as_mut(), simplify, handlers),
         Yaml::Sequence(seq) => sequence_to_robj(seq, simplify, handlers),
         Yaml::Mapping(map) => mapping_to_robj(map, simplify, handlers),
@@ -84,19 +84,19 @@ fn yaml_to_robj(
     }
 }
 
-fn scalar_to_robj(scalar: &Scalar) -> Robj {
+fn scalar_to_robj(scalar: &Scalar) -> Fallible<Robj> {
     match scalar {
-        Scalar::Null => NULL.into(),
-        Scalar::Boolean(value) => r!(*value),
+        Scalar::Null => Ok(NULL.into()),
+        Scalar::Boolean(value) => r::logical_scalar(*value),
         Scalar::Integer(value) => {
             if let Ok(v) = i32::try_from(*value) {
-                r!(v)
+                r::integer_scalar(v)
             } else {
-                r!(*value as f64)
+                r::real_scalar(*value as f64)
             }
         }
-        Scalar::FloatingPoint(value) => r!(value.into_inner()),
-        Scalar::String(value) => r!(value.as_ref()),
+        Scalar::FloatingPoint(value) => r::real_scalar(value.into_inner()),
+        Scalar::String(value) => r::string_scalar(value.as_ref()),
     }
 }
 
@@ -118,12 +118,13 @@ fn sequence_to_robj(
     let mut simplify = simplify_seqs;
 
     if !simplify_seqs {
-        let mut values = Vec::with_capacity(seq.len());
-        for node in seq {
+        let mut list = List::new(seq.len(), false)?;
+        for (i, node) in seq.iter_mut().enumerate() {
             resolve_representation(node, simplify_seqs);
-            values.push(yaml_to_robj(node, simplify_seqs, handlers)?);
+            let value = yaml_to_robj(node, simplify_seqs, handlers)?;
+            list.set_value(i, value)?;
         }
-        return Ok(List::from_values(values).into());
+        return Ok(list.into_robj());
     }
 
     // iterate over the vec once to see if we can simplify, fail early/fast if not
@@ -176,37 +177,49 @@ fn sequence_to_robj(
     if simplify {
         match out_type {
             RVectorType::Logical => {
-                let logicals = Logicals::from_values(seq.iter().map(|node| match node {
-                    Yaml::Value(Scalar::Boolean(b)) => (*b).into(),
-                    Yaml::Value(Scalar::Null) => Rbool::na_value(),
-                    _ => unreachable!("expected only booleans or nulls"),
-                }));
-                return Ok(logicals.into());
+                let logicals = r::logical_vector_from_iter(
+                    seq.len(),
+                    seq.iter().map(|node| match node {
+                        Yaml::Value(Scalar::Boolean(b)) => i32::from(*b),
+                        Yaml::Value(Scalar::Null) => r::r_na_int(),
+                        _ => unreachable!("expected only booleans or nulls"),
+                    }),
+                )?;
+                return Ok(logicals);
             }
             RVectorType::Integer => {
-                let integers = Integers::from_values(seq.iter().map(|node| match node {
-                    Yaml::Value(Scalar::Integer(value)) => Rint::from(*value as i32),
-                    Yaml::Value(Scalar::Null) => Rint::na(),
-                    _ => unreachable!("expected only integers or nulls"),
-                }));
-                return Ok(integers.into());
+                let integers = r::integer_vector_from_iter(
+                    seq.len(),
+                    seq.iter().map(|node| match node {
+                        Yaml::Value(Scalar::Integer(value)) => *value as i32,
+                        Yaml::Value(Scalar::Null) => r::r_na_int(),
+                        _ => unreachable!("expected only integers or nulls"),
+                    }),
+                )?;
+                return Ok(integers);
             }
             RVectorType::Double => {
-                let doubles = Doubles::from_values(seq.iter().map(|node| match node {
-                    Yaml::Value(Scalar::FloatingPoint(value)) => Rfloat::from(value.into_inner()),
-                    Yaml::Value(Scalar::Integer(value)) => Rfloat::from(*value as f64),
-                    Yaml::Value(Scalar::Null) => Rfloat::na(),
-                    _ => unreachable!("expected only doubles, integers, or nulls"),
-                }));
-                return Ok(doubles.into());
+                let doubles = r::real_vector_from_iter(
+                    seq.len(),
+                    seq.iter().map(|node| match node {
+                        Yaml::Value(Scalar::FloatingPoint(value)) => value.into_inner(),
+                        Yaml::Value(Scalar::Integer(value)) => *value as f64,
+                        Yaml::Value(Scalar::Null) => r::r_na_real(),
+                        _ => unreachable!("expected only doubles, integers, or nulls"),
+                    }),
+                )?;
+                return Ok(doubles);
             }
             RVectorType::Character => {
-                let strings = Strings::from_values(seq.iter().map(|node| match node {
-                    Yaml::Value(Scalar::String(value)) => Rstr::from(value.as_ref()),
-                    Yaml::Value(Scalar::Null) => Rstr::na(),
-                    _ => unreachable!("expected only strings or nulls"),
-                }));
-                return Ok(strings.into());
+                let strings = r::string_vector_from_options(
+                    seq.len(),
+                    seq.iter().map(|node| match node {
+                        Yaml::Value(Scalar::String(value)) => Some(value.as_ref()),
+                        Yaml::Value(Scalar::Null) => None,
+                        _ => unreachable!("expected only strings or nulls"),
+                    }),
+                )?;
+                return Ok(strings);
             }
             RVectorType::List => {}
         }
@@ -222,12 +235,13 @@ fn sequence_to_robj(
     }
 
     // can't simplify, return a list
-    let mut values = Vec::with_capacity(seq.len());
-    for node in seq {
-        values.push(yaml_to_robj(node, simplify_seqs, handlers)?);
+    let mut list = List::new(seq.len(), false)?;
+    for (i, node) in seq.iter_mut().enumerate() {
+        let value = yaml_to_robj(node, simplify_seqs, handlers)?;
+        list.set_value(i, value)?;
     }
 
-    Ok(List::from_values(values).into())
+    Ok(list.into_robj())
 }
 
 fn mapping_to_robj(
@@ -243,30 +257,27 @@ fn mapping_to_robj(
             .all(|(key, _)| matches!(key, Yaml::Value(Scalar::String(_))));
 
         if all_plain_string_keys {
-            let mut names: Vec<Cow<'_, str>> = Vec::with_capacity(len);
-            let mut values: Vec<Robj> = Vec::with_capacity(len);
-            for (key, mut value) in mem::take(map) {
+            let mut list = List::new(len, true)?;
+            for (i, (key, mut value)) in mem::take(map).into_iter().enumerate() {
                 let name = match key {
                     Yaml::Value(Scalar::String(name)) => name,
                     _ => unreachable!("checked for only plain string keys"),
                 };
-                names.push(name);
-                values.push(yaml_to_robj(&mut value, simplify, handlers)?);
+                let value = yaml_to_robj(&mut value, simplify, handlers)?;
+                list.set_name(i, name.as_ref())?;
+                list.set_value(i, value)?;
             }
 
-            let name_refs: Vec<&str> = names.iter().map(|name| name.as_ref()).collect();
-            let list = List::from_names_and_values(&name_refs, values)
-                .map_err(|err| api_other(err.to_string()))?;
-            return Ok(list.into());
+            return Ok(list.into_robj());
         }
     }
 
-    let mut values: Vec<Robj> = Vec::with_capacity(len);
     let mut keys: Vec<Yaml> = Vec::with_capacity(len);
-    let mut key_handler_results: Vec<Option<Robj>> = Vec::with_capacity(len);
+    let mut key_handler_results: Vec<Option<ProtectedRobj>> = Vec::with_capacity(len);
+    let mut list = List::new(len, true)?;
 
     // 1st pass: resolve keys/values while consuming the mapping to avoid cloning keys.
-    for (mut key, mut value) in mem::take(map) {
+    for (i, (mut key, mut value)) in mem::take(map).into_iter().enumerate() {
         resolve_representation(&mut key, simplify);
 
         // If the key is tagged and a handler exists, apply it to the key itself.
@@ -275,7 +286,7 @@ fn mapping_to_robj(
         let key_handler_result = if let (Some(registry), Yaml::Tagged(tag, _)) = (handlers, &key) {
             if let Some(handler) = registry.get_for_tag(tag.as_ref()) {
                 let key_obj = yaml_to_robj(&mut key, simplify, handlers)?;
-                Some(registry.apply(handler, key_obj)?)
+                Some(ProtectedRobj::new(registry.apply(handler, key_obj)?))
             } else {
                 None
             }
@@ -285,7 +296,8 @@ fn mapping_to_robj(
 
         keys.push(key);
         key_handler_results.push(key_handler_result);
-        values.push(yaml_to_robj(&mut value, simplify, handlers)?);
+        let value = yaml_to_robj(&mut value, simplify, handlers)?;
+        list.set_value(i, value)?;
     }
 
     // 2nd pass: build names as &str from keys.
@@ -295,56 +307,50 @@ fn mapping_to_robj(
     // or a string key carrying a non-canonical (informative) tag. Canonical
     // core string tags are treated as "no information" for this purpose.
     let mut needs_yaml_keys_attr = false;
-    let mut names: Vec<&str> = Vec::with_capacity(len);
-    for (key, key_handler_result) in keys.iter().zip(key_handler_results.iter()) {
+    for (i, (key, key_handler_result)) in keys.iter().zip(key_handler_results.iter()).enumerate() {
         if let Some(handled) = key_handler_result {
-            if let Some(name_from_handler) = name_if_bare_string(handled) {
-                names.push(name_from_handler);
+            if let Some(name_from_handler) = name_if_bare_string(handled.value()) {
+                list.set_name(i, name_from_handler)?;
             } else {
                 needs_yaml_keys_attr = true;
-                names.push("");
+                list.set_name(i, "")?;
             }
         } else {
             match key {
                 Yaml::Value(Scalar::String(string_key)) => {
                     // Plain string key: representable as an R name with no extra metadata.
-                    names.push(string_key.as_ref());
+                    list.set_name(i, string_key.as_ref())?;
                 }
                 _ => {
                     // Tagged or non-string keys get tracked in `yaml_keys`. Core string tags are
                     // normalized to plain strings by `resolve_representation`, so any tagged key
                     // reaching here carries extra information.
                     needs_yaml_keys_attr = true;
-                    names.push("");
+                    list.set_name(i, "")?;
                 }
             }
         }
     }
 
-    let mut list =
-        List::from_names_and_values(&names, values).map_err(|err| api_other(err.to_string()))?;
-
     if needs_yaml_keys_attr {
-        let mut yaml_keys = Vec::with_capacity(keys.len());
-        for (mut key, handled_value) in keys.into_iter().zip(key_handler_results) {
+        let mut yaml_keys = List::new(keys.len(), false)?;
+        for (i, (mut key, handled_value)) in keys.into_iter().zip(key_handler_results).enumerate() {
             if let Some(val) = handled_value {
-                yaml_keys.push(val);
+                yaml_keys.set_value(i, val.value())?;
             } else {
-                yaml_keys.push(yaml_to_robj(&mut key, simplify, handlers)?);
+                let key = yaml_to_robj(&mut key, simplify, handlers)?;
+                yaml_keys.set_value(i, key)?;
             }
         }
-        let yaml_keys = List::from_values(yaml_keys);
-        list.set_attrib(sym_yaml_keys(), yaml_keys)
-            .map_err(|err| api_other(err.to_string()))?;
+        list.set_attrib_sym(sym_yaml_keys(), yaml_keys.into_robj())?;
     }
 
-    Ok(list.into())
+    Ok(list.into_robj())
 }
 
-fn name_if_bare_string(robj: &Robj) -> Option<&str> {
+fn name_if_bare_string(robj: Robj) -> Option<&'static str> {
     let name = robj.as_str()?;
-    let attributes = call!("attributes", robj.clone()).ok()?;
-    attributes.is_null().then_some(name)
+    (!robj.has_attributes()).then_some(name)
 }
 
 fn convert_tagged(
@@ -411,13 +417,13 @@ fn set_yaml_tag_attr(mut value: Robj, tag: &Tag) -> Fallible<Robj> {
         return Ok(value);
     }
 
-    value.set_attrib(sym_yaml_tag(), rendered_tag.as_str())?;
+    value.set_attrib_sym(sym_yaml_tag(), r::string_scalar(rendered_tag.as_str())?)?;
     Ok(value)
 }
 
 fn wrap_unsupported(err: EvalError) -> EvalError {
     match err {
-        EvalError::Api(inner) => EvalError::Api(Error::Other(format!("Unsupported YAML: {inner}"))),
+        EvalError::Api(inner) => EvalError::Api(format!("Unsupported YAML: {inner}")),
         EvalError::Jump(token) => EvalError::Jump(token),
     }
 }
@@ -448,7 +454,7 @@ pub(crate) fn parse_yaml_impl(
             if first.is_na() {
                 return Err(api_other("`text` must not contain NA strings"));
             }
-            let docs = load_yaml_documents(first.as_ref(), multi)?;
+            let docs = load_yaml_documents(first.as_str(), multi)?;
             docs_to_robj(docs, multi, simplify, handlers)
         }
         _ => {
@@ -466,11 +472,12 @@ fn docs_to_robj(
     handlers: Option<&HandlerRegistry<'_>>,
 ) -> Fallible<Robj> {
     if multi {
-        let mut values = Vec::with_capacity(docs.len());
-        for doc in docs.iter_mut() {
-            values.push(yaml_to_robj(doc, simplify, handlers).map_err(wrap_unsupported)?);
+        let mut list = List::new(docs.len(), false)?;
+        for (i, doc) in docs.iter_mut().enumerate() {
+            let value = yaml_to_robj(doc, simplify, handlers).map_err(wrap_unsupported)?;
+            list.set_value(i, value)?;
         }
-        Ok(List::from_values(values).into())
+        Ok(list.into_robj())
     } else {
         match docs.first_mut() {
             Some(doc) => yaml_to_robj(doc, simplify, handlers).map_err(wrap_unsupported),
@@ -485,22 +492,27 @@ fn joined_lines_iter<'a>(text: &'a Strings) -> Fallible<JoinedLinesIter<'a>> {
             return Err(api_other("`text` must not contain NA strings"));
         }
     }
-    Ok(JoinedLinesIter::new(text.as_slice().iter()))
+    Ok(JoinedLinesIter::new(text))
 }
 
-type LinesIter<'a> = std::slice::Iter<'a, Rstr>;
-
 struct JoinedLinesIter<'a> {
-    lines: LinesIter<'a>,
+    text: &'a Strings,
+    index: usize,
     current: std::str::Chars<'a>,
 }
 
 impl<'a> JoinedLinesIter<'a> {
-    fn new(mut lines: LinesIter<'a>) -> Self {
-        let current = lines
-            .next()
-            .map_or_else(|| "".chars(), |line| line.as_ref().chars());
-        Self { lines, current }
+    fn new(text: &'a Strings) -> Self {
+        let current = if text.is_empty() {
+            "".chars()
+        } else {
+            text.elt(0).as_str().chars()
+        };
+        Self {
+            text,
+            index: 1,
+            current,
+        }
     }
 }
 
@@ -511,8 +523,9 @@ impl<'a> Iterator for JoinedLinesIter<'a> {
         if let Some(ch) = self.current.next() {
             return Some(ch);
         }
-        if let Some(next_line) = self.lines.next() {
-            self.current = next_line.as_ref().chars();
+        if self.index < self.text.len() {
+            self.current = self.text.elt(self.index).as_str().chars();
+            self.index += 1;
             return Some('\n');
         }
         None
@@ -528,7 +541,7 @@ where
     loader.early_parse(false);
     parser
         .load(&mut loader, multi)
-        .map_err(|err| Error::Other(format!("YAML parse error: {err}")))?;
+        .map_err(|err| api_other(format!("YAML parse error: {err}")))?;
     Ok(loader.into_documents())
 }
 

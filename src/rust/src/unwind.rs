@@ -1,5 +1,4 @@
-use extendr_api::prelude::*;
-use extendr_ffi as ffi;
+use savvy_ffi as ffi;
 use std::os::raw::c_void;
 use std::result::Result as StdResult;
 
@@ -31,18 +30,17 @@ impl LongjmpToken {
 /// A non-local jump from R is returned as an opaque tagged continuation token.
 /// Rust only transports that token; the C entrypoint releases and resumes it
 /// after Rust-owned values have been dropped.
-pub fn run_with_unwind_protect<F>(f: F) -> StdResult<(), LongjmpToken>
+pub fn run_with_unwind_value<F>(f: F) -> StdResult<ffi::SEXP, LongjmpToken>
 where
-    F: FnOnce() + Copy,
+    F: FnOnce() -> ffi::SEXP + Copy,
 {
     unsafe extern "C" fn trampoline<F>(data: *mut c_void) -> ffi::SEXP
     where
-        F: FnOnce() + Copy,
+        F: FnOnce() -> ffi::SEXP + Copy,
     {
         let data = data as *const ();
         let f: &F = &*(data as *const F);
-        f();
-        ffi::R_NilValue
+        f()
     }
 
     let f_ptr = &f as *const F as *mut c_void;
@@ -50,18 +48,35 @@ where
     if (res as usize & 1) == 1 {
         Err(LongjmpToken::from_tagged_ptr(res))
     } else {
-        Ok(())
+        Ok(res)
     }
+}
+
+pub fn run_with_unwind_protect<F>(f: F) -> StdResult<(), LongjmpToken>
+where
+    F: FnOnce() + Copy,
+{
+    run_with_unwind_value(|| {
+        f();
+        unsafe { ffi::R_NilValue }
+    })
+    .map(|_| ())
 }
 
 #[derive(Debug)]
 pub enum EvalError {
-    Api(Error),
+    Api(String),
     Jump(LongjmpToken),
 }
 
-impl From<Error> for EvalError {
-    fn from(err: Error) -> Self {
+impl From<String> for EvalError {
+    fn from(err: String) -> Self {
         EvalError::Api(err)
+    }
+}
+
+impl From<&str> for EvalError {
+    fn from(err: &str) -> Self {
+        EvalError::Api(err.to_string())
     }
 }
