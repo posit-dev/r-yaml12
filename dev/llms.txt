@@ -9,6 +9,7 @@ correctness. Built on the excellent
 You can install yaml12 from CRAN with:
 
 ``` r
+
 install.packages("yaml12")
 ```
 
@@ -16,13 +17,29 @@ You can install the development version of yaml12 from
 [GitHub](https://github.com/) with:
 
 ``` r
+
 # install.packages("pak")
 pak::pak("posit-dev/r-yaml12")
 ```
 
+### Windows ARM64 source installs
+
+On Windows ARM64, source installs require the Rust target used by
+Rtools45:
+
+``` sh
+rustup target add aarch64-pc-windows-gnullvm
+```
+
+They also require Microsoft C++ Build Tools with ARM64 components. Cargo
+uses the Microsoft linker for host-side Rust procedural macros during
+the source build. Binary installs do not run Cargo and do not need this
+setup.
+
 ## Quick start
 
 ``` r
+
 library(yaml12)
 
 yaml <- "
@@ -44,6 +61,7 @@ str(doc)
 ### Reading and writing files
 
 ``` r
+
 value_out <- list(alpha = 1L, nested = c(TRUE, NA))
 
 write_yaml(value_out, "my.yaml")
@@ -66,6 +84,7 @@ Handlers let you opt into custom behavior for tagged nodes while keeping
 the default parser strict and safe.
 
 ``` r
+
 yaml <- "
 - !upper [rust, r]
 - !expr 6 * 7
@@ -93,6 +112,7 @@ still returns a named list but also attaches a `yaml_keys` attribute
 containing the original YAML keys:
 
 ``` r
+
 yaml <- "
 true: a
 null: b
@@ -119,6 +139,7 @@ mappings with non-string or tagged keys that can’t be represented as an
 R name.
 
 ``` r
+
 obj <- list(
   seq = 1:2,
   map = list(key = "value"),
