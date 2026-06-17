@@ -70,6 +70,15 @@ fn ffi_catch(f: impl FnOnce() -> Fallible<Robj>) -> ffi::SEXP {
     }
 }
 
+macro_rules! r_entrypoint {
+    (fn $name:ident($($arg:ident),* $(,)?) $body:block) => {
+        #[no_mangle]
+        pub extern "C" fn $name($($arg: ffi::SEXP),*) -> ffi::SEXP {
+            ffi_catch(|| $body)
+        }
+    };
+}
+
 fn robj_from_sexp(sexp: ffi::SEXP) -> Robj {
     unsafe { Robj::from_sexp(sexp) }
 }
@@ -159,9 +168,10 @@ fn format_yaml(value: Robj, multi: bool) -> Fallible<Robj> {
     Ok(Robj::from(body))
 }
 
-#[no_mangle]
-pub extern "C" fn yaml12_format_yaml_ffi(value: ffi::SEXP, multi: ffi::SEXP) -> ffi::SEXP {
-    ffi_catch(|| format_yaml(robj_arg(value), bool_arg(multi, "multi")?))
+r_entrypoint! {
+    fn yaml12_format_yaml_ffi(value, multi) {
+        format_yaml(robj_arg(value), bool_arg(multi, "multi")?)
+    }
 }
 
 /// Parse YAML 1.2 document(s) into base R structures.
@@ -210,21 +220,15 @@ fn parse_yaml(text: Strings, multi: bool, simplify: bool, handlers: Robj) -> Fal
     yaml_to_r::parse_yaml_impl(text, multi, simplify, handlers)
 }
 
-#[no_mangle]
-pub extern "C" fn yaml12_parse_yaml_ffi(
-    text: ffi::SEXP,
-    multi: ffi::SEXP,
-    simplify: ffi::SEXP,
-    handlers: ffi::SEXP,
-) -> ffi::SEXP {
-    ffi_catch(|| {
+r_entrypoint! {
+    fn yaml12_parse_yaml_ffi(text, multi, simplify, handlers) {
         parse_yaml(
             strings_arg(text)?,
             bool_arg(multi, "multi")?,
             bool_arg(simplify, "simplify")?,
             robj_arg(handlers),
         )
-    })
+    }
 }
 
 /// Debug helper: print saphyr `Yaml` nodes without converting to R objects.
@@ -252,9 +256,10 @@ fn dbg_yaml(text: Strings) -> Fallible<Robj> {
     Ok(NULL.into())
 }
 
-#[no_mangle]
-pub extern "C" fn yaml12_dbg_yaml_ffi(text: ffi::SEXP) -> ffi::SEXP {
-    ffi_catch(|| dbg_yaml(strings_arg(text)?))
+r_entrypoint! {
+    fn yaml12_dbg_yaml_ffi(text) {
+        dbg_yaml(strings_arg(text)?)
+    }
 }
 
 /// Read YAML 1.2 document(s) from a file path.
@@ -265,14 +270,8 @@ fn read_yaml(path: &str, multi: bool, simplify: bool, handlers: Robj) -> Fallibl
     yaml_to_r::read_yaml_impl(path, multi, simplify, handlers)
 }
 
-#[no_mangle]
-pub extern "C" fn yaml12_read_yaml_ffi(
-    path: ffi::SEXP,
-    multi: ffi::SEXP,
-    simplify: ffi::SEXP,
-    handlers: ffi::SEXP,
-) -> ffi::SEXP {
-    ffi_catch(|| {
+r_entrypoint! {
+    fn yaml12_read_yaml_ffi(path, multi, simplify, handlers) {
         let path = robj_arg(path);
         read_yaml(
             path_arg(&path, "path")?,
@@ -280,7 +279,7 @@ pub extern "C" fn yaml12_read_yaml_ffi(
             bool_arg(simplify, "simplify")?,
             robj_arg(handlers),
         )
-    })
+    }
 }
 
 /// Write an R object as YAML 1.2 to a file.
@@ -301,15 +300,10 @@ fn write_yaml(value: Robj, path: Option<&str>, multi: bool) -> Fallible<Robj> {
     Ok(value)
 }
 
-#[no_mangle]
-pub extern "C" fn yaml12_write_yaml_ffi(
-    value: ffi::SEXP,
-    path: ffi::SEXP,
-    multi: ffi::SEXP,
-) -> ffi::SEXP {
-    ffi_catch(|| {
+r_entrypoint! {
+    fn yaml12_write_yaml_ffi(value, path, multi) {
         let value = robj_arg(value);
         let path = robj_arg(path);
         write_yaml(value, optional_path_arg(&path)?, bool_arg(multi, "multi")?)
-    })
+    }
 }
