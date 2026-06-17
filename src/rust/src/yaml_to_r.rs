@@ -255,7 +255,7 @@ fn mapping_to_robj(
             }
 
             let name_refs: Vec<&str> = names.iter().map(|name| name.as_ref()).collect();
-            let list = List::from_names_and_values(&name_refs, values.into_iter())
+            let list = List::from_names_and_values(&name_refs, values)
                 .map_err(|err| api_other(err.to_string()))?;
             return Ok(list.into());
         }
@@ -321,8 +321,8 @@ fn mapping_to_robj(
         }
     }
 
-    let mut list = List::from_names_and_values(&names, values.into_iter())
-        .map_err(|err| api_other(err.to_string()))?;
+    let mut list =
+        List::from_names_and_values(&names, values).map_err(|err| api_other(err.to_string()))?;
 
     if needs_yaml_keys_attr {
         let mut yaml_keys = Vec::with_capacity(keys.len());
