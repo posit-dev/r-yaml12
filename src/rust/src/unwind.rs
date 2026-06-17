@@ -9,7 +9,6 @@ extern "C" {
         fun: Option<unsafe extern "C" fn(data: *mut c_void) -> ffi::SEXP>,
         data: *mut c_void,
     ) -> ffi::SEXP;
-    fn R_ContinueUnwind(cont: ffi::SEXP) -> !;
 }
 
 #[derive(Debug, Clone)]
@@ -18,17 +17,8 @@ pub struct LongjmpToken {
 }
 
 impl LongjmpToken {
-    fn cont_handle(&self) -> ffi::SEXP {
-        let raw = self.tagged_ptr as usize & !1usize;
-        raw as ffi::SEXP
-    }
-
-    pub unsafe fn resume(self) -> ! {
-        let cont = self.cont_handle();
-        // Seems to me we should release the token,
-        // but neither Rcpp, nor cpp11, nor savvy release ... am I missing something?
-        // ffi::R_ReleaseObject(cont);
-        R_ContinueUnwind(cont);
+    pub fn into_tagged_sexp(self) -> ffi::SEXP {
+        self.tagged_ptr
     }
 
     pub fn from_tagged_ptr(tagged_ptr: ffi::SEXP) -> Self {
@@ -36,38 +26,11 @@ impl LongjmpToken {
     }
 }
 
-/// Run f inside R_UnwindProtect; returns Err when R longjmps.
+/// Run `f` inside `R_UnwindProtect`.
 ///
-/// Call this only after the entrypoint's Rust scope is clear of owned locals,
-/// because `EvalError::Jump` resumes R's continuation and skips the rest of the
-/// current frame. Wrap per-call work in a block that produces the `Fallible`
-/// result so drops occur before delegating here.
-///
-/// Good:
-/// ```
-/// fn entrypoint() -> Robj {
-///     let result: Fallible<_> = {
-///         let _buf = String::from("tmp"); // drops before handle_eval_error
-///         do_work()
-///     };
-///     match result {
-///         Ok(val) => val,
-///         Err(err) => handle_eval_error(err),
-///     }
-/// }
-/// ```
-///
-/// Bad (skips `_buf` drop if a jump occurs):
-/// ```
-/// fn entrypoint_bad() -> Robj {
-///     let _buf = String::from("tmp");
-///     let result = do_work();
-///     match result {
-///         Ok(val) => val,
-///         Err(err) => handle_eval_error(err), // jumps before _buf can drop
-///     }
-/// }
-/// ```
+/// A non-local jump from R is returned as an opaque tagged continuation token.
+/// Rust only transports that token; the C entrypoint releases and resumes it
+/// after Rust-owned values have been dropped.
 pub fn run_with_unwind_protect<F>(f: F) -> StdResult<(), LongjmpToken>
 where
     F: FnOnce() + Copy,
