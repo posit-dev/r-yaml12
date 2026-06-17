@@ -530,7 +530,7 @@ where
 }
 
 fn set_digits_secs_option(value: Robj) -> Fallible<()> {
-    let opts = List::from_names_and_values(&["digits.secs"], vec![value].into_iter())
+    let opts = List::from_names_and_values(&["digits.secs"], vec![value])
         .map_err(|err| api_other(err.to_string()))?;
     call!("do.call", "options", opts)?;
     Ok(())

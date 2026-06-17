@@ -3,15 +3,15 @@ name = 'yaml12'
 publish = false
 version = '0.1.0'
 edition = '2021'
-rust-version = '1.70'
+rust-version = '1.71'
 
 [lib]
 crate-type = ['staticlib']
 name = 'yaml12'
 
 [dependencies]
-extendr-api = { git = 'https://github.com/extendr/extendr', rev = 'a3e35fb42a008d0c209e61d994143d00a86e350f' }
-extendr-ffi = { git = 'https://github.com/extendr/extendr', rev = 'a3e35fb42a008d0c209e61d994143d00a86e350f' }
+extendr-api = '0.9.0'
+extendr-ffi = '0.9.0'
 saphyr = { git = "https://github.com/t-kalinowski/saphyr", branch = "r-patched" }
 saphyr-parser = { git = "https://github.com/t-kalinowski/saphyr", branch = "r-patched" }
 

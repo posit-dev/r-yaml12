@@ -275,7 +275,7 @@ fn list_to_yaml(robj: &Robj) -> Fallible<Yaml<'static>> {
                     let duplicate = if name.is_na() {
                         String::from("null")
                     } else {
-                        let key_str: &str = name.as_ref();
+                        let key_str: &str = name;
                         if key_str.is_empty() {
                             String::from("(empty string)")
                         } else {

@@ -31,24 +31,28 @@ dependencies = [
 
 [[package]]
 name = "extendr-api"
-version = "0.8.1"
-source = "git+https://github.com/extendr/extendr?rev=a3e35fb42a008d0c209e61d994143d00a86e350f#a3e35fb42a008d0c209e61d994143d00a86e350f"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "803569de0d273b4bf281871046a7d63a23cc12776bdb5b63de5c1e81aae30728"
 dependencies = [
  "extendr-ffi",
  "extendr-macros",
  "once_cell",
  "paste",
+ "readonly",
 ]
 
 [[package]]
 name = "extendr-ffi"
-version = "0.8.1"
-source = "git+https://github.com/extendr/extendr?rev=a3e35fb42a008d0c209e61d994143d00a86e350f#a3e35fb42a008d0c209e61d994143d00a86e350f"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ba82ddd48e85202654997b81e4b1d39c0c54b5dcd7cae92705f807bf528efcf"
 
 [[package]]
 name = "extendr-macros"
-version = "0.8.1"
-source = "git+https://github.com/extendr/extendr?rev=a3e35fb42a008d0c209e61d994143d00a86e350f#a3e35fb42a008d0c209e61d994143d00a86e350f"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba8fad8d2a0d0651b1947042cf3a8beddc73d39cec3485b200fdfd24cb3bb6aa"
 dependencies = [
  "lazy_static",
  "proc-macro2",
@@ -132,6 +136,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a338cc41d27e6cc6dce6cefc13a0729dfbb81c262b1f519331575dd80ef3067f"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "readonly"
+version = "0.2.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2a62d85ed81ca5305dc544bd42c8804c5060b78ffa5ad3c64b0fb6a8c13d062"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
