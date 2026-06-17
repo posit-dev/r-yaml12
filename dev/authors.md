@@ -35,9 +35,9 @@ package version 0.1.0.9000, <https://posit-dev.github.io/r-yaml12/>.
      - autocfg 1.5.0: Josh Stone
      - cfg-if 1.0.4: Alex Crichton
      - encoding_rs 0.8.35: Henri Sivonen
-     - extendr-api 0.8.1: andy-thomason, Thomas Down, Mossa Merhi Reimert, Josiah Parry, Claus O. Wilke, Hiroaki Yutani, Ilia A. Kosenkov, Michael Milton
-     - extendr-ffi 0.8.1: andy-thomason, Thomas Down, Mossa Merhi Reimert, Josiah Parry, Claus O. Wilke, Hiroaki Yutani, Ilia A. Kosenkov, Michael Milton
-     - extendr-macros 0.8.1: andy-thomason, Thomas Down, Mossa Merhi Reimert, Josiah Parry, Claus O. Wilke, Hiroaki Yutani, Ilia A. Kosenkov, Michael Milton
+     - extendr-api 0.9.0: see https://github.com/extendr/extendr
+     - extendr-ffi 0.9.0: see https://github.com/extendr/extendr
+     - extendr-macros 0.9.0: see https://github.com/extendr/extendr
      - foldhash 0.1.5: Orson Peters
      - hashbrown 0.15.5: Amanieu d'Antras
      - hashlink 0.10.0: kyren
@@ -48,6 +48,7 @@ package version 0.1.0.9000, <https://posit-dev.github.io/r-yaml12/>.
      - paste 1.0.15: David Tolnay
      - proc-macro2 1.0.103: David Tolnay, Alex Crichton
      - quote 1.0.42: David Tolnay
+     - readonly 0.2.13: David Tolnay
      - saphyr 0.0.6: Ethiraric, David Aguilar, Yuheng Chen
      - saphyr-parser 0.0.6: Ethiraric, David Aguilar, Yuheng Chen
      - syn 2.0.111: David Tolnay
@@ -55,4 +56,4 @@ package version 0.1.0.9000, <https://posit-dev.github.io/r-yaml12/>.
      - thiserror-impl 2.0.17: David Tolnay
      - unicode-ident 1.0.22: David Tolnay
 
-    (This file was auto-generated from 'cargo metadata' on 2025-12-02)
+    (This file was auto-generated from 'cargo metadata' on 2026-06-17)
