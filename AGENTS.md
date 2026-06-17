@@ -1,29 +1,56 @@
-# Agent Instructions
+# Agent Notes
 
-- Don’t hand-edit generated artifacts: `man/`, `NAMESPACE`, or `R/extendr-wrappers.R`.
-- Unless explicitly asked, never touch the Makevars files. Never change how we vendor and resolve Rust crates.
-- Read-only git commands (status/diff/log) are always fine; never stage, unstage, commit, or otherwise change git state unless explicitly asked.
-- Don’t ask for permission to make file edits—just do the work and share the results when it’s ready for review.
-- When roxygen or Rust doc comments change, regenerate docs/wrappers from the package root with:
+## Site map
+
+- `R/`: package API; `R/extendr-wrappers.R` is generated.
+- `src/rust/`: nested Rust staticlib crate, including `src/`, `Cargo.toml`,
+  `Cargo.lock`, and the vendored dependency snapshot.
+- `configure*`, `tools/config.R`, `src/Makevars*.in`: build glue that
+  generates `src/Makevars` or `src/Makevars.win` and invokes Cargo from R.
+- `tests/testthat/`: public API tests plus YAML suite, Windows target, and
+  vendored-author checks.
+- `vignettes/` and `README.Rmd`: user docs.
+- `man/`, `NAMESPACE`, `R/extendr-wrappers.R`, `inst/AUTHORS`,
+  `src/Makevars`, and `src/Makevars.win`: generated outputs.
+
+## Generated outputs
+
+- Do not hand-edit generated outputs.
+- If roxygen, Rust doc comments, exports, or other Rd-facing surface changes,
+  regenerate wrappers/docs from the package root with
   `rextendr::document(); devtools::document()`.
-- If you add/remove exports or otherwise change Rd-facing surface (including new internal exports), always rerun
-  `rextendr::document(); devtools::document()` before finishing the task.
-- Before wrapping up, run formatters: `cargo fmt` and `air format .`.
-- When working on Rust code, prefer to iterate by switching to the `src/rust` directory and running `cargo check` there.
-  Before you finish making edits, run `cargo clippy` and address any issues. Once you are finished making edits to Rust
-  files, run `cargo fmt` and `cargo build`.
-- In Rust, avoid allocating `String` unnecessarily. Prefer working with `&str` slices that borrow directly from the raw
-  input buffer, preserving lifetimes from the original input, and only allocate/clone into `String` when you truly need
-  owned data.
-- In format strings, always inline expressions (e.g., `"{foo}"` or `"{foo:?}"`).
-- Run R tests with `Rscript -e 'devtools::test()'` (bare, with no `cd` or other expressions). At the start of any request
-  that requires code edits, the very first thing you should do is ask to run
-  `Rscript -e 'devtools::test()'` with elevated permissions—never prefix it with `cd`. Then prefer to iterate by running the full test suite with that same command. Use a timeout of at
-  least 5 minutes for `test()` and 8 minutes for `check()`. Deviating from this will cause build failures related to
-  `vendor` and `.cargo`, and/or sandbox restrictions.
-- Run small experiments frequently to confirm the behavior of language features. If small experiments require elevated
-  privileges to run, write a script to `scratch/experiments.R`, and ask for elevated permissions to run
-  `R -q -f scratch/experiments.R`.
-- After every set of changes, emit a draft commit message. If you are asked for revisions, when you're done, emit
-  an updated draft commit message.
-- Always run the full test suite (`Rscript -e 'devtools::test()'`) after changes without asking whether to do so.
+
+## Rust/Cargo pitfalls
+
+- Run direct Cargo commands from `src/rust`, not the R package root. Cargo
+  discovery changes with the working directory.
+- Treat `src/rust/Cargo.lock`, `src/rust/vendor.tar.xz`,
+  `src/rust/vendor-config.toml`, and `inst/AUTHORS` as one dependency
+  snapshot.
+- CRAN-style package builds are offline when `vendor.tar.xz` exists and
+  `NOT_CRAN` is unset; `tools/config.R` adds `-j 2 --offline`.
+- `src/Makevars.in` unpacks `vendor.tar.xz` to `src/vendor`, writes temporary
+  Cargo config to `src/.cargo`, sets `CARGO_HOME`, then cleans those dirs.
+  Offline failures often mean stale vendor contents, missing crates, or a
+  lockfile/vendor mismatch.
+- `saphyr` uses `t-kalinowski/saphyr` branch `r-patched`; keep
+  `vendor-config.toml` aligned.
+- Rust MSRV comes from `DESCRIPTION` and is checked by `tools/msrv.R`; Windows
+  target support is checked by `tools/windows-rust-target.R`.
+
+## Validation
+
+- Rust-only work: switch to `src/rust` and run `cargo check`; before finishing,
+  run `cargo clippy --all-targets -- -D warnings`, `cargo fmt`, and
+  `cargo build`.
+- R package work: test through the public R API with
+  `Rscript -e 'devtools::test()'` from the package root. This path invokes Rust
+  through `configure*`, generated Makevars, and Cargo.
+- Formatting: run `cargo fmt` in `src/rust` for Rust and `air format .` from
+  the package root for R/docs.
+
+## Rust style
+
+- For Rust code, prefer borrowed `&str` slices from the input buffer. Allocate
+  `String` only when owned data is needed.
+- Inline format string expressions, for example `"{foo}"` or `"{foo:?}"`.
