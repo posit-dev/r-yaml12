@@ -7,7 +7,9 @@ mod yaml_to_r;
 
 use crate::r_to_yaml::yaml_body;
 use extendr_api::prelude::*;
+use extendr_ffi as ffi;
 use saphyr::{LoadableYamlNode, Yaml};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::result::Result as StdResult;
 use std::{cell::OnceCell, thread_local};
 use unwind::EvalError;
@@ -22,42 +24,95 @@ fn api_other(msg: impl Into<String>) -> EvalError {
     EvalError::Api(Error::Other(msg.into()))
 }
 
-/// Map an `EvalError` back into R control flow.
-///
-/// Call this only after the entrypoint's Rust scope is clear of owned locals,
-/// because `EvalError::Jump` resumes R's continuation and skips the rest of the
-/// current frame. Wrap per-call work in a block that produces the `Fallible`
-/// result so drops occur before delegating here.
-///
-/// Good:
-/// ```
-/// fn entrypoint() -> Robj {
-///     let result: Fallible<_> = {
-///         let _buf = String::from("tmp"); // drops before handle_eval_error
-///         do_work()
-///     };
-///     match result {
-///         Ok(val) => val,
-///         Err(err) => handle_eval_error(err),
-///     }
-/// }
-/// ```
-///
-/// Bad (skips `_buf` drop if a jump occurs):
-/// ```
-/// fn entrypoint_bad() -> Robj {
-///     let _buf = String::from("tmp");
-///     let result = do_work();
-///     match result {
-///         Ok(val) => val,
-///         Err(err) => handle_eval_error(err), // jumps before _buf can drop
-///     }
-/// }
-/// ```
-fn handle_eval_error<T>(err: EvalError) -> T {
-    match err {
-        EvalError::Jump(token) => unsafe { token.resume() },
-        EvalError::Api(err) => throw_r_error(err.to_string()),
+const TAGGED_POINTER_MASK: usize = 1;
+
+fn tagged_error_message(message: &str) -> ffi::SEXP {
+    unsafe {
+        let string = ffi::Rf_mkCharLenCE(
+            message.as_ptr() as *const std::os::raw::c_char,
+            message.len() as i32,
+            ffi::cetype_t::CE_UTF8,
+        );
+        (string as usize | TAGGED_POINTER_MASK) as ffi::SEXP
+    }
+}
+
+fn ffi_result(result: Fallible<Robj>) -> ffi::SEXP {
+    match result {
+        Ok(value) => unsafe { value.get() },
+        Err(EvalError::Jump(token)) => token.into_tagged_sexp(),
+        Err(EvalError::Api(err)) => {
+            let message = err.to_string();
+            drop(err);
+            tagged_error_message(&message)
+        }
+    }
+}
+
+fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
+    if let Some(message) = payload.downcast_ref::<&str>() {
+        (*message).to_string()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else {
+        "Rust panic".to_string()
+    }
+}
+
+fn ffi_catch(f: impl FnOnce() -> Fallible<Robj>) -> ffi::SEXP {
+    match catch_unwind(AssertUnwindSafe(f)) {
+        Ok(result) => ffi_result(result),
+        Err(payload) => {
+            let message = panic_message(payload.as_ref());
+            drop(payload);
+            tagged_error_message(&message)
+        }
+    }
+}
+
+macro_rules! r_entrypoint {
+    (fn $name:ident($($arg:ident),* $(,)?) $body:block) => {
+        #[no_mangle]
+        pub extern "C" fn $name($($arg: ffi::SEXP),*) -> ffi::SEXP {
+            ffi_catch(|| $body)
+        }
+    };
+}
+
+fn robj_from_sexp(sexp: ffi::SEXP) -> Robj {
+    unsafe { Robj::from_sexp(sexp) }
+}
+
+fn robj_arg(sexp: ffi::SEXP) -> Robj {
+    robj_from_sexp(sexp)
+}
+
+fn strings_arg(sexp: ffi::SEXP) -> Fallible<Strings> {
+    Ok(robj_from_sexp(sexp).try_into()?)
+}
+
+fn bool_arg_from_robj(value: &Robj, name: &str) -> Fallible<bool> {
+    bool::try_from(value).map_err(|_| api_other(format!("`{name}` must be TRUE or FALSE")))
+}
+
+fn bool_arg(sexp: ffi::SEXP, name: &str) -> Fallible<bool> {
+    let value = robj_from_sexp(sexp);
+    bool_arg_from_robj(&value, name)
+}
+
+fn path_arg<'a>(value: &'a Robj, name: &str) -> Fallible<&'a str> {
+    value
+        .try_into()
+        .map_err(|_| api_other(format!("`{name}` must be a single, non-missing string")))
+}
+
+fn optional_path_arg(value: &Robj) -> Fallible<Option<&str>> {
+    if value.is_null() {
+        Ok(None)
+    } else {
+        Ok(Some(value.as_str().ok_or_else(|| {
+            api_other("`path` must be NULL or a single, non-missing string")
+        })?))
     }
 }
 
@@ -102,21 +157,21 @@ cached_sym!(YAML_TAG_SYM, yaml_tag, sym_yaml_tag);
 /// cat(tagged_yaml <- format_yaml(tagged), "\n")
 ///
 /// dput(parse_yaml(tagged_yaml))
-#[extendr]
-fn format_yaml(value: Robj, #[extendr(default = "FALSE")] multi: bool) -> Robj {
-    let result = { r_to_yaml::format_yaml_impl(&value, multi) };
-    if let Ok(yaml) = result {
-        let body = yaml_body(&yaml, multi);
-        if body.len() > R_STRING_MAX_BYTES {
-            return handle_eval_error(api_other(
-                "Formatted YAML exceeds R's 2^31-1 byte string limit",
-            ));
-        }
-        return Robj::from(body);
+fn format_yaml(value: Robj, multi: bool) -> Fallible<Robj> {
+    let yaml = r_to_yaml::format_yaml_impl(&value, multi)?;
+    let body = yaml_body(&yaml, multi);
+    if body.len() > R_STRING_MAX_BYTES {
+        return Err(api_other(
+            "Formatted YAML exceeds R's 2^31-1 byte string limit",
+        ));
     }
-    // Safe: entrypoint holds no owned locals; work lives in format_yaml_impl.
-    // If adding locals here, wrap work in a block so drops happen before this call.
-    handle_eval_error(result.unwrap_err())
+    Ok(Robj::from(body))
+}
+
+r_entrypoint! {
+    fn yaml12_format_yaml_ffi(value, multi) {
+        format_yaml(robj_arg(value), bool_arg(multi, "multi")?)
+    }
 }
 
 /// Parse YAML 1.2 document(s) into base R structures.
@@ -161,52 +216,49 @@ fn format_yaml(value: Robj, #[extendr(default = "FALSE")] multi: bool) -> Robj {
 /// writeLines("alpha: [true, null]\nbeta: 3.5", path)
 /// str(read_yaml(path, simplify = FALSE))
 /// @export
-#[extendr]
-fn parse_yaml(
-    text: Strings,
-    #[extendr(default = "FALSE")] multi: bool,
-    #[extendr(default = "TRUE")] simplify: bool,
-    #[extendr(default = "NULL")] handlers: Robj,
-) -> Robj {
-    let result = { yaml_to_r::parse_yaml_impl(text, multi, simplify, handlers) };
-    if let Ok(value) = result {
-        return value;
+fn parse_yaml(text: Strings, multi: bool, simplify: bool, handlers: Robj) -> Fallible<Robj> {
+    yaml_to_r::parse_yaml_impl(text, multi, simplify, handlers)
+}
+
+r_entrypoint! {
+    fn yaml12_parse_yaml_ffi(text, multi, simplify, handlers) {
+        parse_yaml(
+            strings_arg(text)?,
+            bool_arg(multi, "multi")?,
+            bool_arg(simplify, "simplify")?,
+            robj_arg(handlers),
+        )
     }
-    // Safe: entrypoint holds no owned locals; work lives in parse_yaml_impl.
-    // If adding locals here, wrap work in a block so drops happen before this call.
-    handle_eval_error(result.unwrap_err())
 }
 
 /// Debug helper: print saphyr `Yaml` nodes without converting to R objects.
 ///
 /// @noRd
-#[extendr(invisible)]
-fn dbg_yaml(text: Strings) -> Robj {
-    let result: Fallible<()> = (|| -> Fallible<()> {
-        if text.is_empty() {
-            return Ok(());
+fn dbg_yaml(text: Strings) -> Fallible<Robj> {
+    if text.is_empty() {
+        return Ok(NULL.into());
+    }
+
+    let mut joined = String::new();
+    for (idx, part) in text.iter().enumerate() {
+        if part.is_na() {
+            Err(api_other("`text` must not contain NA strings"))?;
         }
-
-        let mut joined = String::new();
-        for (idx, part) in text.iter().enumerate() {
-            if part.is_na() {
-                Err(api_other("`text` must not contain NA strings"))?;
-            }
-            if idx > 0 {
-                joined.push('\n');
-            }
-            joined.push_str(part.as_ref());
+        if idx > 0 {
+            joined.push('\n');
         }
+        joined.push_str(part.as_ref());
+    }
 
-        let docs = Yaml::load_from_str(&joined)
-            .map_err(|err| api_other(format!("YAML parse error: {err}")))?;
-        rprintln!("{:#?}", docs);
-        Ok(())
-    })();
+    let docs = Yaml::load_from_str(&joined)
+        .map_err(|err| api_other(format!("YAML parse error: {err}")))?;
+    rprintln!("{:#?}", docs);
+    Ok(NULL.into())
+}
 
-    match result {
-        Ok(()) => NULL.into(),
-        Err(err) => handle_eval_error(err),
+r_entrypoint! {
+    fn yaml12_dbg_yaml_ffi(text) {
+        dbg_yaml(strings_arg(text)?)
     }
 }
 
@@ -214,20 +266,20 @@ fn dbg_yaml(text: Strings) -> Robj {
 ///
 /// @rdname parse_yaml
 /// @export
-#[extendr]
-fn read_yaml(
-    path: &str,
-    #[extendr(default = "FALSE")] multi: bool,
-    #[extendr(default = "TRUE")] simplify: bool,
-    #[extendr(default = "NULL")] handlers: Robj,
-) -> Robj {
-    let result = { yaml_to_r::read_yaml_impl(path, multi, simplify, handlers) };
-    if let Ok(value) = result {
-        return value;
+fn read_yaml(path: &str, multi: bool, simplify: bool, handlers: Robj) -> Fallible<Robj> {
+    yaml_to_r::read_yaml_impl(path, multi, simplify, handlers)
+}
+
+r_entrypoint! {
+    fn yaml12_read_yaml_ffi(path, multi, simplify, handlers) {
+        let path = robj_arg(path);
+        read_yaml(
+            path_arg(&path, "path")?,
+            bool_arg(multi, "multi")?,
+            bool_arg(simplify, "simplify")?,
+            robj_arg(handlers),
+        )
     }
-    // Safe: entrypoint holds no owned locals; work lives in read_yaml_impl.
-    // If adding locals here, wrap work in a block so drops happen before this call.
-    handle_eval_error(result.unwrap_err())
 }
 
 /// Write an R object as YAML 1.2 to a file.
@@ -243,39 +295,15 @@ fn read_yaml(
 /// tagged <- structure("1 + 1", yaml_tag = "!expr")
 /// write_yaml(tagged)
 /// @export
-#[extendr(invisible)]
-fn write_yaml(
-    value: Robj,
-    #[extendr(default = "NULL")] path: Robj,
-    #[extendr(default = "FALSE")] multi: bool,
-) -> Robj {
-    let path_opt = if path.is_null() {
-        None
-    } else {
-        match path.as_str() {
-            Some(path) => Some(path),
-            None => {
-                return handle_eval_error(api_other(
-                    "`path` must be NULL or a single, non-missing string",
-                ));
-            }
-        }
-    };
-    let result: Fallible<()> = { r_to_yaml::write_yaml_impl(&value, path_opt, multi) };
-    match result {
-        Ok(()) => value,
-        Err(err) => handle_eval_error(err),
-    }
+fn write_yaml(value: Robj, path: Option<&str>, multi: bool) -> Fallible<Robj> {
+    r_to_yaml::write_yaml_impl(&value, path, multi)?;
+    Ok(value)
 }
 
-// Macro to generate exports.
-// This ensures exported functions are registered with R.
-// See corresponding C code in `entrypoint.c`.
-extendr_module! {
-    mod yaml12;
-    fn parse_yaml;
-    fn dbg_yaml;
-    fn format_yaml;
-    fn read_yaml;
-    fn write_yaml;
+r_entrypoint! {
+    fn yaml12_write_yaml_ffi(value, path, multi) {
+        let value = robj_arg(value);
+        let path = robj_arg(path);
+        write_yaml(value, optional_path_arg(&path)?, bool_arg(multi, "multi")?)
+    }
 }

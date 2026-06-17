@@ -1,6 +1,7 @@
 use crate::unwind::{run_with_unwind_protect, EvalError};
 use crate::{api_other, Fallible};
 use extendr_api::prelude::*;
+use extendr_ffi as ffi;
 use saphyr::Tag;
 use std::collections::HashMap;
 use std::mem;
@@ -132,29 +133,29 @@ impl<'a> HandlerRegistry<'a> {
         struct CallState<'a> {
             handler: &'a Function,
             arg: Robj,
-            result: Option<Robj>,
+            env: ffi::SEXP,
+            result: ffi::SEXP,
         }
 
+        let env = handler.environment().unwrap_or_else(global_env);
         let mut state = CallState {
             handler,
             arg,
-            result: None,
+            env: unsafe { env.get() },
+            result: unsafe { ffi::R_NilValue },
         };
         let state_ptr = &mut state as *mut CallState;
 
         let protect_result = run_with_unwind_protect(|| unsafe {
             let st = &mut *state_ptr;
             // Build a call of the form handler(arg) as a language object.
-            let call = Robj::from_sexp(Rf_lang2(st.handler.get(), st.arg.get()));
-            let env = st.handler.environment().unwrap_or_else(global_env);
-            let out = Rf_eval(call.get(), env.get());
-            st.result = Some(Robj::from_sexp(out));
+            let call = ffi::Rf_protect(Rf_lang2(st.handler.get(), st.arg.get()));
+            st.result = Rf_eval(call, st.env);
+            ffi::Rf_unprotect(1);
         });
 
         match protect_result {
-            Ok(()) => state
-                .result
-                .ok_or_else(|| api_other("Handler evaluation failed unexpectedly")),
+            Ok(()) => Ok(unsafe { Robj::from_sexp(state.result) }),
             Err(token) => Err(EvalError::Jump(token)),
         }
     }
