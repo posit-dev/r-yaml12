@@ -74,8 +74,37 @@ fn robj_from_sexp(sexp: ffi::SEXP) -> Robj {
     unsafe { Robj::from_sexp(sexp) }
 }
 
-fn bool_arg(value: &Robj, name: &str) -> Fallible<bool> {
+fn robj_arg(sexp: ffi::SEXP) -> Robj {
+    robj_from_sexp(sexp)
+}
+
+fn strings_arg(sexp: ffi::SEXP) -> Fallible<Strings> {
+    Ok(robj_from_sexp(sexp).try_into()?)
+}
+
+fn bool_arg_from_robj(value: &Robj, name: &str) -> Fallible<bool> {
     bool::try_from(value).map_err(|_| api_other(format!("`{name}` must be TRUE or FALSE")))
+}
+
+fn bool_arg(sexp: ffi::SEXP, name: &str) -> Fallible<bool> {
+    let value = robj_from_sexp(sexp);
+    bool_arg_from_robj(&value, name)
+}
+
+fn path_arg<'a>(value: &'a Robj, name: &str) -> Fallible<&'a str> {
+    value
+        .try_into()
+        .map_err(|_| api_other(format!("`{name}` must be a single, non-missing string")))
+}
+
+fn optional_path_arg(value: &Robj) -> Fallible<Option<&str>> {
+    if value.is_null() {
+        Ok(None)
+    } else {
+        Ok(Some(value.as_str().ok_or_else(|| {
+            api_other("`path` must be NULL or a single, non-missing string")
+        })?))
+    }
 }
 
 macro_rules! cached_sym {
@@ -119,22 +148,20 @@ cached_sym!(YAML_TAG_SYM, yaml_tag, sym_yaml_tag);
 /// cat(tagged_yaml <- format_yaml(tagged), "\n")
 ///
 /// dput(parse_yaml(tagged_yaml))
+fn format_yaml(value: Robj, multi: bool) -> Fallible<Robj> {
+    let yaml = r_to_yaml::format_yaml_impl(&value, multi)?;
+    let body = yaml_body(&yaml, multi);
+    if body.len() > R_STRING_MAX_BYTES {
+        return Err(api_other(
+            "Formatted YAML exceeds R's 2^31-1 byte string limit",
+        ));
+    }
+    Ok(Robj::from(body))
+}
+
 #[no_mangle]
 pub extern "C" fn yaml12_format_yaml_ffi(value: ffi::SEXP, multi: ffi::SEXP) -> ffi::SEXP {
-    ffi_catch(|| {
-        let value = robj_from_sexp(value);
-        let multi = robj_from_sexp(multi);
-        let multi = bool_arg(&multi, "multi")?;
-
-        let yaml = r_to_yaml::format_yaml_impl(&value, multi)?;
-        let body = yaml_body(&yaml, multi);
-        if body.len() > R_STRING_MAX_BYTES {
-            return Err(api_other(
-                "Formatted YAML exceeds R's 2^31-1 byte string limit",
-            ));
-        }
-        Ok(Robj::from(body))
-    })
+    ffi_catch(|| format_yaml(robj_arg(value), bool_arg(multi, "multi")?))
 }
 
 /// Parse YAML 1.2 document(s) into base R structures.
@@ -179,6 +206,10 @@ pub extern "C" fn yaml12_format_yaml_ffi(value: ffi::SEXP, multi: ffi::SEXP) -> 
 /// writeLines("alpha: [true, null]\nbeta: 3.5", path)
 /// str(read_yaml(path, simplify = FALSE))
 /// @export
+fn parse_yaml(text: Strings, multi: bool, simplify: bool, handlers: Robj) -> Fallible<Robj> {
+    yaml_to_r::parse_yaml_impl(text, multi, simplify, handlers)
+}
+
 #[no_mangle]
 pub extern "C" fn yaml12_parse_yaml_ffi(
     text: ffi::SEXP,
@@ -187,53 +218,53 @@ pub extern "C" fn yaml12_parse_yaml_ffi(
     handlers: ffi::SEXP,
 ) -> ffi::SEXP {
     ffi_catch(|| {
-        let text = robj_from_sexp(text);
-        let text: Strings = text.try_into()?;
-        let multi = robj_from_sexp(multi);
-        let multi = bool_arg(&multi, "multi")?;
-        let simplify = robj_from_sexp(simplify);
-        let simplify = bool_arg(&simplify, "simplify")?;
-        let handlers = robj_from_sexp(handlers);
-
-        yaml_to_r::parse_yaml_impl(text, multi, simplify, handlers)
+        parse_yaml(
+            strings_arg(text)?,
+            bool_arg(multi, "multi")?,
+            bool_arg(simplify, "simplify")?,
+            robj_arg(handlers),
+        )
     })
 }
 
 /// Debug helper: print saphyr `Yaml` nodes without converting to R objects.
 ///
 /// @noRd
+fn dbg_yaml(text: Strings) -> Fallible<Robj> {
+    if text.is_empty() {
+        return Ok(NULL.into());
+    }
+
+    let mut joined = String::new();
+    for (idx, part) in text.iter().enumerate() {
+        if part.is_na() {
+            Err(api_other("`text` must not contain NA strings"))?;
+        }
+        if idx > 0 {
+            joined.push('\n');
+        }
+        joined.push_str(part.as_ref());
+    }
+
+    let docs = Yaml::load_from_str(&joined)
+        .map_err(|err| api_other(format!("YAML parse error: {err}")))?;
+    rprintln!("{:#?}", docs);
+    Ok(NULL.into())
+}
+
 #[no_mangle]
 pub extern "C" fn yaml12_dbg_yaml_ffi(text: ffi::SEXP) -> ffi::SEXP {
-    ffi_catch(|| {
-        let text = robj_from_sexp(text);
-        let text: Strings = text.try_into()?;
-
-        if text.is_empty() {
-            return Ok(NULL.into());
-        }
-
-        let mut joined = String::new();
-        for (idx, part) in text.iter().enumerate() {
-            if part.is_na() {
-                Err(api_other("`text` must not contain NA strings"))?;
-            }
-            if idx > 0 {
-                joined.push('\n');
-            }
-            joined.push_str(part.as_ref());
-        }
-
-        let docs = Yaml::load_from_str(&joined)
-            .map_err(|err| api_other(format!("YAML parse error: {err}")))?;
-        rprintln!("{:#?}", docs);
-        Ok(NULL.into())
-    })
+    ffi_catch(|| dbg_yaml(strings_arg(text)?))
 }
 
 /// Read YAML 1.2 document(s) from a file path.
 ///
 /// @rdname parse_yaml
 /// @export
+fn read_yaml(path: &str, multi: bool, simplify: bool, handlers: Robj) -> Fallible<Robj> {
+    yaml_to_r::read_yaml_impl(path, multi, simplify, handlers)
+}
+
 #[no_mangle]
 pub extern "C" fn yaml12_read_yaml_ffi(
     path: ffi::SEXP,
@@ -242,17 +273,13 @@ pub extern "C" fn yaml12_read_yaml_ffi(
     handlers: ffi::SEXP,
 ) -> ffi::SEXP {
     ffi_catch(|| {
-        let path = robj_from_sexp(path);
-        let path: &str = (&path)
-            .try_into()
-            .map_err(|_| api_other("`path` must be a single, non-missing string"))?;
-        let multi = robj_from_sexp(multi);
-        let multi = bool_arg(&multi, "multi")?;
-        let simplify = robj_from_sexp(simplify);
-        let simplify = bool_arg(&simplify, "simplify")?;
-        let handlers = robj_from_sexp(handlers);
-
-        yaml_to_r::read_yaml_impl(path, multi, simplify, handlers)
+        let path = robj_arg(path);
+        read_yaml(
+            path_arg(&path, "path")?,
+            bool_arg(multi, "multi")?,
+            bool_arg(simplify, "simplify")?,
+            robj_arg(handlers),
+        )
     })
 }
 
@@ -269,6 +296,11 @@ pub extern "C" fn yaml12_read_yaml_ffi(
 /// tagged <- structure("1 + 1", yaml_tag = "!expr")
 /// write_yaml(tagged)
 /// @export
+fn write_yaml(value: Robj, path: Option<&str>, multi: bool) -> Fallible<Robj> {
+    r_to_yaml::write_yaml_impl(&value, path, multi)?;
+    Ok(value)
+}
+
 #[no_mangle]
 pub extern "C" fn yaml12_write_yaml_ffi(
     value: ffi::SEXP,
@@ -276,20 +308,8 @@ pub extern "C" fn yaml12_write_yaml_ffi(
     multi: ffi::SEXP,
 ) -> ffi::SEXP {
     ffi_catch(|| {
-        let value = robj_from_sexp(value);
-        let path = robj_from_sexp(path);
-        let path_opt =
-            if path.is_null() {
-                None
-            } else {
-                Some(path.as_str().ok_or_else(|| {
-                    api_other("`path` must be NULL or a single, non-missing string")
-                })?)
-            };
-        let multi = robj_from_sexp(multi);
-        let multi = bool_arg(&multi, "multi")?;
-
-        r_to_yaml::write_yaml_impl(&value, path_opt, multi)?;
-        Ok(value)
+        let value = robj_arg(value);
+        let path = robj_arg(path);
+        write_yaml(value, optional_path_arg(&path)?, bool_arg(multi, "multi")?)
     })
 }
