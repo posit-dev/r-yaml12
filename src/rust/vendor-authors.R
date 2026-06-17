@@ -15,7 +15,12 @@ authors <- lapply(seq_len(nrow(packages)), function(i) {
     return(package_authors)
   }
 
-  "authors not provided in Cargo metadata"
+  repository <- packages$repository[[i]]
+  if (length(repository) == 1 && !is.na(repository) && nzchar(repository)) {
+    paste("see", repository)
+  } else {
+    "see crate source"
+  }
 })
 keep <- packages$name != 'myrustlib'
 packages <- packages[keep, ]

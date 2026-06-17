@@ -3,9 +3,9 @@ Authors of vendored cargo crates
  - autocfg 1.5.0: Josh Stone
  - cfg-if 1.0.4: Alex Crichton
  - encoding_rs 0.8.35: Henri Sivonen
- - extendr-api 0.9.0: authors not provided in Cargo metadata
- - extendr-ffi 0.9.0: authors not provided in Cargo metadata
- - extendr-macros 0.9.0: authors not provided in Cargo metadata
+ - extendr-api 0.9.0: see https://github.com/extendr/extendr
+ - extendr-ffi 0.9.0: see https://github.com/extendr/extendr
+ - extendr-macros 0.9.0: see https://github.com/extendr/extendr
  - foldhash 0.1.5: Orson Peters
  - hashbrown 0.15.5: Amanieu d'Antras
  - hashlink 0.10.0: kyren

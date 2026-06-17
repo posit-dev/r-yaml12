@@ -1,4 +1,4 @@
-test_that("vendored Rust authors include crates without Cargo author metadata", {
+test_that("vendored Rust authors point to repositories when authors are missing", {
   authors <- readLines(system.file("AUTHORS", package = "yaml12"), warn = FALSE)
 
   for (crate in c("extendr-api", "extendr-ffi", "extendr-macros")) {
@@ -6,7 +6,7 @@ test_that("vendored Rust authors include crates without Cargo author metadata", 
       paste0(
         "^ - ",
         crate,
-        " 0[.]9[.]0: authors not provided in Cargo metadata$"
+        " 0[.]9[.]0: see https://github[.]com/extendr/extendr$"
       ),
       authors
     )))
