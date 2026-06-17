@@ -13,11 +13,11 @@
 ## Notes
 
 - Do not hand-edit generated files: `man/`, `NAMESPACE`,
-  `R/extendr-wrappers.R`, `inst/AUTHORS`, `src/Makevars`,
-  `src/Makevars.win`.
+  `R/extendr-wrappers.R`, `src/entrypoint.c`, `inst/AUTHORS`,
+  `src/Makevars`, `src/Makevars.win`.
 - If roxygen, Rust doc comments, exports, or Rd-facing surface change,
-  regenerate from the package root with
-  `rextendr::document(); devtools::document()`.
+  regenerate entrypoint wrappers from the package root with
+  `Rscript tools/generate-entrypoints.R`, then run `devtools::document()`.
 - Direct Cargo work happens in `src/rust`; Cargo discovery depends on the
   working directory.
 - R package builds happen from the package root and invoke Rust through
