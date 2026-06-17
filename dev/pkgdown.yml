@@ -5,7 +5,7 @@ articles:
   articles/benchmarks: benchmarks.html
   yaml-2-minute-intro: yaml-2-minute-intro.html
   yaml-tags-and-advanced-features: yaml-tags-and-advanced-features.html
-last_built: 2026-06-17T18:35Z
+last_built: 2026-06-17T21:24Z
 urls:
   reference: https://posit-dev.github.io/r-yaml12/reference
   article: https://posit-dev.github.io/r-yaml12/articles
