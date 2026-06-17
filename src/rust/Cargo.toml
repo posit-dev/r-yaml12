@@ -10,8 +10,8 @@ crate-type = ['staticlib']
 name = 'yaml12'
 
 [dependencies]
-extendr-api = { version = '0.9.0', git = 'https://github.com/extendr/extendr', rev = '564d0de80ba6cff3f8c04e3b3e336d1346590ec6' }
-extendr-ffi = { version = '0.9.0', git = 'https://github.com/extendr/extendr', rev = '564d0de80ba6cff3f8c04e3b3e336d1346590ec6' }
+extendr-api = '0.9.0'
+extendr-ffi = '0.9.0'
 saphyr = { git = "https://github.com/t-kalinowski/saphyr", branch = "r-patched" }
 saphyr-parser = { git = "https://github.com/t-kalinowski/saphyr", branch = "r-patched" }
 
