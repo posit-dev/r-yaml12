@@ -35,11 +35,27 @@ patch_once <- function(contents, label, old, new) {
   sub(old, new, contents, fixed = TRUE)
 }
 
+require_once <- function(contents, label, needle) {
+  count <- count_fixed(contents, needle)
+  if (count != 1L) {
+    stop(
+      "Unexpected savvy init.c shape: expected ",
+      label,
+      " once, found ",
+      count,
+      " time(s).",
+      call. = FALSE
+    )
+  }
+
+  contents
+}
+
 contents <- patch_once(
   contents,
   "Rdynload include",
-  "#include <R_ext/Parse.h>\n// clang-format on",
-  "#include <R_ext/Parse.h>\n#include <R_ext/Rdynload.h>\n// clang-format on"
+  "#include <R_ext/Parse.h>\n\n#include \"rust/api.h\"",
+  "#include <R_ext/Parse.h>\n#include <R_ext/Rdynload.h>\n\n#include \"rust/api.h\""
 )
 
 contents <- patch_once(
@@ -52,8 +68,14 @@ contents <- patch_once(
 contents <- patch_once(
   contents,
   "forced symbol lookup",
-  "    R_useDynamicSymbols(dll, FALSE);\n\n    // Functions for initialization, if any.",
-  "    R_useDynamicSymbols(dll, FALSE);\n    R_forceSymbols(dll, TRUE);\n\n    // Functions for initialization, if any."
+  "    R_useDynamicSymbols(dll, FALSE);\n\n    // Functions for initialzation, if any.",
+  "    R_useDynamicSymbols(dll, FALSE);\n    R_forceSymbols(dll, TRUE);\n\n    // Functions for initialzation, if any."
+)
+
+contents <- require_once(
+  contents,
+  "package initialization hook",
+  "    savvy_init_yaml12__impl(dll);"
 )
 
 writeLines(contents, path)

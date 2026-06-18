@@ -4,16 +4,22 @@ use savvy::{
     OwnedRealSexp, OwnedStringSexp, Sexp, StringSexp,
 };
 use savvy_ffi as ffi;
-use std::os::raw::{c_char, c_void};
+use std::ffi::CStr;
+use std::os::raw::c_char;
 use std::ptr;
-use std::sync::atomic::{AtomicPtr, Ordering};
 
 // Prefer savvy's public wrappers when they cover the operation. This module
 // holds the remaining symbol-based attribute and raw preservation helpers.
 
-static YAML_KEYS_SYMBOL: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
-static YAML_TAG_SYMBOL: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
-static TZONE_SYMBOL: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
+// Initialized during package load before any exported .Call wrapper runs.
+static mut YAML_KEYS_SYMBOL: ffi::SEXP = ptr::null_mut();
+static mut YAML_TAG_SYMBOL: ffi::SEXP = ptr::null_mut();
+static mut TZONE_SYMBOL: ffi::SEXP = ptr::null_mut();
+
+#[allow(improper_ctypes)]
+extern "C" {
+    fn Rf_translateCharUTF8(x: ffi::SEXP) -> *const c_char;
+}
 
 pub(crate) fn null() -> Sexp {
     unsafe { Sexp(ffi::R_NilValue) }
@@ -45,28 +51,34 @@ impl Drop for PreservedSexp {
     }
 }
 
-fn cached_symbol(cache: &AtomicPtr<c_void>, name: &'static [u8]) -> ffi::SEXP {
-    let cached = cache.load(Ordering::Relaxed);
-    if !cached.is_null() {
-        return cached;
-    }
-
+fn install_symbol(name: &'static [u8]) -> ffi::SEXP {
     debug_assert_eq!(name.last(), Some(&0));
-    let symbol = unsafe { ffi::Rf_install(name.as_ptr() as *const c_char) };
-    cache.store(symbol, Ordering::Relaxed);
-    symbol
+    unsafe { ffi::Rf_install(name.as_ptr() as *const c_char) }
+}
+
+pub(crate) fn init_symbols() -> Fallible<()> {
+    unsafe {
+        // `Rf_install()` allocates when the symbol is not already interned.
+        savvy::unwind_protect(|| {
+            YAML_KEYS_SYMBOL = install_symbol(b"yaml_keys\0");
+            YAML_TAG_SYMBOL = install_symbol(b"yaml_tag\0");
+            TZONE_SYMBOL = install_symbol(b"tzone\0");
+            ffi::R_NilValue
+        })?;
+    }
+    Ok(())
 }
 
 pub(crate) fn sym_yaml_keys() -> ffi::SEXP {
-    cached_symbol(&YAML_KEYS_SYMBOL, b"yaml_keys\0")
+    unsafe { YAML_KEYS_SYMBOL }
 }
 
 pub(crate) fn sym_yaml_tag() -> ffi::SEXP {
-    cached_symbol(&YAML_TAG_SYMBOL, b"yaml_tag\0")
+    unsafe { YAML_TAG_SYMBOL }
 }
 
 pub(crate) fn sym_tzone() -> ffi::SEXP {
-    cached_symbol(&TZONE_SYMBOL, b"tzone\0")
+    unsafe { TZONE_SYMBOL }
 }
 
 pub(crate) fn get_attrib_sym(value: &Sexp, attr: ffi::SEXP) -> Option<Sexp> {
@@ -178,9 +190,9 @@ pub(crate) fn has_attributes(value: &Sexp) -> bool {
 
 fn charsxp_to_str(charsxp: ffi::SEXP) -> &'static str {
     unsafe {
-        let ptr = ffi::R_CHAR(charsxp) as *const u8;
-        let len = ffi::Rf_xlength(charsxp) as usize;
-        let bytes = std::slice::from_raw_parts(ptr, len);
-        std::str::from_utf8_unchecked(bytes)
+        let ptr = Rf_translateCharUTF8(charsxp);
+        CStr::from_ptr(ptr)
+            .to_str()
+            .expect("Rf_translateCharUTF8 should return valid UTF-8")
     }
 }

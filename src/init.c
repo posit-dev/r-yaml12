@@ -1,13 +1,8 @@
 
-// clang-format sorts includes unless SortIncludes: Never. However, the ordering
-// does matter here. So, we need to disable clang-format for safety.
-
-// clang-format off
 #include <stdint.h>
 #include <Rinternals.h>
 #include <R_ext/Parse.h>
 #include <R_ext/Rdynload.h>
-// clang-format on
 
 #include "rust/api.h"
 
@@ -50,6 +45,11 @@ SEXP savvy_format_yaml_native__impl(SEXP c_arg__value, SEXP c_arg__multi) {
     return handle_result(res);
 }
 
+SEXP savvy_init_yaml12__impl(DllInfo* c_arg___dll_info) {
+    SEXP res = savvy_init_yaml12__ffi(c_arg___dll_info);
+    return handle_result(res);
+}
+
 SEXP savvy_parse_yaml_native__impl(SEXP c_arg__text, SEXP c_arg__multi, SEXP c_arg__simplify, SEXP c_arg__handlers) {
     SEXP res = savvy_parse_yaml_native__ffi(c_arg__text, c_arg__multi, c_arg__simplify, c_arg__handlers);
     return handle_result(res);
@@ -80,6 +80,6 @@ void R_init_yaml12(DllInfo *dll) {
     R_useDynamicSymbols(dll, FALSE);
     R_forceSymbols(dll, TRUE);
 
-    // Functions for initialization, if any.
-
+    // Functions for initialzation, if any.
+    savvy_init_yaml12__impl(dll);
 }

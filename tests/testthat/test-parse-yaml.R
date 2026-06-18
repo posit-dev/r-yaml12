@@ -164,6 +164,13 @@ test_that("parse_yaml errors on NA strings regardless of position or length", {
   )
 })
 
+test_that("parse_yaml accepts latin1 encoded input strings", {
+  latin1 <- rawToChar(as.raw(0xe9))
+  Encoding(latin1) <- "latin1"
+
+  expect_identical(parse_yaml(latin1), "\u00e9")
+})
+
 test_that("parse_yaml simplifies mixed numeric sequences", {
   yaml <- "[1, 2.5, 0x10, .inf, null]"
 

@@ -8,7 +8,8 @@ mod yaml_to_r;
 use crate::r_ext::null;
 use crate::r_to_yaml::yaml_body;
 use saphyr::{LoadableYamlNode, Yaml};
-use savvy::{savvy, NotAvailableValue, OwnedStringSexp, Sexp, StringSexp};
+use savvy::{savvy, savvy_init, NotAvailableValue, OwnedStringSexp, Sexp, StringSexp};
+use savvy_ffi::DllInfo;
 
 pub(crate) type Fallible<T> = savvy::Result<T>;
 
@@ -18,6 +19,11 @@ pub(crate) const TIMESTAMP_SUPPORT_ENABLED: bool = false;
 
 fn api_other(msg: impl Into<String>) -> savvy::Error {
     savvy::Error::new(msg.into())
+}
+
+#[savvy_init]
+fn init_yaml12(_dll_info: *mut DllInfo) -> savvy::Result<()> {
+    r_ext::init_symbols()
 }
 
 #[savvy]

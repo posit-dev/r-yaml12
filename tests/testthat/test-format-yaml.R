@@ -19,6 +19,13 @@ test_that("format_yaml round-trips basic R lists", {
   expect_identical(parse_yaml(encoded, simplify = FALSE), obj)
 })
 
+test_that("format_yaml accepts latin1 encoded strings", {
+  latin1 <- rawToChar(as.raw(0xe9))
+  Encoding(latin1) <- "latin1"
+
+  expect_identical(parse_yaml(format_yaml(latin1)), "\u00e9")
+})
+
 test_that("format_yaml errors on duplicate names", {
   expect_error(
     format_yaml(list(a = 1, a = 2)),
