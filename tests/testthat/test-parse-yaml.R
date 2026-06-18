@@ -289,6 +289,25 @@ test_that("parse_yaml applies handlers to tagged mapping keys", {
   expect_identical(result, list(KEY = "value"))
 })
 
+test_that("parse_yaml keeps handled string keys in yaml_keys when needed", {
+  handlers <- list(
+    "!upper" = function(x) toupper(x)
+  )
+  yaml <- r"--(
+!upper key: value
+1: one
+)--"
+
+  result <- parse_yaml(yaml, handlers = handlers)
+
+  expected <- structure(
+    list("value", "one"),
+    names = c("KEY", ""),
+    yaml_keys = list("KEY", 1L)
+  )
+  expect_identical(result, expected)
+})
+
 test_that("parse_yaml leaves names empty when key handler returns non-string", {
   handlers <- list(
     "!meta" = function(x) list(label = toupper(x))

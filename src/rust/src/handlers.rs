@@ -1,7 +1,7 @@
-use crate::r_ext::{self, PreservedSexp};
+use crate::r_ext;
 use crate::{api_other, Fallible};
 use saphyr::Tag;
-use savvy::{FunctionArgs, FunctionSexp, ListSexp, NotAvailableValue, Sexp};
+use savvy::{FunctionSexp, ListSexp, NotAvailableValue, Sexp};
 use std::collections::HashMap;
 use std::mem;
 
@@ -123,21 +123,7 @@ impl<'a> HandlerRegistry<'a> {
     }
 
     pub(crate) fn apply(&self, handler: &FunctionSexp, arg: Sexp) -> Fallible<Sexp> {
-        let mut args = FunctionArgs::new();
-        args.add("", arg)?;
-        let result = handler.call(args)?;
-        Ok(Sexp(result.inner()))
-    }
-
-    pub(crate) fn apply_preserved(
-        &self,
-        handler: &FunctionSexp,
-        arg: Sexp,
-    ) -> Fallible<PreservedSexp> {
-        let mut args = FunctionArgs::new();
-        args.add("", arg)?;
-        let result = handler.call(args)?;
-        Ok(PreservedSexp::new(Sexp(result.inner())))
+        r_ext::call1(handler, arg)
     }
 }
 

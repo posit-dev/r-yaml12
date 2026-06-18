@@ -91,17 +91,15 @@ fn yaml_to_robj(
 fn scalar_to_robj(scalar: &Scalar) -> Fallible<Sexp> {
     match scalar {
         Scalar::Null => Ok(r_ext::null()),
-        Scalar::Boolean(value) => OwnedLogicalSexp::try_from_scalar(*value).map(Into::into),
+        Scalar::Boolean(value) => r_ext::logical_scalar(*value),
         Scalar::Integer(value) => {
             if let Ok(v) = i32::try_from(*value) {
-                OwnedIntegerSexp::try_from_scalar(v).map(Into::into)
+                r_ext::integer_scalar(v)
             } else {
-                OwnedRealSexp::try_from_scalar(*value as f64).map(Into::into)
+                r_ext::real_scalar(*value as f64)
             }
         }
-        Scalar::FloatingPoint(value) => {
-            OwnedRealSexp::try_from_scalar(value.into_inner()).map(Into::into)
-        }
+        Scalar::FloatingPoint(value) => r_ext::real_scalar(value.into_inner()),
         Scalar::String(value) => r_ext::string_scalar(value.as_ref()),
     }
 }
@@ -128,7 +126,7 @@ fn sequence_to_robj(
         for (i, node) in seq.iter_mut().enumerate() {
             resolve_representation(node, simplify_seqs);
             let value = yaml_to_robj(node, simplify_seqs, handlers)?;
-            list.set_value(i, value)?;
+            r_ext::set_list_value(&mut list, i, value);
         }
         return Ok(list.into());
     }
@@ -223,8 +221,10 @@ fn sequence_to_robj(
                 let mut strings = OwnedStringSexp::new(seq.len())?;
                 for (i, node) in seq.iter().enumerate() {
                     match node {
-                        Yaml::Value(Scalar::String(value)) => strings.set_elt(i, value.as_ref())?,
-                        Yaml::Value(Scalar::Null) => strings.set_na(i)?,
+                        Yaml::Value(Scalar::String(value)) => {
+                            r_ext::set_string_elt(&mut strings, i, value.as_ref())?
+                        }
+                        Yaml::Value(Scalar::Null) => r_ext::set_string_na(&mut strings, i),
                         _ => unreachable!("expected only strings or nulls"),
                     }
                 }
@@ -247,10 +247,15 @@ fn sequence_to_robj(
     let mut list = OwnedListSexp::new(seq.len(), false)?;
     for (i, node) in seq.iter_mut().enumerate() {
         let value = yaml_to_robj(node, simplify_seqs, handlers)?;
-        list.set_value(i, value)?;
+        r_ext::set_list_value(&mut list, i, value);
     }
 
     Ok(list.into())
+}
+
+enum KeyHandlerResult {
+    BareString(&'static str),
+    Preserved(PreservedSexp),
 }
 
 fn mapping_to_robj(
@@ -273,8 +278,8 @@ fn mapping_to_robj(
                     _ => unreachable!("checked for only plain string keys"),
                 };
                 let value = yaml_to_robj(&mut value, simplify, handlers)?;
-                list.set_value(i, value)?;
-                list.set_name(i, name.as_ref())?;
+                r_ext::set_list_value(&mut list, i, value);
+                r_ext::set_list_name(&mut list, i, name.as_ref())?;
             }
 
             return Ok(list.into());
@@ -282,7 +287,7 @@ fn mapping_to_robj(
     }
 
     let mut keys: Vec<Yaml> = Vec::with_capacity(len);
-    let mut key_handler_results: Vec<Option<PreservedSexp>> = Vec::with_capacity(len);
+    let mut key_handler_results: Vec<Option<KeyHandlerResult>> = Vec::with_capacity(len);
     let mut list = OwnedListSexp::new(len, true)?;
 
     // 1st pass: resolve keys/values while consuming the mapping to avoid cloning keys.
@@ -295,7 +300,12 @@ fn mapping_to_robj(
         let key_handler_result = if let (Some(registry), Yaml::Tagged(tag, _)) = (handlers, &key) {
             if let Some(handler) = registry.get_for_tag(tag.as_ref()) {
                 let key_obj = yaml_to_robj(&mut key, simplify, handlers)?;
-                Some(registry.apply_preserved(handler, key_obj)?)
+                let handled = registry.apply(handler, key_obj)?;
+                Some(if let Some(name) = name_if_bare_string(&handled) {
+                    KeyHandlerResult::BareString(name)
+                } else {
+                    KeyHandlerResult::Preserved(PreservedSexp::new(handled))
+                })
             } else {
                 None
             }
@@ -306,7 +316,7 @@ fn mapping_to_robj(
         keys.push(key);
         key_handler_results.push(key_handler_result);
         let value = yaml_to_robj(&mut value, simplify, handlers)?;
-        list.set_value(i, value)?;
+        r_ext::set_list_value(&mut list, i, value);
     }
 
     // 2nd pass: build names as &str from keys.
@@ -318,16 +328,17 @@ fn mapping_to_robj(
     let mut needs_yaml_keys_attr = false;
     for (i, (key, key_handler_result)) in keys.iter().zip(key_handler_results.iter()).enumerate() {
         if let Some(handled) = key_handler_result {
-            if let Some(name_from_handler) = name_if_bare_string(handled.value()) {
-                list.set_name(i, name_from_handler)?;
-            } else {
-                needs_yaml_keys_attr = true;
+            match handled {
+                KeyHandlerResult::BareString(name) => r_ext::set_list_name(&mut list, i, name)?,
+                KeyHandlerResult::Preserved(_) => {
+                    needs_yaml_keys_attr = true;
+                }
             }
         } else {
             match key {
                 Yaml::Value(Scalar::String(string_key)) => {
                     // Plain string key: representable as an R name with no extra metadata.
-                    list.set_name(i, string_key.as_ref())?;
+                    r_ext::set_list_name(&mut list, i, string_key.as_ref())?;
                 }
                 _ => {
                     // Tagged or non-string keys get tracked in `yaml_keys`. Core string tags are
@@ -342,11 +353,18 @@ fn mapping_to_robj(
     if needs_yaml_keys_attr {
         let mut yaml_keys = OwnedListSexp::new(keys.len(), false)?;
         for (i, (mut key, handled_value)) in keys.into_iter().zip(key_handler_results).enumerate() {
-            if let Some(val) = handled_value {
-                yaml_keys.set_value(i, val.value())?;
-            } else {
-                let key = yaml_to_robj(&mut key, simplify, handlers)?;
-                yaml_keys.set_value(i, key)?;
+            match handled_value {
+                Some(KeyHandlerResult::BareString(name)) => {
+                    let key = r_ext::string_scalar(name)?;
+                    r_ext::set_list_value(&mut yaml_keys, i, key);
+                }
+                Some(KeyHandlerResult::Preserved(val)) => {
+                    r_ext::set_list_value(&mut yaml_keys, i, val.value());
+                }
+                None => {
+                    let key = yaml_to_robj(&mut key, simplify, handlers)?;
+                    r_ext::set_list_value(&mut yaml_keys, i, key);
+                }
             }
         }
         let keys_attr = Sexp(yaml_keys.inner());
@@ -357,9 +375,9 @@ fn mapping_to_robj(
     Ok(list.into())
 }
 
-fn name_if_bare_string(robj: Sexp) -> Option<&'static str> {
-    let name = r_ext::as_string_scalar(&robj)?;
-    (!r_ext::has_attributes(&robj)).then_some(name)
+fn name_if_bare_string(robj: &Sexp) -> Option<&'static str> {
+    let name = r_ext::as_string_scalar(robj)?;
+    (!r_ext::has_attributes(robj)).then_some(name)
 }
 
 fn convert_tagged(
@@ -485,7 +503,7 @@ fn docs_to_robj(
         let mut list = OwnedListSexp::new(docs.len(), false)?;
         for (i, doc) in docs.iter_mut().enumerate() {
             let value = yaml_to_robj(doc, simplify, handlers).map_err(wrap_unsupported)?;
-            list.set_value(i, value)?;
+            r_ext::set_list_value(&mut list, i, value);
         }
         Ok(list.into())
     } else {
