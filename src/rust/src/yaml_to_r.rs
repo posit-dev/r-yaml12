@@ -10,7 +10,10 @@ use savvy::{
     OwnedStringSexp, Sexp, StringSexp,
 };
 use savvy_ffi as ffi;
-use std::{fs, mem, ptr};
+use std::{
+    fs,
+    mem::{self, MaybeUninit},
+};
 
 fn resolve_representation(node: &mut Yaml, _simplify: bool) {
     let (value, style, tag) = match mem::replace(node, Yaml::BadValue) {
@@ -226,18 +229,20 @@ fn sequence_to_robj(
 fn simplified_logical_sequence_to_robj(seq: &[Yaml]) -> Fallible<Sexp> {
     // SAFETY: `sequence_to_robj()` calls this only after checking this same
     // sequence contains only booleans and nulls. After allocation succeeds, the
-    // loop writes exactly one initialized value to every index before return.
-    // `ptr::write()` initializes each slot without reading its old contents.
+    // loop writes exactly one initialized value to every slot before return.
     let out = unsafe {
         let out = OwnedLogicalSexp::new_without_init(seq.len())?;
-        let raw = ffi::LOGICAL(out.inner());
-        for (i, node) in seq.iter().enumerate() {
+        let slots = std::slice::from_raw_parts_mut(
+            ffi::LOGICAL(out.inner()).cast::<MaybeUninit<i32>>(),
+            seq.len(),
+        );
+        for (slot, node) in slots.iter_mut().zip(seq) {
             let value = match node {
                 Yaml::Value(Scalar::Boolean(b)) => *b as i32,
                 Yaml::Value(Scalar::Null) => i32::na(),
                 _ => unreachable!("expected only booleans or nulls"),
             };
-            ptr::write(raw.add(i), value);
+            MaybeUninit::write(slot, value);
         }
         out
     };
@@ -247,18 +252,20 @@ fn simplified_logical_sequence_to_robj(seq: &[Yaml]) -> Fallible<Sexp> {
 fn simplified_integer_sequence_to_robj(seq: &[Yaml]) -> Fallible<Sexp> {
     // SAFETY: `sequence_to_robj()` calls this only after checking this same
     // sequence contains only i32-representable integers and nulls. After
-    // allocation succeeds, the loop writes every index before return.
-    // `ptr::write()` initializes each slot without reading its old contents.
+    // allocation succeeds, the loop writes every slot before return.
     let out = unsafe {
         let out = OwnedIntegerSexp::new_without_init(seq.len())?;
-        let raw = ffi::INTEGER(out.inner());
-        for (i, node) in seq.iter().enumerate() {
+        let slots = std::slice::from_raw_parts_mut(
+            ffi::INTEGER(out.inner()).cast::<MaybeUninit<i32>>(),
+            seq.len(),
+        );
+        for (slot, node) in slots.iter_mut().zip(seq) {
             let value = match node {
                 Yaml::Value(Scalar::Integer(value)) => *value as i32,
                 Yaml::Value(Scalar::Null) => i32::na(),
                 _ => unreachable!("expected only integers or nulls"),
             };
-            ptr::write(raw.add(i), value);
+            MaybeUninit::write(slot, value);
         }
         out
     };
@@ -268,19 +275,21 @@ fn simplified_integer_sequence_to_robj(seq: &[Yaml]) -> Fallible<Sexp> {
 fn simplified_double_sequence_to_robj(seq: &[Yaml]) -> Fallible<Sexp> {
     // SAFETY: `sequence_to_robj()` calls this only after checking this same
     // sequence contains only doubles, integers, and nulls. After allocation
-    // succeeds, the loop writes every index before return.
-    // `ptr::write()` initializes each slot without reading its old contents.
+    // succeeds, the loop writes every slot before return.
     let out = unsafe {
         let out = OwnedRealSexp::new_without_init(seq.len())?;
-        let raw = ffi::REAL(out.inner());
-        for (i, node) in seq.iter().enumerate() {
+        let slots = std::slice::from_raw_parts_mut(
+            ffi::REAL(out.inner()).cast::<MaybeUninit<f64>>(),
+            seq.len(),
+        );
+        for (slot, node) in slots.iter_mut().zip(seq) {
             let value = match node {
                 Yaml::Value(Scalar::FloatingPoint(value)) => value.into_inner(),
                 Yaml::Value(Scalar::Integer(value)) => *value as f64,
                 Yaml::Value(Scalar::Null) => f64::na(),
                 _ => unreachable!("expected only doubles, integers, or nulls"),
             };
-            ptr::write(raw.add(i), value);
+            MaybeUninit::write(slot, value);
         }
         out
     };
