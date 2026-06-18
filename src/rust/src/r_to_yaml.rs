@@ -69,10 +69,10 @@ fn write_to_r_stdout(mut content: String) -> Fallible<()> {
 
 fn robj_to_yaml(robj: &Sexp) -> Fallible<Yaml<'static>> {
     if TIMESTAMP_SUPPORT_ENABLED && r_ext::get_attrib_sym(robj, r_ext::sym_yaml_tag()).is_none() {
-        if r_ext::inherits(robj, "POSIXt") || r_ext::inherits(robj, "POSIXct") {
+        if r_ext::inherits(robj, "POSIXt")? || r_ext::inherits(robj, "POSIXct")? {
             return posix_to_yaml(robj);
         }
-        if r_ext::inherits(robj, "Date") {
+        if r_ext::inherits(robj, "Date")? {
             return date_to_yaml(robj);
         }
     }
@@ -167,7 +167,7 @@ fn real_to_yaml(robj: RealSexp) -> Fallible<Yaml<'static>> {
 
 fn character_to_yaml(robj: StringSexp) -> Fallible<Yaml<'static>> {
     if robj.len() == 1 {
-        let value = r_ext::string_elt(&robj, 0);
+        let value = r_ext::string_elt(&robj, 0)?;
         return Ok(if value.is_na() {
             Yaml::Value(Scalar::Null)
         } else {
@@ -176,7 +176,7 @@ fn character_to_yaml(robj: StringSexp) -> Fallible<Yaml<'static>> {
     }
     let mut values = Vec::with_capacity(robj.len());
     for i in 0..robj.len() {
-        let value = r_ext::string_elt(&robj, i);
+        let value = r_ext::string_elt(&robj, i)?;
         if value.is_na() {
             values.push(Yaml::Value(Scalar::Null));
         } else {
@@ -188,10 +188,10 @@ fn character_to_yaml(robj: StringSexp) -> Fallible<Yaml<'static>> {
 
 fn posix_to_yaml(robj: &Sexp) -> Fallible<Yaml<'static>> {
     let tzone_attr = r_ext::get_attrib_sym(robj, r_ext::sym_tzone());
-    let tz_name = tzone_attr
-        .as_ref()
-        .and_then(r_ext::as_string_scalar)
-        .filter(|s| !s.is_empty());
+    let tz_name = match tzone_attr.as_ref() {
+        Some(attr) => r_ext::as_string_scalar(attr)?.filter(|s| !s.is_empty()),
+        None => None,
+    };
 
     enum PosixTz<'a> {
         NaiveLocal,
@@ -267,7 +267,7 @@ fn list_to_yaml(robj: &Sexp, list: ListSexp) -> Fallible<Yaml<'static>> {
             let mut mapping = Mapping::with_capacity(list.len());
             for i in 0..list.len() {
                 let value = unsafe { list.get_by_index_unchecked(i) };
-                let name = r_ext::string_elt(&names, i);
+                let name = r_ext::string_elt(&names, i)?;
                 let key = if name.is_na() {
                     Yaml::Value(Scalar::Null)
                 } else {
@@ -323,7 +323,7 @@ fn extract_yaml_tag(robj: &Sexp) -> Fallible<Option<Tag>> {
         Some(value) => value,
         None => return Ok(None),
     };
-    let tag_str = r_ext::as_string_scalar(&attr).ok_or_else(|| {
+    let tag_str = r_ext::as_string_scalar(&attr)?.ok_or_else(|| {
         api_other(
             "Invalid `yaml_tag` attribute: expected a single, non-missing string. Must not be NA",
         )

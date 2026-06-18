@@ -71,7 +71,7 @@ impl<'a> HandlerRegistry<'a> {
         if use_hash_map {
             let mut handlers_map = HashMap::with_capacity(len);
             for i in 0..len {
-                let name = r_ext::string_elt(&names_attr, i);
+                let name = r_ext::string_elt(&names_attr, i)?;
                 let value = unsafe { list.get_by_index_unchecked(i) };
                 let entry = handler_entry_from_parts(name, &value)?;
                 if handlers_map.insert(entry.key, entry.handler).is_some() {
@@ -87,7 +87,7 @@ impl<'a> HandlerRegistry<'a> {
 
         let mut entries: Vec<HandlerEntry<'a>> = Vec::with_capacity(len);
         for i in 0..len {
-            let name = r_ext::string_elt(&names_attr, i);
+            let name = r_ext::string_elt(&names_attr, i)?;
             let value = unsafe { list.get_by_index_unchecked(i) };
             let entry = handler_entry_from_parts(name, &value)?;
             if entries.iter().any(|existing| existing.key == entry.key) {

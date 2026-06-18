@@ -264,7 +264,7 @@ where
             return Ok(None);
         };
 
-        if r_ext::inherits(&val, "Date") {
+        if r_ext::inherits(&val, "Date")? {
             let real =
                 RealSexp::try_from(Sexp(val.0)).map_err(|_| api_other("Expected Date scalar"))?;
             let slice = real
@@ -276,7 +276,7 @@ where
             continue;
         }
 
-        if r_ext::inherits(&val, "POSIXct") {
+        if r_ext::inherits(&val, "POSIXct")? {
             let real = RealSexp::try_from(Sexp(val.0))
                 .map_err(|_| api_other("Expected POSIXct scalar"))?;
             let slice = real
@@ -289,7 +289,7 @@ where
             if let Some(tzone_attr) = r_ext::get_attrib_sym(&val, r_ext::sym_tzone()) {
                 if let Some(tzones) = r_ext::string_sexp(&tzone_attr) {
                     if !tzones.is_empty() {
-                        let tz = r_ext::string_elt(&tzones, 0);
+                        let tz = r_ext::string_elt(&tzones, 0)?;
                         if tz.is_na() {
                             continue;
                         }

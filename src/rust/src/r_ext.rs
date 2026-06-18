@@ -1,9 +1,10 @@
-use crate::Fallible;
+use crate::{api_other, Fallible};
 use savvy::{
     FunctionArgs, FunctionSexp, NotAvailableValue, OwnedIntegerSexp, OwnedLogicalSexp,
     OwnedRealSexp, OwnedStringSexp, Sexp, StringSexp,
 };
 use savvy_ffi as ffi;
+use std::cell::Cell;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::ptr;
@@ -134,25 +135,28 @@ pub(crate) fn call1(handler: &FunctionSexp, arg: Sexp) -> Fallible<Sexp> {
     handler.call(args).map(Into::into)
 }
 
-pub(crate) fn as_string_scalar(value: &Sexp) -> Option<&'static str> {
-    let strings = StringSexp::try_from(Sexp(value.0)).ok()?;
+pub(crate) fn as_string_scalar(value: &Sexp) -> Fallible<Option<&'static str>> {
+    let strings = match StringSexp::try_from(Sexp(value.0)) {
+        Ok(strings) => strings,
+        Err(_) => return Ok(None),
+    };
     if strings.len() != 1 {
-        return None;
+        return Ok(None);
     }
-    let value = strings.iter().next()?;
-    (!value.is_na()).then_some(value)
+    let value = string_elt(&strings, 0)?;
+    Ok((!value.is_na()).then_some(value))
 }
 
 pub(crate) fn string_sexp(value: &Sexp) -> Option<StringSexp> {
     StringSexp::try_from(Sexp(value.0)).ok()
 }
 
-pub(crate) fn string_elt(strings: &StringSexp, i: usize) -> &'static str {
+pub(crate) fn string_elt(strings: &StringSexp, i: usize) -> Fallible<&'static str> {
     debug_assert!(i < strings.len());
     unsafe {
         let charsxp = ffi::STRING_ELT(strings.inner(), i as _);
         if charsxp == ffi::R_NaString {
-            <&str>::na()
+            Ok(<&str>::na())
         } else {
             charsxp_to_str(charsxp)
         }
@@ -173,27 +177,32 @@ pub(crate) fn class(value: &Sexp) -> Fallible<Option<StringSexp>> {
     Ok(Some(StringSexp::try_from(class)?))
 }
 
-pub(crate) fn inherits(value: &Sexp, class_name: &str) -> bool {
-    class(value)
-        .ok()
-        .flatten()
-        .map(|class_attr| {
-            class_attr
-                .iter()
-                .any(|value| !value.is_na() && value == class_name)
-        })
-        .unwrap_or(false)
+pub(crate) fn inherits(value: &Sexp, class_name: &str) -> Fallible<bool> {
+    let Some(class_attr) = class(value)? else {
+        return Ok(false);
+    };
+    for i in 0..class_attr.len() {
+        let value = string_elt(&class_attr, i)?;
+        if !value.is_na() && value == class_name {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 pub(crate) fn has_attributes(value: &Sexp) -> bool {
     unsafe { ffi::ATTRIB(value.0) != ffi::R_NilValue }
 }
 
-fn charsxp_to_str(charsxp: ffi::SEXP) -> &'static str {
+fn charsxp_to_str(charsxp: ffi::SEXP) -> Fallible<&'static str> {
+    let ptr = Cell::new(ptr::null());
     unsafe {
-        let ptr = Rf_translateCharUTF8(charsxp);
-        CStr::from_ptr(ptr)
+        savvy::unwind_protect(|| {
+            ptr.set(Rf_translateCharUTF8(charsxp));
+            ffi::R_NilValue
+        })?;
+        CStr::from_ptr(ptr.get())
             .to_str()
-            .expect("Rf_translateCharUTF8 should return valid UTF-8")
+            .map_err(|_| api_other("Rf_translateCharUTF8 returned invalid UTF-8"))
     }
 }

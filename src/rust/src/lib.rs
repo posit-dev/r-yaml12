@@ -55,7 +55,8 @@ fn dbg_yaml_native(text: StringSexp) -> savvy::Result<Sexp> {
     }
 
     let mut joined = String::new();
-    for (idx, part) in text.iter().enumerate() {
+    for idx in 0..text.len() {
+        let part = r_ext::string_elt(&text, idx)?;
         if part.is_na() {
             Err(api_other("`text` must not contain NA strings"))?;
         }
@@ -77,7 +78,7 @@ fn path_arg(path: &StringSexp, name: &str) -> savvy::Result<String> {
             "`{name}` must be a single, non-missing string"
         )));
     }
-    let path = r_ext::string_elt(path, 0);
+    let path = r_ext::string_elt(path, 0)?;
     if path.is_na() {
         return Err(api_other(format!(
             "`{name}` must be a single, non-missing string"

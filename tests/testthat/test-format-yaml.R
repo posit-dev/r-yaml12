@@ -36,6 +36,26 @@ test_that("format_yaml translates every character vector element", {
   )
 })
 
+test_that("format_yaml rejects bytes-encoded strings", {
+  bytes <- rawToChar(as.raw(0xff))
+  Encoding(bytes) <- "bytes"
+
+  expect_error(
+    format_yaml(bytes),
+    'translating strings with "bytes" encoding is not allowed',
+    fixed = TRUE
+  )
+
+  tagged <- structure("value", yaml_tag = bytes)
+  expect_error(
+    format_yaml(tagged),
+    'translating strings with "bytes" encoding is not allowed',
+    fixed = TRUE
+  )
+
+  expect_identical(format_yaml("ok"), "ok")
+})
+
 test_that("format_yaml errors on duplicate names", {
   expect_error(
     format_yaml(list(a = 1, a = 2)),

@@ -344,7 +344,7 @@ fn mapping_to_robj(
             if let Some(handler) = registry.get_for_tag(tag.as_ref()) {
                 let key_obj = yaml_to_robj(&mut key, simplify, handlers)?;
                 let handled = registry.apply(handler, key_obj)?;
-                Some(if let Some(name) = name_if_bare_string(&handled) {
+                Some(if let Some(name) = name_if_bare_string(&handled)? {
                     KeyHandlerResult::BareString(name)
                 } else {
                     KeyHandlerResult::Preserved(PreservedSexp::new(handled))
@@ -418,9 +418,11 @@ fn mapping_to_robj(
     Ok(list.into())
 }
 
-fn name_if_bare_string(robj: &Sexp) -> Option<&'static str> {
-    let name = r_ext::as_string_scalar(robj)?;
-    (!r_ext::has_attributes(robj)).then_some(name)
+fn name_if_bare_string(robj: &Sexp) -> Fallible<Option<&'static str>> {
+    let Some(name) = r_ext::as_string_scalar(robj)? else {
+        return Ok(None);
+    };
+    Ok((!r_ext::has_attributes(robj)).then_some(name))
 }
 
 fn convert_tagged(
@@ -523,7 +525,7 @@ pub(crate) fn parse_yaml_impl(
     match text.len() {
         0 => Ok(r_ext::null()),
         1 => {
-            let first = r_ext::string_elt(&text, 0);
+            let first = r_ext::string_elt(&text, 0)?;
             if first.is_na() {
                 return Err(api_other("`text` must not contain NA strings"));
             }
@@ -559,45 +561,44 @@ fn docs_to_robj(
     }
 }
 
-fn joined_lines_iter<'a>(text: &'a StringSexp) -> Fallible<JoinedLinesIter<'a>> {
-    for line in text.iter() {
+fn joined_lines_iter(text: &StringSexp) -> Fallible<JoinedLinesIter> {
+    let mut lines = Vec::with_capacity(text.len());
+    for i in 0..text.len() {
+        let line = r_ext::string_elt(text, i)?;
         if line.is_na() {
             return Err(api_other("`text` must not contain NA strings"));
         }
+        lines.push(line);
     }
-    Ok(JoinedLinesIter::new(text))
+    Ok(JoinedLinesIter::new(lines))
 }
 
-struct JoinedLinesIter<'a> {
-    text: &'a StringSexp,
+struct JoinedLinesIter {
+    lines: Vec<&'static str>,
     index: usize,
-    current: std::str::Chars<'a>,
+    current: std::str::Chars<'static>,
 }
 
-impl<'a> JoinedLinesIter<'a> {
-    fn new(text: &'a StringSexp) -> Self {
-        let current = if text.is_empty() {
-            "".chars()
-        } else {
-            r_ext::string_elt(text, 0).chars()
-        };
+impl JoinedLinesIter {
+    fn new(lines: Vec<&'static str>) -> Self {
+        let current = lines.first().copied().unwrap_or("").chars();
         Self {
-            text,
+            lines,
             index: 1,
             current,
         }
     }
 }
 
-impl<'a> Iterator for JoinedLinesIter<'a> {
+impl Iterator for JoinedLinesIter {
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(ch) = self.current.next() {
             return Some(ch);
         }
-        if self.index < self.text.len() {
-            self.current = r_ext::string_elt(self.text, self.index).chars();
+        if self.index < self.lines.len() {
+            self.current = self.lines[self.index].chars();
             self.index += 1;
             return Some('\n');
         }
