@@ -71,18 +71,45 @@ fn dbg_yaml_native(text: StringSexp) -> savvy::Result<Sexp> {
     Ok(null())
 }
 
+fn path_arg(path: &StringSexp, name: &str) -> savvy::Result<String> {
+    if path.len() != 1 {
+        return Err(api_other(format!(
+            "`{name}` must be a single, non-missing string"
+        )));
+    }
+    let path = r_ext::string_elt(path, 0);
+    if path.is_na() {
+        return Err(api_other(format!(
+            "`{name}` must be a single, non-missing string"
+        )));
+    }
+    Ok(path.to_string())
+}
+
+fn optional_path_arg(path: Sexp) -> savvy::Result<Option<String>> {
+    if path.is_null() {
+        return Ok(None);
+    }
+
+    let path = StringSexp::try_from(path)
+        .map_err(|_| api_other("`path` must be NULL or a single, non-missing string"))?;
+    path_arg(&path, "path").map(Some)
+}
+
 #[savvy]
 fn read_yaml_native(
-    path: &str,
+    path: StringSexp,
     multi: bool,
     simplify: bool,
     handlers: Sexp,
 ) -> savvy::Result<Sexp> {
-    yaml_to_r::read_yaml_impl(path, multi, simplify, handlers)
+    let path = path_arg(&path, "path")?;
+    yaml_to_r::read_yaml_impl(&path, multi, simplify, handlers)
 }
 
 #[savvy]
-fn write_yaml_native(value: Sexp, multi: bool, path: Option<&str>) -> savvy::Result<Sexp> {
-    r_to_yaml::write_yaml_impl(&value, path, multi)?;
+fn write_yaml_native(value: Sexp, multi: bool, path: Sexp) -> savvy::Result<Sexp> {
+    let path = optional_path_arg(path)?;
+    r_to_yaml::write_yaml_impl(&value, path.as_deref(), multi)?;
     Ok(value)
 }
