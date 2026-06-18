@@ -1,9 +1,15 @@
-use crate::{api_other, Fallible, R_STRING_MAX_BYTES};
-use savvy::{FunctionSexp, NotAvailableValue, OwnedListSexp, OwnedStringSexp, Sexp, StringSexp};
+use crate::Fallible;
+use savvy::{
+    FunctionArgs, FunctionSexp, NotAvailableValue, OwnedIntegerSexp, OwnedLogicalSexp,
+    OwnedRealSexp, OwnedStringSexp, Sexp, StringSexp,
+};
 use savvy_ffi as ffi;
 use std::os::raw::{c_char, c_void};
 use std::ptr;
 use std::sync::atomic::{AtomicPtr, Ordering};
+
+// Prefer savvy's public wrappers when they cover the operation. This module
+// holds the remaining symbol-based attribute and raw preservation helpers.
 
 static YAML_KEYS_SYMBOL: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
 static YAML_TAG_SYMBOL: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
@@ -36,23 +42,6 @@ impl PreservedSexp {
 impl Drop for PreservedSexp {
     fn drop(&mut self) {
         savvy::protect::release_from_preserved_list(self.token);
-    }
-}
-
-struct LocalProtect {
-    count: i32,
-}
-
-impl LocalProtect {
-    fn new(sexp: ffi::SEXP) -> Self {
-        unsafe { ffi::Rf_protect(sexp) };
-        Self { count: 1 }
-    }
-}
-
-impl Drop for LocalProtect {
-    fn drop(&mut self) {
-        unsafe { ffi::Rf_unprotect(self.count) };
     }
 }
 
@@ -111,76 +100,25 @@ where
 }
 
 pub(crate) fn string_scalar(value: &str) -> Fallible<Sexp> {
-    let charsxp = charsxp(value)?;
-    let sexp = unsafe {
-        let _charsxp_guard = LocalProtect::new(charsxp);
-        savvy::unwind_protect(|| ffi::Rf_ScalarString(charsxp))?
-    };
-    Ok(Sexp(sexp))
+    OwnedStringSexp::try_from_scalar(value).map(Into::into)
 }
 
 pub(crate) fn logical_scalar(value: bool) -> Fallible<Sexp> {
-    unsafe { savvy::unwind_protect(|| ffi::Rf_ScalarLogical(value as i32)).map(Sexp) }
+    OwnedLogicalSexp::try_from_scalar(value).map(Into::into)
 }
 
 pub(crate) fn integer_scalar(value: i32) -> Fallible<Sexp> {
-    unsafe { savvy::unwind_protect(|| ffi::Rf_ScalarInteger(value)).map(Sexp) }
+    OwnedIntegerSexp::try_from_scalar(value).map(Into::into)
 }
 
 pub(crate) fn real_scalar(value: f64) -> Fallible<Sexp> {
-    unsafe { savvy::unwind_protect(|| ffi::Rf_ScalarReal(value)).map(Sexp) }
-}
-
-pub(crate) fn charsxp(value: &str) -> Fallible<ffi::SEXP> {
-    if value.len() > R_STRING_MAX_BYTES {
-        return Err(api_other(
-            "R character value exceeds R's 2^31-1 byte string limit",
-        ));
-    }
-    if value.is_na() {
-        return Ok(unsafe { ffi::R_NaString });
-    }
-    unsafe {
-        savvy::unwind_protect(|| {
-            ffi::Rf_mkCharLenCE(
-                value.as_ptr() as *const c_char,
-                value.len() as i32,
-                ffi::cetype_t_CE_UTF8,
-            )
-        })
-    }
-}
-
-pub(crate) fn set_list_value(list: &mut OwnedListSexp, i: usize, value: Sexp) {
-    unsafe { list.set_value_unchecked(i, value.0) };
-}
-
-pub(crate) fn set_list_name(list: &mut OwnedListSexp, i: usize, name: &str) -> Fallible<()> {
-    let charsxp = charsxp(name)?;
-    unsafe { list.set_name_unchecked(i, charsxp) };
-    Ok(())
-}
-
-pub(crate) fn set_string_elt(strings: &mut OwnedStringSexp, i: usize, value: &str) -> Fallible<()> {
-    let charsxp = charsxp(value)?;
-    unsafe { ffi::SET_STRING_ELT(strings.inner(), i as _, charsxp) };
-    Ok(())
-}
-
-pub(crate) fn set_string_na(strings: &mut OwnedStringSexp, i: usize) {
-    unsafe { ffi::SET_STRING_ELT(strings.inner(), i as _, ffi::R_NaString) };
+    OwnedRealSexp::try_from_scalar(value).map(Into::into)
 }
 
 pub(crate) fn call1(handler: &FunctionSexp, arg: Sexp) -> Fallible<Sexp> {
-    let _arg_guard = PreservedSexp::new(Sexp(arg.0));
-    unsafe {
-        let args = ffi::Rf_cons(arg.0, ffi::R_NilValue);
-        let _args_guard = LocalProtect::new(args);
-        let call = ffi::Rf_lcons(handler.inner(), args);
-        let _call_guard = LocalProtect::new(call);
-        let result = savvy::unwind_protect(|| ffi::Rf_eval(call, ffi::R_GlobalEnv))?;
-        Ok(Sexp(result))
-    }
+    let mut args = FunctionArgs::new();
+    args.add("", arg)?;
+    handler.call(args).map(Into::into)
 }
 
 pub(crate) fn as_string_scalar(value: &Sexp) -> Option<&'static str> {
