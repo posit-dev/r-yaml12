@@ -175,7 +175,8 @@ fn character_to_yaml(robj: StringSexp) -> Fallible<Yaml<'static>> {
         });
     }
     let mut values = Vec::with_capacity(robj.len());
-    for value in robj.iter() {
+    for i in 0..robj.len() {
+        let value = r_ext::string_elt(&robj, i);
         if value.is_na() {
             values.push(Yaml::Value(Scalar::Null));
         } else {

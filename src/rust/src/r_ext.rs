@@ -128,8 +128,9 @@ pub(crate) fn real_scalar(value: f64) -> Fallible<Sexp> {
 }
 
 pub(crate) fn call1(handler: &FunctionSexp, arg: Sexp) -> Fallible<Sexp> {
+    let arg_guard = PreservedSexp::new(arg);
     let mut args = FunctionArgs::new();
-    args.add("", arg)?;
+    args.add("", arg_guard.value())?;
     handler.call(args).map(Into::into)
 }
 
