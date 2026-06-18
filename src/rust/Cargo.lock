@@ -15,6 +15,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
+name = "cc"
+version = "1.2.64"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dad887fd958be91b5098c0248def011f4523ab786cd411be668777e55063501f"
+dependencies = [
+ "find-msvc-tools",
+ "shlex",
+]
+
+[[package]]
 name = "cfg-if"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -28,6 +38,12 @@ checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
 dependencies = [
  "cfg-if",
 ]
+
+[[package]]
+name = "find-msvc-tools"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
 name = "foldhash"
@@ -90,6 +106,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustversion"
+version = "1.0.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
+
+[[package]]
 name = "saphyr"
 version = "0.0.6"
 source = "git+https://github.com/t-kalinowski/saphyr?branch=r-patched#73f6994fd5dbfa7350adb3fe2f01653bb03befaf"
@@ -111,10 +133,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "savvy"
+version = "0.8.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b0b77a8477c7edc3166bdebc6f8fc449967942aa3d25f22b13a336df29da3e2"
+dependencies = [
+ "cc",
+ "rustversion",
+ "savvy-ffi",
+ "savvy-macro",
+]
+
+[[package]]
+name = "savvy-bindgen"
+version = "0.8.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a29c423a6e85d4d7c4172db33ace022acea97b2c6fded04d28da50a14591c87d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "savvy-ffi"
 version = "0.8.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f1b0aeb4e546325c4c207d736d95952f8c589b85d2bf80dfc429a1975a17c74"
+
+[[package]]
+name = "savvy-macro"
+version = "0.8.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df4c38f496dd2a8f5aac0bdff321e88f59d241fc4cdf1b75f4859a69134c020f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "savvy-bindgen",
+ "syn",
+]
+
+[[package]]
+name = "shlex"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "syn"
@@ -159,5 +222,6 @@ version = "0.1.0"
 dependencies = [
  "saphyr",
  "saphyr-parser",
+ "savvy",
  "savvy-ffi",
 ]

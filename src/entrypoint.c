@@ -3,13 +3,7 @@
 
 #include <Rinternals.h>
 #include <R_ext/Rdynload.h>
-#include <Rversion.h>
-#include <setjmp.h>
 #include <stdint.h>
-
-SEXP unwind_protect_wrapper(SEXP (*fun)(void *data), void *data);
-static void yaml12_not_so_long_jump(void *jmpbuf, Rboolean jump);
-SEXP yaml12_closure_env(SEXP fun);
 
 SEXP yaml12_dbg_yaml_ffi(SEXP text);
 SEXP yaml12_format_yaml_ffi(SEXP value, SEXP multi);
@@ -28,7 +22,6 @@ static SEXP handle_result(SEXP res_, const char *call_name) {
             SEXP call = PROTECT(Rf_lang1(Rf_install(call_name)));
             Rf_errorcall(call, "%s", CHAR(res_aligned));
         } else {
-            R_ReleaseObject(res_aligned);
             R_ContinueUnwind(res_aligned);
         }
     }
@@ -69,33 +62,4 @@ void R_init_yaml12(void *dll) {
     R_registerRoutines((DllInfo *)dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols((DllInfo *)dll, FALSE);
     R_forceSymbols((DllInfo *)dll, TRUE);
-}
-
-SEXP unwind_protect_wrapper(SEXP (*fun)(void *data), void *data) {
-    SEXP token = R_MakeUnwindCont();
-    PROTECT(token);
-    jmp_buf jmpbuf;
-    if (setjmp(jmpbuf)) {
-        // keep token alive; tag pointer with low bit so Rust can detect jump
-        R_PreserveObject(token);
-        UNPROTECT(1);
-        return (SEXP)((uintptr_t)token | 1);
-    }
-    SEXP res = R_UnwindProtect(fun, data, (void (*)(void *, Rboolean)) yaml12_not_so_long_jump, &jmpbuf, token);
-    UNPROTECT(1);
-    return res;
-}
-
-static void yaml12_not_so_long_jump(void *jmpbuf, Rboolean jump) {
-    if (jump == TRUE) {
-        longjmp(*(jmp_buf *)jmpbuf, 1);
-    }
-}
-
-SEXP yaml12_closure_env(SEXP fun) {
-#if R_VERSION < R_Version(4, 5, 0)
-    return CLOENV(fun);
-#else
-    return R_ClosureEnv(fun);
-#endif
 }

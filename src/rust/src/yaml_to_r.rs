@@ -1,11 +1,14 @@
 use crate::handlers::HandlerRegistry;
-use crate::r::{self, List, ProtectedRobj, Robj, Strings, NULL};
+use crate::r_ext::{self, PreservedSexp};
 use crate::timestamp::{is_timestamp_tag, parse_timestamp_node, simplify_timestamp_sequence};
-use crate::unwind::EvalError;
 use crate::warning::emit_warning;
-use crate::{api_other, sym_yaml_keys, sym_yaml_tag, Fallible, TIMESTAMP_SUPPORT_ENABLED};
+use crate::{api_other, Fallible, TIMESTAMP_SUPPORT_ENABLED};
 use saphyr::{Mapping, Scalar, Tag, Yaml, YamlLoader};
 use saphyr_parser::{Parser, ScalarStyle};
+use savvy::{
+    NotAvailableValue, OwnedIntegerSexp, OwnedListSexp, OwnedLogicalSexp, OwnedRealSexp,
+    OwnedStringSexp, Sexp, StringSexp,
+};
 use std::{fs, mem};
 
 fn resolve_representation(node: &mut Yaml, _simplify: bool) {
@@ -67,7 +70,7 @@ fn yaml_to_robj(
     node: &mut Yaml,
     simplify: bool,
     handlers: Option<&HandlerRegistry<'_>>,
-) -> Fallible<Robj> {
+) -> Fallible<Sexp> {
     match node {
         Yaml::Value(scalar) => scalar_to_robj(scalar),
         Yaml::Tagged(tag, inner) => convert_tagged(tag, inner.as_mut(), simplify, handlers),
@@ -84,19 +87,21 @@ fn yaml_to_robj(
     }
 }
 
-fn scalar_to_robj(scalar: &Scalar) -> Fallible<Robj> {
+fn scalar_to_robj(scalar: &Scalar) -> Fallible<Sexp> {
     match scalar {
-        Scalar::Null => Ok(NULL.into()),
-        Scalar::Boolean(value) => r::logical_scalar(*value),
+        Scalar::Null => Ok(r_ext::null()),
+        Scalar::Boolean(value) => OwnedLogicalSexp::try_from_scalar(*value).map(Into::into),
         Scalar::Integer(value) => {
             if let Ok(v) = i32::try_from(*value) {
-                r::integer_scalar(v)
+                OwnedIntegerSexp::try_from_scalar(v).map(Into::into)
             } else {
-                r::real_scalar(*value as f64)
+                OwnedRealSexp::try_from_scalar(*value as f64).map(Into::into)
             }
         }
-        Scalar::FloatingPoint(value) => r::real_scalar(value.into_inner()),
-        Scalar::String(value) => r::string_scalar(value.as_ref()),
+        Scalar::FloatingPoint(value) => {
+            OwnedRealSexp::try_from_scalar(value.into_inner()).map(Into::into)
+        }
+        Scalar::String(value) => r_ext::string_scalar(value.as_ref()),
     }
 }
 
@@ -104,7 +109,7 @@ fn sequence_to_robj(
     seq: &mut [Yaml],
     simplify_seqs: bool,
     handlers: Option<&HandlerRegistry<'_>>,
-) -> Fallible<Robj> {
+) -> Fallible<Sexp> {
     #[derive(Copy, Clone, PartialEq, Eq)]
     enum RVectorType {
         List,
@@ -118,13 +123,13 @@ fn sequence_to_robj(
     let mut simplify = simplify_seqs;
 
     if !simplify_seqs {
-        let mut list = List::new(seq.len(), false)?;
+        let mut list = OwnedListSexp::new(seq.len(), false)?;
         for (i, node) in seq.iter_mut().enumerate() {
             resolve_representation(node, simplify_seqs);
             let value = yaml_to_robj(node, simplify_seqs, handlers)?;
             list.set_value(i, value)?;
         }
-        return Ok(list.into_robj());
+        return Ok(list.into());
     }
 
     // iterate over the vec once to see if we can simplify, fail early/fast if not
@@ -177,49 +182,49 @@ fn sequence_to_robj(
     if simplify {
         match out_type {
             RVectorType::Logical => {
-                let logicals = r::logical_vector_from_iter(
-                    seq.len(),
-                    seq.iter().map(|node| match node {
-                        Yaml::Value(Scalar::Boolean(b)) => i32::from(*b),
-                        Yaml::Value(Scalar::Null) => r::r_na_int(),
+                let mut logicals = unsafe { OwnedLogicalSexp::new_without_init(seq.len())? };
+                for (i, node) in seq.iter().enumerate() {
+                    match node {
+                        Yaml::Value(Scalar::Boolean(b)) => logicals.set_elt(i, *b)?,
+                        Yaml::Value(Scalar::Null) => logicals.set_na(i)?,
                         _ => unreachable!("expected only booleans or nulls"),
-                    }),
-                )?;
-                return Ok(logicals);
+                    }
+                }
+                return Ok(logicals.into());
             }
             RVectorType::Integer => {
-                let integers = r::integer_vector_from_iter(
-                    seq.len(),
-                    seq.iter().map(|node| match node {
+                let mut integers = unsafe { OwnedIntegerSexp::new_without_init(seq.len())? };
+                for (out, node) in integers.as_mut_slice().iter_mut().zip(seq.iter()) {
+                    *out = match node {
                         Yaml::Value(Scalar::Integer(value)) => *value as i32,
-                        Yaml::Value(Scalar::Null) => r::r_na_int(),
+                        Yaml::Value(Scalar::Null) => i32::na(),
                         _ => unreachable!("expected only integers or nulls"),
-                    }),
-                )?;
-                return Ok(integers);
+                    };
+                }
+                return Ok(integers.into());
             }
             RVectorType::Double => {
-                let doubles = r::real_vector_from_iter(
-                    seq.len(),
-                    seq.iter().map(|node| match node {
+                let mut doubles = unsafe { OwnedRealSexp::new_without_init(seq.len())? };
+                for (out, node) in doubles.as_mut_slice().iter_mut().zip(seq.iter()) {
+                    *out = match node {
                         Yaml::Value(Scalar::FloatingPoint(value)) => value.into_inner(),
                         Yaml::Value(Scalar::Integer(value)) => *value as f64,
-                        Yaml::Value(Scalar::Null) => r::r_na_real(),
+                        Yaml::Value(Scalar::Null) => f64::na(),
                         _ => unreachable!("expected only doubles, integers, or nulls"),
-                    }),
-                )?;
-                return Ok(doubles);
+                    };
+                }
+                return Ok(doubles.into());
             }
             RVectorType::Character => {
-                let strings = r::string_vector_from_options(
-                    seq.len(),
-                    seq.iter().map(|node| match node {
-                        Yaml::Value(Scalar::String(value)) => Some(value.as_ref()),
-                        Yaml::Value(Scalar::Null) => None,
+                let mut strings = OwnedStringSexp::new(seq.len())?;
+                for (i, node) in seq.iter().enumerate() {
+                    match node {
+                        Yaml::Value(Scalar::String(value)) => strings.set_elt(i, value.as_ref())?,
+                        Yaml::Value(Scalar::Null) => strings.set_na(i)?,
                         _ => unreachable!("expected only strings or nulls"),
-                    }),
-                )?;
-                return Ok(strings);
+                    }
+                }
+                return Ok(strings.into());
             }
             RVectorType::List => {}
         }
@@ -235,20 +240,20 @@ fn sequence_to_robj(
     }
 
     // can't simplify, return a list
-    let mut list = List::new(seq.len(), false)?;
+    let mut list = OwnedListSexp::new(seq.len(), false)?;
     for (i, node) in seq.iter_mut().enumerate() {
         let value = yaml_to_robj(node, simplify_seqs, handlers)?;
         list.set_value(i, value)?;
     }
 
-    Ok(list.into_robj())
+    Ok(list.into())
 }
 
 fn mapping_to_robj(
     map: &mut Mapping,
     simplify: bool,
     handlers: Option<&HandlerRegistry<'_>>,
-) -> Fallible<Robj> {
+) -> Fallible<Sexp> {
     let len = map.len();
 
     if handlers.is_none() {
@@ -257,24 +262,24 @@ fn mapping_to_robj(
             .all(|(key, _)| matches!(key, Yaml::Value(Scalar::String(_))));
 
         if all_plain_string_keys {
-            let mut list = List::new(len, true)?;
+            let mut list = OwnedListSexp::new(len, true)?;
             for (i, (key, mut value)) in mem::take(map).into_iter().enumerate() {
                 let name = match key {
                     Yaml::Value(Scalar::String(name)) => name,
                     _ => unreachable!("checked for only plain string keys"),
                 };
                 let value = yaml_to_robj(&mut value, simplify, handlers)?;
-                list.set_name(i, name.as_ref())?;
                 list.set_value(i, value)?;
+                list.set_name(i, name.as_ref())?;
             }
 
-            return Ok(list.into_robj());
+            return Ok(list.into());
         }
     }
 
     let mut keys: Vec<Yaml> = Vec::with_capacity(len);
-    let mut key_handler_results: Vec<Option<ProtectedRobj>> = Vec::with_capacity(len);
-    let mut list = List::new(len, true)?;
+    let mut key_handler_results: Vec<Option<PreservedSexp>> = Vec::with_capacity(len);
+    let mut list = OwnedListSexp::new(len, true)?;
 
     // 1st pass: resolve keys/values while consuming the mapping to avoid cloning keys.
     for (i, (mut key, mut value)) in mem::take(map).into_iter().enumerate() {
@@ -286,7 +291,7 @@ fn mapping_to_robj(
         let key_handler_result = if let (Some(registry), Yaml::Tagged(tag, _)) = (handlers, &key) {
             if let Some(handler) = registry.get_for_tag(tag.as_ref()) {
                 let key_obj = yaml_to_robj(&mut key, simplify, handlers)?;
-                Some(ProtectedRobj::new(registry.apply(handler, key_obj)?))
+                Some(registry.apply_preserved(handler, key_obj)?)
             } else {
                 None
             }
@@ -333,7 +338,7 @@ fn mapping_to_robj(
     }
 
     if needs_yaml_keys_attr {
-        let mut yaml_keys = List::new(keys.len(), false)?;
+        let mut yaml_keys = OwnedListSexp::new(keys.len(), false)?;
         for (i, (mut key, handled_value)) in keys.into_iter().zip(key_handler_results).enumerate() {
             if let Some(val) = handled_value {
                 yaml_keys.set_value(i, val.value())?;
@@ -342,15 +347,17 @@ fn mapping_to_robj(
                 yaml_keys.set_value(i, key)?;
             }
         }
-        list.set_attrib_sym(sym_yaml_keys(), yaml_keys.into_robj())?;
+        let keys_attr = Sexp(yaml_keys.inner());
+        let mut list_sexp = Sexp(list.inner());
+        r_ext::set_attrib_sym(&mut list_sexp, r_ext::sym_yaml_keys()?, keys_attr)?;
     }
 
-    Ok(list.into_robj())
+    Ok(list.into())
 }
 
-fn name_if_bare_string(robj: Robj) -> Option<&'static str> {
-    let name = robj.as_str()?;
-    (!robj.has_attributes()).then_some(name)
+fn name_if_bare_string(robj: Sexp) -> Option<&'static str> {
+    let name = r_ext::as_string_scalar(&robj)?;
+    (!r_ext::has_attributes(&robj)).then_some(name)
 }
 
 fn convert_tagged(
@@ -358,7 +365,7 @@ fn convert_tagged(
     node: &mut Yaml,
     simplify: bool,
     handlers: Option<&HandlerRegistry<'_>>,
-) -> Fallible<Robj> {
+) -> Fallible<Sexp> {
     if let Some(registry) = handlers {
         if let Some(handler) = registry.get_for_tag(tag) {
             let value = yaml_to_robj(node, simplify, handlers)?;
@@ -398,7 +405,7 @@ fn is_core_null_tag(tag: &Tag) -> bool {
     tag.is_yaml_core_schema() && tag.suffix.as_str() == "null"
 }
 
-fn set_yaml_tag_attr(mut value: Robj, tag: &Tag) -> Fallible<Robj> {
+fn set_yaml_tag_attr(mut value: Sexp, tag: &Tag) -> Fallible<Sexp> {
     let mut rendered_tag = String::with_capacity(tag.handle.len() + tag.suffix.len());
     rendered_tag.push_str(tag.handle.as_str());
     rendered_tag.push_str(tag.suffix.as_str());
@@ -417,14 +424,15 @@ fn set_yaml_tag_attr(mut value: Robj, tag: &Tag) -> Fallible<Robj> {
         return Ok(value);
     }
 
-    value.set_attrib_sym(sym_yaml_tag(), r::string_scalar(rendered_tag.as_str())?)?;
+    let tag_value = OwnedStringSexp::try_from_scalar(rendered_tag.as_str())?;
+    r_ext::set_attrib_sym(&mut value, r_ext::sym_yaml_tag()?, Sexp(tag_value.inner()))?;
     Ok(value)
 }
 
-fn wrap_unsupported(err: EvalError) -> EvalError {
+fn wrap_unsupported(err: savvy::Error) -> savvy::Error {
     match err {
-        EvalError::Api(inner) => EvalError::Api(format!("Unsupported YAML: {inner}")),
-        EvalError::Jump(token) => EvalError::Jump(token),
+        savvy::Error::Aborted(token) => savvy::Error::Aborted(token),
+        other => api_other(format!("Unsupported YAML: {other}")),
     }
 }
 
@@ -439,22 +447,22 @@ fn load_yaml_documents<'input>(text: &'input str, multi: bool) -> Fallible<Vec<Y
 }
 
 pub(crate) fn parse_yaml_impl(
-    text: Strings,
+    text: StringSexp,
     multi: bool,
     simplify: bool,
-    handlers: Robj,
-) -> Fallible<Robj> {
+    handlers: Sexp,
+) -> Fallible<Sexp> {
     let handler_registry = HandlerRegistry::from_robj(&handlers)?;
     let handlers = handler_registry.as_ref();
 
     match text.len() {
-        0 => Ok(NULL.into()),
+        0 => Ok(r_ext::null()),
         1 => {
-            let first = text.elt(0);
+            let first = r_ext::string_elt(&text, 0);
             if first.is_na() {
                 return Err(api_other("`text` must not contain NA strings"));
             }
-            let docs = load_yaml_documents(first.as_str(), multi)?;
+            let docs = load_yaml_documents(first, multi)?;
             docs_to_robj(docs, multi, simplify, handlers)
         }
         _ => {
@@ -470,23 +478,23 @@ fn docs_to_robj(
     multi: bool,
     simplify: bool,
     handlers: Option<&HandlerRegistry<'_>>,
-) -> Fallible<Robj> {
+) -> Fallible<Sexp> {
     if multi {
-        let mut list = List::new(docs.len(), false)?;
+        let mut list = OwnedListSexp::new(docs.len(), false)?;
         for (i, doc) in docs.iter_mut().enumerate() {
             let value = yaml_to_robj(doc, simplify, handlers).map_err(wrap_unsupported)?;
             list.set_value(i, value)?;
         }
-        Ok(list.into_robj())
+        Ok(list.into())
     } else {
         match docs.first_mut() {
             Some(doc) => yaml_to_robj(doc, simplify, handlers).map_err(wrap_unsupported),
-            None => Ok(NULL.into()),
+            None => Ok(r_ext::null()),
         }
     }
 }
 
-fn joined_lines_iter<'a>(text: &'a Strings) -> Fallible<JoinedLinesIter<'a>> {
+fn joined_lines_iter<'a>(text: &'a StringSexp) -> Fallible<JoinedLinesIter<'a>> {
     for line in text.iter() {
         if line.is_na() {
             return Err(api_other("`text` must not contain NA strings"));
@@ -496,17 +504,17 @@ fn joined_lines_iter<'a>(text: &'a Strings) -> Fallible<JoinedLinesIter<'a>> {
 }
 
 struct JoinedLinesIter<'a> {
-    text: &'a Strings,
+    text: &'a StringSexp,
     index: usize,
     current: std::str::Chars<'a>,
 }
 
 impl<'a> JoinedLinesIter<'a> {
-    fn new(text: &'a Strings) -> Self {
+    fn new(text: &'a StringSexp) -> Self {
         let current = if text.is_empty() {
             "".chars()
         } else {
-            text.elt(0).as_str().chars()
+            r_ext::string_elt(text, 0).chars()
         };
         Self {
             text,
@@ -524,7 +532,7 @@ impl<'a> Iterator for JoinedLinesIter<'a> {
             return Some(ch);
         }
         if self.index < self.text.len() {
-            self.current = self.text.elt(self.index).as_str().chars();
+            self.current = r_ext::string_elt(self.text, self.index).chars();
             self.index += 1;
             return Some('\n');
         }
@@ -549,8 +557,8 @@ pub(crate) fn read_yaml_impl(
     path: &str,
     multi: bool,
     simplify: bool,
-    handlers: Robj,
-) -> Fallible<Robj> {
+    handlers: Sexp,
+) -> Fallible<Sexp> {
     let handler_registry = HandlerRegistry::from_robj(&handlers)?;
     let handlers = handler_registry.as_ref();
 
