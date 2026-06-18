@@ -1,6 +1,6 @@
 # yaml12 (development version)
 
-* Replaced the Rust-side `extendr` dependency with `savvy`/`savvy-ffi` bindings.
+* Replaced the Rust-side R API layer with `savvy`/`savvy-ffi` bindings.
   Source installs now require rustc 1.71 or newer. Vendored Rust crate
   attribution now points to crate repository metadata when Cargo does not
   provide crate authors.

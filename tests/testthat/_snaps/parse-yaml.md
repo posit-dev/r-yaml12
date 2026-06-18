@@ -3,7 +3,7 @@
     Code
       parse_yaml(NA_character_)
     Condition
-      Error in `parse_yaml()`:
+      Error:
       ! `text` must not contain NA strings
 
 ---
@@ -11,7 +11,7 @@
     Code
       parse_yaml(c(NA_character_, "foo: 1"))
     Condition
-      Error in `parse_yaml()`:
+      Error:
       ! `text` must not contain NA strings
 
 ---
@@ -19,7 +19,7 @@
     Code
       parse_yaml(c("foo: 1", NA_character_))
     Condition
-      Error in `parse_yaml()`:
+      Error:
       ! `text` must not contain NA strings
 
 ---
@@ -27,39 +27,39 @@
     Code
       parse_yaml(NA)
     Condition
-      Error in `parse_yaml()`:
-      ! Expected Strings got Logicals
+      Error:
+      ! Argument `text` must be character, not logical
 
 ---
 
     Code
       parse_yaml(NA_integer_)
     Condition
-      Error in `parse_yaml()`:
-      ! Expected Strings got Integers
+      Error:
+      ! Argument `text` must be character, not integer
 
 ---
 
     Code
       parse_yaml(NA_real_)
     Condition
-      Error in `parse_yaml()`:
-      ! Expected Strings got Doubles
+      Error:
+      ! Argument `text` must be character, not double
 
 ---
 
     Code
       parse_yaml(NA_complex_)
     Condition
-      Error in `parse_yaml()`:
-      ! Expected Strings got Complexes
+      Error:
+      ! Argument `text` must be character, not complex
 
 ---
 
     Code
       parse_yaml(c(NA_character_, NA_character_, "foo: 1"))
     Condition
-      Error in `parse_yaml()`:
+      Error:
       ! `text` must not contain NA strings
 
 ---
@@ -67,7 +67,7 @@
     Code
       parse_yaml(c("foo: 1", "bar: 2", NA_character_))
     Condition
-      Error in `parse_yaml()`:
+      Error:
       ! `text` must not contain NA strings
 
 # parse_yaml errors clearly on invalid canonical tags
@@ -75,7 +75,7 @@
     Code
       parse_yaml("!!int foo")
     Condition
-      Error in `parse_yaml()`:
+      Error:
       ! Unsupported YAML: Encountered an invalid YAML scalar value
 
 ---
@@ -83,7 +83,7 @@
     Code
       parse_yaml("!!null foo")
     Condition
-      Error in `parse_yaml()`:
+      Error:
       ! Unsupported YAML: Encountered an invalid YAML scalar value
 
 # parse_yaml mapping key tags respect simplify flag

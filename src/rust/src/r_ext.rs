@@ -1,5 +1,5 @@
 use crate::{api_other, Fallible, R_STRING_MAX_BYTES};
-use savvy::{Error, NotAvailableValue, Sexp, StringSexp};
+use savvy::{NotAvailableValue, Sexp, StringSexp};
 use savvy_ffi as ffi;
 use std::ffi::CString;
 use std::os::raw::c_char;
@@ -114,10 +114,6 @@ pub(crate) fn as_string_scalar(value: &Sexp) -> Option<&'static str> {
     (!value.is_na()).then_some(value)
 }
 
-pub(crate) fn as_bool_scalar(value: &Sexp) -> Option<bool> {
-    bool::try_from(Sexp(value.0)).ok()
-}
-
 pub(crate) fn string_sexp(value: &Sexp) -> Option<StringSexp> {
     StringSexp::try_from(Sexp(value.0)).ok()
 }
@@ -162,24 +158,6 @@ pub(crate) fn inherits(value: &Sexp, class_name: &str) -> bool {
 
 pub(crate) fn has_attributes(value: &Sexp) -> bool {
     unsafe { ffi::ATTRIB(value.0) != ffi::R_NilValue }
-}
-
-pub(crate) fn rtype_name(value: &Sexp) -> &'static str {
-    match unsafe { ffi::TYPEOF(value.0) } {
-        ffi::NILSXP => "Null",
-        ffi::LGLSXP => "Logicals",
-        ffi::INTSXP => "Integers",
-        ffi::REALSXP => "Doubles",
-        ffi::CPLXSXP => "Complexes",
-        ffi::STRSXP => "Strings",
-        ffi::VECSXP => "List",
-        ffi::CLOSXP | ffi::BUILTINSXP | ffi::SPECIALSXP => "Function",
-        _ => "Other",
-    }
-}
-
-pub(crate) fn expected_strings_error(value: &Sexp) -> Error {
-    api_other(format!("Expected Strings got {}", rtype_name(value)))
 }
 
 fn charsxp_to_str(charsxp: ffi::SEXP) -> &'static str {

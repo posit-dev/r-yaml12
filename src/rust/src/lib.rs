@@ -5,14 +5,12 @@ mod timestamp;
 mod warning;
 mod yaml_to_r;
 
-use crate::r_ext::{as_bool_scalar, as_string_scalar, expected_strings_error, null};
+use crate::r_ext::null;
 use crate::r_to_yaml::yaml_body;
 use saphyr::{LoadableYamlNode, Yaml};
-use savvy::{NotAvailableValue, OwnedStringSexp, Sexp, StringSexp};
-use savvy_ffi as ffi;
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use savvy::{savvy, NotAvailableValue, OwnedStringSexp, Sexp, StringSexp};
 
-type Fallible<T> = savvy::Result<T>;
+pub(crate) type Fallible<T> = savvy::Result<T>;
 
 pub(crate) const R_STRING_MAX_BYTES: usize = i32::MAX as usize;
 /// Toggle timestamp parsing/formatting. Set to `true` to re-enable.
@@ -22,106 +20,8 @@ fn api_other(msg: impl Into<String>) -> savvy::Error {
     savvy::Error::new(msg.into())
 }
 
-fn ffi_result(result: Fallible<Sexp>) -> ffi::SEXP {
-    match result {
-        Ok(value) => value.0,
-        Err(err) => savvy::handle_error(err),
-    }
-}
-
-fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
-    if let Some(message) = payload.downcast_ref::<&str>() {
-        (*message).to_string()
-    } else if let Some(message) = payload.downcast_ref::<String>() {
-        message.clone()
-    } else {
-        "Rust panic".to_string()
-    }
-}
-
-fn ffi_catch(f: impl FnOnce() -> Fallible<Sexp>) -> ffi::SEXP {
-    match catch_unwind(AssertUnwindSafe(f)) {
-        Ok(result) => ffi_result(result),
-        Err(payload) => {
-            let message = panic_message(payload.as_ref());
-            drop(payload);
-            savvy::handle_error(api_other(message))
-        }
-    }
-}
-
-macro_rules! r_entrypoint {
-    (fn $name:ident($($arg:ident),* $(,)?) $body:block) => {
-        #[no_mangle]
-        pub extern "C" fn $name($($arg: ffi::SEXP),*) -> ffi::SEXP {
-            ffi_catch(|| $body)
-        }
-    };
-}
-
-fn sexp_arg(sexp: ffi::SEXP) -> Sexp {
-    Sexp(sexp)
-}
-
-fn strings_arg(sexp: ffi::SEXP) -> Fallible<StringSexp> {
-    let value = Sexp(sexp);
-    if value.is_string() {
-        StringSexp::try_from(value)
-    } else {
-        Err(expected_strings_error(&value))
-    }
-}
-
-fn bool_arg_from_sexp(value: &Sexp, name: &str) -> Fallible<bool> {
-    as_bool_scalar(value).ok_or_else(|| api_other(format!("`{name}` must be TRUE or FALSE")))
-}
-
-fn bool_arg(sexp: ffi::SEXP, name: &str) -> Fallible<bool> {
-    let value = Sexp(sexp);
-    bool_arg_from_sexp(&value, name)
-}
-
-fn path_arg<'a>(value: &'a Sexp, name: &str) -> Fallible<&'a str> {
-    as_string_scalar(value)
-        .ok_or_else(|| api_other(format!("`{name}` must be a single, non-missing string")))
-}
-
-fn optional_path_arg(value: &Sexp) -> Fallible<Option<&str>> {
-    if value.is_null() {
-        Ok(None)
-    } else {
-        Ok(Some(as_string_scalar(value).ok_or_else(|| {
-            api_other("`path` must be NULL or a single, non-missing string")
-        })?))
-    }
-}
-
-/// Format or write R objects as YAML 1.2.
-///
-/// `format_yaml()` returns YAML as a character string. `write_yaml()` writes a
-/// YAML stream to a file or stdout and always emits document start (`---`)
-/// markers and a final end (`...`) marker. Both functions honor a `yaml_tag`
-/// attribute on values (see examples).
-///
-/// @param value Any R object composed of lists, atomic vectors, and scalars.
-/// @param path Scalar string file path to write YAML to when using `write_yaml()`.
-///   When `NULL` (the default), write to R's standard output connection.
-/// @param multi When `TRUE`, treat `value` as a list of YAML documents and encode a stream.
-/// @return `format_yaml()` returns a scalar character string containing YAML.
-///   `write_yaml()` invisibly returns `value`.
-/// @rdname format_yaml
-/// @export
-/// @examples
-/// cat(format_yaml(list(foo = 1, bar = list(TRUE, NA))))
-///
-/// docs <- list("first", "second")
-/// cat(format_yaml(docs, multi = TRUE))
-///
-/// tagged <- structure("1 + 1", yaml_tag = "!expr")
-/// cat(tagged_yaml <- format_yaml(tagged), "\n")
-///
-/// dput(parse_yaml(tagged_yaml))
-fn format_yaml(value: Sexp, multi: bool) -> Fallible<Sexp> {
+#[savvy]
+fn format_yaml_native(value: Sexp, multi: bool) -> savvy::Result<Sexp> {
     let yaml = r_to_yaml::format_yaml_impl(&value, multi)?;
     let body = yaml_body(&yaml, multi);
     if body.len() > R_STRING_MAX_BYTES {
@@ -132,73 +32,18 @@ fn format_yaml(value: Sexp, multi: bool) -> Fallible<Sexp> {
     OwnedStringSexp::try_from_scalar(body).map(Into::into)
 }
 
-r_entrypoint! {
-    fn yaml12_format_yaml_ffi(value, multi) {
-        format_yaml(sexp_arg(value), bool_arg(multi, "multi")?)
-    }
-}
-
-/// Parse YAML 1.2 document(s) into base R structures.
-///
-/// `parse_yaml()` takes strings of YAML; `read_yaml()` reads from a file path.
-///
-/// YAML tags without a corresponding `handler` are preserved in a `yaml_tag` attribute.
-/// Mappings with keys that are not all simple scalar strings are returned as a named list with a `yaml_keys` attribute.
-///
-/// @param text Character vector; elements are concatenated with `"\n"`.
-/// @param path Scalar string path to a YAML file`.
-/// @param multi When `TRUE`, return a list containing all documents in the stream.
-/// @param simplify When `FALSE`, keep YAML sequences as R lists instead of simplifying to atomic vectors.
-/// @param handlers Named list of R functions with names corresponding to YAML tags; matching handlers transform tagged values.
-/// @return When `multi = FALSE`, returns a parsed R object for the first document.
-///   When `multi = TRUE`, returns a list of parsed documents.
-/// @rdname parse_yaml
-/// @examples
-/// dput(parse_yaml("foo: [1, 2, 3]"))
-///
-/// # homogeneous sequences simplify by default.
-/// # YAML null maps to NA in otherwise homogeneous sequences.
-/// dput(parse_yaml("foo: [1, 2, 3, null]"))
-///
-/// # mixed type sequence never simplify
-/// dput(parse_yaml("[1, true, cat]"))
-///
-/// # use `simplify=FALSE` to always return sequences as lists.
-/// str(parse_yaml("foo: [1, 2, 3, null]", simplify = FALSE))
-///
-/// # Parse multiple documents when requested.
-/// stream <- "
-/// ---
-/// first: 1
-/// ---
-/// second: 2
-/// "
-/// str(parse_yaml(stream, multi = TRUE))
-///
-/// # Read from a file; keep sequences as lists.
-/// path <- tempfile(fileext = ".yaml")
-/// writeLines("alpha: [true, null]\nbeta: 3.5", path)
-/// str(read_yaml(path, simplify = FALSE))
-/// @export
-fn parse_yaml(text: StringSexp, multi: bool, simplify: bool, handlers: Sexp) -> Fallible<Sexp> {
+#[savvy]
+fn parse_yaml_native(
+    text: StringSexp,
+    multi: bool,
+    simplify: bool,
+    handlers: Sexp,
+) -> savvy::Result<Sexp> {
     yaml_to_r::parse_yaml_impl(text, multi, simplify, handlers)
 }
 
-r_entrypoint! {
-    fn yaml12_parse_yaml_ffi(text, multi, simplify, handlers) {
-        parse_yaml(
-            strings_arg(text)?,
-            bool_arg(multi, "multi")?,
-            bool_arg(simplify, "simplify")?,
-            sexp_arg(handlers),
-        )
-    }
-}
-
-/// Debug helper: print saphyr `Yaml` nodes without converting to R objects.
-///
-/// @noRd
-fn dbg_yaml(text: StringSexp) -> Fallible<Sexp> {
+#[savvy]
+fn dbg_yaml_native(text: StringSexp) -> savvy::Result<Sexp> {
     if text.is_empty() {
         return Ok(null());
     }
@@ -220,54 +65,18 @@ fn dbg_yaml(text: StringSexp) -> Fallible<Sexp> {
     Ok(null())
 }
 
-r_entrypoint! {
-    fn yaml12_dbg_yaml_ffi(text) {
-        dbg_yaml(strings_arg(text)?)
-    }
-}
-
-/// Read YAML 1.2 document(s) from a file path.
-///
-/// @rdname parse_yaml
-/// @export
-fn read_yaml(path: &str, multi: bool, simplify: bool, handlers: Sexp) -> Fallible<Sexp> {
+#[savvy]
+fn read_yaml_native(
+    path: &str,
+    multi: bool,
+    simplify: bool,
+    handlers: Sexp,
+) -> savvy::Result<Sexp> {
     yaml_to_r::read_yaml_impl(path, multi, simplify, handlers)
 }
 
-r_entrypoint! {
-    fn yaml12_read_yaml_ffi(path, multi, simplify, handlers) {
-        let path = sexp_arg(path);
-        read_yaml(
-            path_arg(&path, "path")?,
-            bool_arg(multi, "multi")?,
-            bool_arg(simplify, "simplify")?,
-            sexp_arg(handlers),
-        )
-    }
-}
-
-/// Write an R object as YAML 1.2 to a file.
-///
-/// @rdname format_yaml
-/// @examples
-///
-///
-/// write_yaml(list(foo = 1, bar = list(2, "baz")))
-///
-/// write_yaml(list("foo", "bar"), multi = TRUE)
-///
-/// tagged <- structure("1 + 1", yaml_tag = "!expr")
-/// write_yaml(tagged)
-/// @export
-fn write_yaml(value: Sexp, path: Option<&str>, multi: bool) -> Fallible<Sexp> {
+#[savvy]
+fn write_yaml_native(value: Sexp, multi: bool, path: Option<&str>) -> savvy::Result<Sexp> {
     r_to_yaml::write_yaml_impl(&value, path, multi)?;
     Ok(value)
-}
-
-r_entrypoint! {
-    fn yaml12_write_yaml_ffi(value, path, multi) {
-        let value = sexp_arg(value);
-        let path = sexp_arg(path);
-        write_yaml(value, optional_path_arg(&path)?, bool_arg(multi, "multi")?)
-    }
 }

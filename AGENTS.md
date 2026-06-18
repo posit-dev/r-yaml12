@@ -2,7 +2,7 @@
 
 ## Map
 
-- `R/`: R API; `R/extendr-wrappers.R` is generated.
+- `R/`: R API; `R/wrappers.R` contains public wrappers and roxygen docs.
 - `src/rust/`: nested Rust staticlib crate; run Cargo commands here.
 - `configure*`, `tools/config.R`, `src/Makevars*.in`: generate Makevars and
   invoke Cargo during R package builds.
@@ -12,12 +12,14 @@
 
 ## Notes
 
-- Do not hand-edit generated files: `man/`, `NAMESPACE`,
-  `R/extendr-wrappers.R`, `inst/AUTHORS`, `src/Makevars`,
-  `src/Makevars.win`.
-- If roxygen, Rust doc comments, exports, or Rd-facing surface change,
-  regenerate from the package root with
-  `rextendr::document(); devtools::document()`.
+- Do not hand-edit generated files: `man/`, `NAMESPACE`, `src/init.c`,
+  `src/rust/api.h`, `inst/AUTHORS`, `src/Makevars`, `src/Makevars.win`.
+- If Rust `#[savvy]` entrypoints change, regenerate savvy glue from the package
+  root with `savvy-cli update .`. Keep the generated `src/init.c` and
+  `src/rust/api.h`; do not commit `R/000-wrappers.R` unless the public wrapper
+  strategy changes.
+- If roxygen, exports, or Rd-facing surface change, regenerate from the package
+  root with `devtools::document()`.
 - Direct Cargo work happens in `src/rust`; Cargo discovery depends on the
   working directory.
 - R package builds happen from the package root and invoke Rust through
