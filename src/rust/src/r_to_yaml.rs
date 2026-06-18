@@ -68,7 +68,7 @@ fn write_to_r_stdout(mut content: String) -> Fallible<()> {
 }
 
 fn robj_to_yaml(robj: &Sexp) -> Fallible<Yaml<'static>> {
-    if TIMESTAMP_SUPPORT_ENABLED && r_ext::get_attrib_sym(robj, r_ext::sym_yaml_tag()?)?.is_none() {
+    if TIMESTAMP_SUPPORT_ENABLED && r_ext::get_attrib_sym(robj, r_ext::sym_yaml_tag()).is_none() {
         if r_ext::inherits(robj, "POSIXt") || r_ext::inherits(robj, "POSIXct") {
             return posix_to_yaml(robj);
         }
@@ -186,7 +186,7 @@ fn character_to_yaml(robj: StringSexp) -> Fallible<Yaml<'static>> {
 }
 
 fn posix_to_yaml(robj: &Sexp) -> Fallible<Yaml<'static>> {
-    let tzone_attr = r_ext::get_attrib_str(robj, "tzone")?;
+    let tzone_attr = r_ext::get_attrib_sym(robj, r_ext::sym_tzone());
     let tz_name = tzone_attr
         .as_ref()
         .and_then(r_ext::as_string_scalar)
@@ -242,7 +242,7 @@ fn local_offset_minutes(robj: &Sexp) -> Fallible<i32> {
 }
 
 fn list_to_yaml(robj: &Sexp, list: ListSexp) -> Fallible<Yaml<'static>> {
-    if let Some(keys_attr) = r_ext::get_attrib_sym(robj, r_ext::sym_yaml_keys()?)? {
+    if let Some(keys_attr) = r_ext::get_attrib_sym(robj, r_ext::sym_yaml_keys()) {
         if !keys_attr.is_null() {
             let keys = ListSexp::try_from(keys_attr)
                 .map_err(|_| api_other("`yaml_keys` attribute must be a list"))?;
@@ -318,7 +318,7 @@ fn apply_tag_if_present(robj: &Sexp, node: Yaml<'static>) -> Fallible<Yaml<'stat
 }
 
 fn extract_yaml_tag(robj: &Sexp) -> Fallible<Option<Tag>> {
-    let attr = match r_ext::get_attrib_sym(robj, r_ext::sym_yaml_tag()?)? {
+    let attr = match r_ext::get_attrib_sym(robj, r_ext::sym_yaml_tag()) {
         Some(value) => value,
         None => return Ok(None),
     };

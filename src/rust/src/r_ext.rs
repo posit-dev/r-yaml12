@@ -1,8 +1,13 @@
 use crate::{api_other, Fallible, R_STRING_MAX_BYTES};
 use savvy::{NotAvailableValue, Sexp, StringSexp};
 use savvy_ffi as ffi;
-use std::ffi::CString;
-use std::os::raw::c_char;
+use std::os::raw::{c_char, c_void};
+use std::ptr;
+use std::sync::atomic::{AtomicPtr, Ordering};
+
+static YAML_KEYS_SYMBOL: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
+static YAML_TAG_SYMBOL: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
+static TZONE_SYMBOL: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
 
 pub(crate) fn null() -> Sexp {
     unsafe { Sexp(ffi::R_NilValue) }
@@ -34,50 +39,42 @@ impl Drop for PreservedSexp {
     }
 }
 
-pub(crate) fn install(name: &str) -> Fallible<ffi::SEXP> {
-    let name =
-        CString::new(name).map_err(|_| api_other("Attribute name contains interior nul byte"))?;
-    unsafe { savvy::unwind_protect(|| ffi::Rf_install(name.as_ptr())) }
-}
-
-pub(crate) fn sym_yaml_keys() -> Fallible<ffi::SEXP> {
-    unsafe { savvy::unwind_protect(|| ffi::Rf_install(b"yaml_keys\0".as_ptr() as *const c_char)) }
-}
-
-pub(crate) fn sym_yaml_tag() -> Fallible<ffi::SEXP> {
-    unsafe { savvy::unwind_protect(|| ffi::Rf_install(b"yaml_tag\0".as_ptr() as *const c_char)) }
-}
-
-pub(crate) fn get_attrib_sym(value: &Sexp, attr: ffi::SEXP) -> Fallible<Option<Sexp>> {
-    let attr_value = unsafe { savvy::unwind_protect(|| ffi::Rf_getAttrib(value.0, attr))? };
-    if attr_value == unsafe { ffi::R_NilValue } {
-        Ok(None)
-    } else {
-        Ok(Some(Sexp(attr_value)))
+fn cached_symbol(cache: &AtomicPtr<c_void>, name: &'static [u8]) -> ffi::SEXP {
+    let cached = cache.load(Ordering::Relaxed);
+    if !cached.is_null() {
+        return cached;
     }
+
+    debug_assert_eq!(name.last(), Some(&0));
+    let symbol = unsafe { ffi::Rf_install(name.as_ptr() as *const c_char) };
+    cache.store(symbol, Ordering::Relaxed);
+    symbol
 }
 
-pub(crate) fn get_attrib_str(value: &Sexp, attr: &str) -> Fallible<Option<Sexp>> {
-    let attr = install(attr)?;
-    get_attrib_sym(value, attr)
+pub(crate) fn sym_yaml_keys() -> ffi::SEXP {
+    cached_symbol(&YAML_KEYS_SYMBOL, b"yaml_keys\0")
+}
+
+pub(crate) fn sym_yaml_tag() -> ffi::SEXP {
+    cached_symbol(&YAML_TAG_SYMBOL, b"yaml_tag\0")
+}
+
+pub(crate) fn sym_tzone() -> ffi::SEXP {
+    cached_symbol(&TZONE_SYMBOL, b"tzone\0")
+}
+
+pub(crate) fn get_attrib_sym(value: &Sexp, attr: ffi::SEXP) -> Option<Sexp> {
+    let attr_value = unsafe { ffi::Rf_getAttrib(value.0, attr) };
+    if attr_value == unsafe { ffi::R_NilValue } {
+        None
+    } else {
+        Some(Sexp(attr_value))
+    }
 }
 
 pub(crate) fn set_attrib_sym(value: &mut Sexp, attr: ffi::SEXP, attr_value: Sexp) -> Fallible<()> {
     let _value_guard = PreservedSexp::new(Sexp(value.0));
     let _attr_value_guard = PreservedSexp::new(Sexp(attr_value.0));
-    unsafe {
-        savvy::unwind_protect(|| {
-            ffi::Rf_setAttrib(value.0, attr, attr_value.0);
-            ffi::R_NilValue
-        })?;
-    }
-    Ok(())
-}
-
-pub(crate) fn set_attrib_str(value: &mut Sexp, attr: &str, attr_value: Sexp) -> Fallible<()> {
-    let _value_guard = PreservedSexp::new(Sexp(value.0));
-    let _attr_value_guard = PreservedSexp::new(Sexp(attr_value.0));
-    let attr = install(attr)?;
     unsafe {
         savvy::unwind_protect(|| {
             ffi::Rf_setAttrib(value.0, attr, attr_value.0);
@@ -131,14 +128,14 @@ pub(crate) fn string_elt(strings: &StringSexp, i: usize) -> &'static str {
 }
 
 pub(crate) fn names(value: &Sexp) -> Fallible<Option<StringSexp>> {
-    let Some(names) = get_attrib_sym(value, unsafe { ffi::R_NamesSymbol })? else {
+    let Some(names) = get_attrib_sym(value, unsafe { ffi::R_NamesSymbol }) else {
         return Ok(None);
     };
     Ok(Some(StringSexp::try_from(names)?))
 }
 
 pub(crate) fn class(value: &Sexp) -> Fallible<Option<StringSexp>> {
-    let Some(class) = get_attrib_sym(value, unsafe { ffi::R_ClassSymbol })? else {
+    let Some(class) = get_attrib_sym(value, unsafe { ffi::R_ClassSymbol }) else {
         return Ok(None);
     };
     Ok(Some(StringSexp::try_from(class)?))

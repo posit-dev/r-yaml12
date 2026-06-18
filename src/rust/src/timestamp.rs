@@ -193,15 +193,23 @@ pub(crate) fn timestamp_to_robj(
                 match tz {
                     ParsedTz::Z => {
                         let tzone = OwnedStringSexp::try_from_slice(["UTC"])?;
-                        r_ext::set_attrib_str(&mut robj, "tzone", Sexp(tzone.inner()))?;
+                        r_ext::set_attrib_sym(&mut robj, r_ext::sym_tzone(), Sexp(tzone.inner()))?;
                     }
                     ParsedTz::Offset { minutes } if !space_separated => {
                         if let Some(tzone) = tzone_from_offset_minutes(minutes) {
                             let tzone = OwnedStringSexp::try_from_slice([tzone.as_str()])?;
-                            r_ext::set_attrib_str(&mut robj, "tzone", Sexp(tzone.inner()))?;
+                            r_ext::set_attrib_sym(
+                                &mut robj,
+                                r_ext::sym_tzone(),
+                                Sexp(tzone.inner()),
+                            )?;
                         } else if keep_empty_tzone {
                             let tzone = OwnedStringSexp::try_from_slice([""])?;
-                            r_ext::set_attrib_str(&mut robj, "tzone", Sexp(tzone.inner()))?;
+                            r_ext::set_attrib_sym(
+                                &mut robj,
+                                r_ext::sym_tzone(),
+                                Sexp(tzone.inner()),
+                            )?;
                         }
                     }
                     ParsedTz::Offset { .. } | ParsedTz::None => {
@@ -278,7 +286,7 @@ where
                 .ok_or_else(|| api_other("Expected POSIXct scalar"))?;
             posix_vals.push(slice);
 
-            if let Some(tzone_attr) = r_ext::get_attrib_str(&val, "tzone")? {
+            if let Some(tzone_attr) = r_ext::get_attrib_sym(&val, r_ext::sym_tzone()) {
                 if let Some(tzones) = r_ext::string_sexp(&tzone_attr) {
                     if !tzones.is_empty() {
                         let tz = r_ext::string_elt(&tzones, 0);
@@ -314,7 +322,7 @@ where
         r_ext::set_class(&mut out_sexp, ["POSIXct", "POSIXt"])?;
         if let Some(tz) = posix_tzone {
             let tzone = OwnedStringSexp::try_from_slice([tz.as_str()])?;
-            r_ext::set_attrib_str(&mut out_sexp, "tzone", Sexp(tzone.inner()))?;
+            r_ext::set_attrib_sym(&mut out_sexp, r_ext::sym_tzone(), Sexp(tzone.inner()))?;
         }
         return Ok(Some(out.into()));
     }

@@ -9,6 +9,7 @@ use savvy::{
     NotAvailableValue, OwnedIntegerSexp, OwnedListSexp, OwnedLogicalSexp, OwnedRealSexp,
     OwnedStringSexp, Sexp, StringSexp,
 };
+use savvy_ffi as ffi;
 use std::{fs, mem};
 
 fn resolve_representation(node: &mut Yaml, _simplify: bool) {
@@ -182,12 +183,15 @@ fn sequence_to_robj(
     if simplify {
         match out_type {
             RVectorType::Logical => {
-                let mut logicals = unsafe { OwnedLogicalSexp::new_without_init(seq.len())? };
+                let logicals = unsafe { OwnedLogicalSexp::new_without_init(seq.len())? };
+                let out = unsafe { ffi::LOGICAL(logicals.inner()) };
                 for (i, node) in seq.iter().enumerate() {
-                    match node {
-                        Yaml::Value(Scalar::Boolean(b)) => logicals.set_elt(i, *b)?,
-                        Yaml::Value(Scalar::Null) => logicals.set_na(i)?,
-                        _ => unreachable!("expected only booleans or nulls"),
+                    unsafe {
+                        *out.add(i) = match node {
+                            Yaml::Value(Scalar::Boolean(b)) => *b as i32,
+                            Yaml::Value(Scalar::Null) => i32::na(),
+                            _ => unreachable!("expected only booleans or nulls"),
+                        };
                     }
                 }
                 return Ok(logicals.into());
@@ -318,7 +322,6 @@ fn mapping_to_robj(
                 list.set_name(i, name_from_handler)?;
             } else {
                 needs_yaml_keys_attr = true;
-                list.set_name(i, "")?;
             }
         } else {
             match key {
@@ -331,7 +334,6 @@ fn mapping_to_robj(
                     // normalized to plain strings by `resolve_representation`, so any tagged key
                     // reaching here carries extra information.
                     needs_yaml_keys_attr = true;
-                    list.set_name(i, "")?;
                 }
             }
         }
@@ -349,7 +351,7 @@ fn mapping_to_robj(
         }
         let keys_attr = Sexp(yaml_keys.inner());
         let mut list_sexp = Sexp(list.inner());
-        r_ext::set_attrib_sym(&mut list_sexp, r_ext::sym_yaml_keys()?, keys_attr)?;
+        r_ext::set_attrib_sym(&mut list_sexp, r_ext::sym_yaml_keys(), keys_attr)?;
     }
 
     Ok(list.into())
@@ -425,7 +427,7 @@ fn set_yaml_tag_attr(mut value: Sexp, tag: &Tag) -> Fallible<Sexp> {
     }
 
     let tag_value = OwnedStringSexp::try_from_scalar(rendered_tag.as_str())?;
-    r_ext::set_attrib_sym(&mut value, r_ext::sym_yaml_tag()?, Sexp(tag_value.inner()))?;
+    r_ext::set_attrib_sym(&mut value, r_ext::sym_yaml_tag(), Sexp(tag_value.inner()))?;
     Ok(value)
 }
 
