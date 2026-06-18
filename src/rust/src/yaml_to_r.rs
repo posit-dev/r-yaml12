@@ -468,7 +468,7 @@ fn is_core_null_tag(tag: &Tag) -> bool {
     tag.is_yaml_core_schema() && tag.suffix.as_str() == "null"
 }
 
-fn set_yaml_tag_attr(mut value: Sexp, tag: &Tag) -> Fallible<Sexp> {
+fn set_yaml_tag_attr(value: Sexp, tag: &Tag) -> Fallible<Sexp> {
     let mut rendered_tag = String::with_capacity(tag.handle.len() + tag.suffix.len());
     rendered_tag.push_str(tag.handle.as_str());
     rendered_tag.push_str(tag.suffix.as_str());
@@ -487,7 +487,9 @@ fn set_yaml_tag_attr(mut value: Sexp, tag: &Tag) -> Fallible<Sexp> {
         return Ok(value);
     }
 
+    let value_guard = PreservedSexp::new(value);
     let tag_value = OwnedStringSexp::try_from_scalar(rendered_tag.as_str())?;
+    let mut value = value_guard.value();
     r_ext::set_attrib_sym(&mut value, r_ext::sym_yaml_tag(), Sexp(tag_value.inner()))?;
     Ok(value)
 }

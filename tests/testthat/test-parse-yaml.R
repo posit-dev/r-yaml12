@@ -229,6 +229,24 @@ test_that("parse_yaml preserves YAML tags", {
   expect_identical(tagged$values, structure(c(1L, 2L), yaml_tag = "!seq"))
 })
 
+test_that("parse_yaml preserves YAML tags under GC pressure", {
+  expected <- structure("value", yaml_tag = "!custom")
+  ok <- TRUE
+
+  gctorture(TRUE)
+  on.exit(gctorture(FALSE), add = TRUE)
+
+  for (i in seq_len(50)) {
+    ok <- identical(parse_yaml(r"--(!custom value)--"), expected)
+    if (!ok) {
+      break
+    }
+  }
+
+  gctorture(FALSE)
+  expect_true(ok)
+})
+
 
 if (FALSE) {
   test_that("parse_yaml parses YAML 1.1 timestamp forms", {
