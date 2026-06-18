@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <Rinternals.h>
 #include <R_ext/Parse.h>
+#include <R_ext/Rdynload.h>
 // clang-format on
 
 #include "rust/api.h"
@@ -26,9 +27,9 @@ SEXP handle_result(SEXP res_) {
         //   2. Error from R's C API, which is caught by R_UnwindProtect()
         //
         if (TYPEOF(res_aligned) == CHARSXP) {
-            // In case 1, the result is an error message that can be passed to
-            // Rf_errorcall() directly.
-            Rf_errorcall(R_NilValue, "%s", CHAR(res_aligned));
+            // In case 1, throw a regular R error so R reports the public
+            // wrapper call from the active evaluation context.
+            Rf_error("%s", CHAR(res_aligned));
         } else {
             // In case 2, the result is the token to restart the
             // cleanup process on R's side.
@@ -77,6 +78,7 @@ static const R_CallMethodDef CallEntries[] = {
 void R_init_yaml12(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
+    R_forceSymbols(dll, TRUE);
 
     // Functions for initialization, if any.
 

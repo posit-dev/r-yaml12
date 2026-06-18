@@ -15,9 +15,9 @@
 - Do not hand-edit generated files: `man/`, `NAMESPACE`, `src/init.c`,
   `src/rust/api.h`, `inst/AUTHORS`, `src/Makevars`, `src/Makevars.win`.
 - If Rust `#[savvy]` entrypoints change, regenerate savvy glue from the package
-  root with `savvy-cli update .`. Keep the generated `src/init.c` and
-  `src/rust/api.h`; do not commit `R/000-wrappers.R` unless the public wrapper
-  strategy changes.
+  root with `savvy-cli update .`, then run `Rscript tools/patch-savvy-init.R`.
+  Keep the generated `src/init.c` and `src/rust/api.h`; do not commit
+  `R/000-wrappers.R` unless the public wrapper strategy changes.
 - If roxygen, exports, or Rd-facing surface change, regenerate from the package
   root with `devtools::document()`.
 - Direct Cargo work happens in `src/rust`; Cargo discovery depends on the
