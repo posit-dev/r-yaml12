@@ -10,7 +10,7 @@ use savvy::{
     OwnedStringSexp, Sexp, StringSexp,
 };
 use savvy_ffi as ffi;
-use std::{fs, mem};
+use std::{fs, mem, ptr};
 
 fn resolve_representation(node: &mut Yaml, _simplify: bool) {
     let (value, style, tag) = match mem::replace(node, Yaml::BadValue) {
@@ -181,41 +181,13 @@ fn sequence_to_robj(
     if simplify {
         match out_type {
             RVectorType::Logical => {
-                let logicals = unsafe { OwnedLogicalSexp::new_without_init(seq.len())? };
-                let out = unsafe { ffi::LOGICAL(logicals.inner()) };
-                for (i, node) in seq.iter().enumerate() {
-                    unsafe {
-                        *out.add(i) = match node {
-                            Yaml::Value(Scalar::Boolean(b)) => *b as i32,
-                            Yaml::Value(Scalar::Null) => i32::na(),
-                            _ => unreachable!("expected only booleans or nulls"),
-                        };
-                    }
-                }
-                return Ok(logicals.into());
+                return simplified_logical_sequence_to_robj(seq);
             }
             RVectorType::Integer => {
-                let mut integers = unsafe { OwnedIntegerSexp::new_without_init(seq.len())? };
-                for (out, node) in integers.as_mut_slice().iter_mut().zip(seq.iter()) {
-                    *out = match node {
-                        Yaml::Value(Scalar::Integer(value)) => *value as i32,
-                        Yaml::Value(Scalar::Null) => i32::na(),
-                        _ => unreachable!("expected only integers or nulls"),
-                    };
-                }
-                return Ok(integers.into());
+                return simplified_integer_sequence_to_robj(seq);
             }
             RVectorType::Double => {
-                let mut doubles = unsafe { OwnedRealSexp::new_without_init(seq.len())? };
-                for (out, node) in doubles.as_mut_slice().iter_mut().zip(seq.iter()) {
-                    *out = match node {
-                        Yaml::Value(Scalar::FloatingPoint(value)) => value.into_inner(),
-                        Yaml::Value(Scalar::Integer(value)) => *value as f64,
-                        Yaml::Value(Scalar::Null) => f64::na(),
-                        _ => unreachable!("expected only doubles, integers, or nulls"),
-                    };
-                }
-                return Ok(doubles.into());
+                return simplified_double_sequence_to_robj(seq);
             }
             RVectorType::Character => {
                 let mut strings = OwnedStringSexp::new(seq.len())?;
@@ -249,6 +221,70 @@ fn sequence_to_robj(
     }
 
     Ok(list.into())
+}
+
+fn simplified_logical_sequence_to_robj(seq: &[Yaml]) -> Fallible<Sexp> {
+    // SAFETY: `sequence_to_robj()` calls this only after checking this same
+    // sequence contains only booleans and nulls. After allocation succeeds, the
+    // loop writes exactly one initialized value to every index before return.
+    // `ptr::write()` initializes each slot without reading its old contents.
+    let out = unsafe {
+        let out = OwnedLogicalSexp::new_without_init(seq.len())?;
+        let raw = ffi::LOGICAL(out.inner());
+        for (i, node) in seq.iter().enumerate() {
+            let value = match node {
+                Yaml::Value(Scalar::Boolean(b)) => *b as i32,
+                Yaml::Value(Scalar::Null) => i32::na(),
+                _ => unreachable!("expected only booleans or nulls"),
+            };
+            ptr::write(raw.add(i), value);
+        }
+        out
+    };
+    Ok(out.into())
+}
+
+fn simplified_integer_sequence_to_robj(seq: &[Yaml]) -> Fallible<Sexp> {
+    // SAFETY: `sequence_to_robj()` calls this only after checking this same
+    // sequence contains only i32-representable integers and nulls. After
+    // allocation succeeds, the loop writes every index before return.
+    // `ptr::write()` initializes each slot without reading its old contents.
+    let out = unsafe {
+        let out = OwnedIntegerSexp::new_without_init(seq.len())?;
+        let raw = ffi::INTEGER(out.inner());
+        for (i, node) in seq.iter().enumerate() {
+            let value = match node {
+                Yaml::Value(Scalar::Integer(value)) => *value as i32,
+                Yaml::Value(Scalar::Null) => i32::na(),
+                _ => unreachable!("expected only integers or nulls"),
+            };
+            ptr::write(raw.add(i), value);
+        }
+        out
+    };
+    Ok(out.into())
+}
+
+fn simplified_double_sequence_to_robj(seq: &[Yaml]) -> Fallible<Sexp> {
+    // SAFETY: `sequence_to_robj()` calls this only after checking this same
+    // sequence contains only doubles, integers, and nulls. After allocation
+    // succeeds, the loop writes every index before return.
+    // `ptr::write()` initializes each slot without reading its old contents.
+    let out = unsafe {
+        let out = OwnedRealSexp::new_without_init(seq.len())?;
+        let raw = ffi::REAL(out.inner());
+        for (i, node) in seq.iter().enumerate() {
+            let value = match node {
+                Yaml::Value(Scalar::FloatingPoint(value)) => value.into_inner(),
+                Yaml::Value(Scalar::Integer(value)) => *value as f64,
+                Yaml::Value(Scalar::Null) => f64::na(),
+                _ => unreachable!("expected only doubles, integers, or nulls"),
+            };
+            ptr::write(raw.add(i), value);
+        }
+        out
+    };
+    Ok(out.into())
 }
 
 enum KeyHandlerResult {
