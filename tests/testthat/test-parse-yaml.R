@@ -164,6 +164,13 @@ test_that("parse_yaml errors on NA strings regardless of position or length", {
   )
 })
 
+test_that("parse_yaml accepts latin1 encoded input strings", {
+  latin1 <- rawToChar(as.raw(0xe9))
+  Encoding(latin1) <- "latin1"
+
+  expect_identical(parse_yaml(latin1), "\u00e9")
+})
+
 test_that("parse_yaml simplifies mixed numeric sequences", {
   yaml <- "[1, 2.5, 0x10, .inf, null]"
 
@@ -220,6 +227,24 @@ test_that("parse_yaml preserves YAML tags", {
 
   tagged <- parse_yaml(r"--(values: !seq [1, 2])--")
   expect_identical(tagged$values, structure(c(1L, 2L), yaml_tag = "!seq"))
+})
+
+test_that("parse_yaml preserves YAML tags under GC pressure", {
+  expected <- structure("value", yaml_tag = "!custom")
+  ok <- TRUE
+
+  gctorture(TRUE)
+  on.exit(gctorture(FALSE), add = TRUE)
+
+  for (i in seq_len(50)) {
+    ok <- identical(parse_yaml(r"--(!custom value)--"), expected)
+    if (!ok) {
+      break
+    }
+  }
+
+  gctorture(FALSE)
+  expect_true(ok)
 })
 
 
@@ -287,6 +312,25 @@ test_that("parse_yaml applies handlers to tagged mapping keys", {
 
   result <- parse_yaml("!upper key: value", handlers = handlers)
   expect_identical(result, list(KEY = "value"))
+})
+
+test_that("parse_yaml keeps handled string keys in yaml_keys when needed", {
+  handlers <- list(
+    "!upper" = function(x) toupper(x)
+  )
+  yaml <- r"--(
+!upper key: value
+1: one
+)--"
+
+  result <- parse_yaml(yaml, handlers = handlers)
+
+  expected <- structure(
+    list("value", "one"),
+    names = c("KEY", ""),
+    yaml_keys = list("KEY", 1L)
+  )
+  expect_identical(result, expected)
 })
 
 test_that("parse_yaml leaves names empty when key handler returns non-string", {

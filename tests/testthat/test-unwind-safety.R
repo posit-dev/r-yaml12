@@ -205,7 +205,11 @@ test_that("calling error handlers run before nested handler frames unwind", {
   out <- run_nested_handler_calling_error()
 
   expect_s3_class(out$error, "error")
-  expect_match(conditionMessage(out$error), "deep failure at level 4", fixed = TRUE)
+  expect_match(
+    conditionMessage(out$error),
+    "deep failure at level 4",
+    fixed = TRUE
+  )
   expect_identical(
     out$events,
     c(
@@ -309,7 +313,11 @@ test_that("nested handler errors unwind R frames in order", {
   out <- run_nested_handler_parse(error_at = 4L)
 
   expect_s3_class(out$error, "error")
-  expect_match(conditionMessage(out$error), "deep failure at level 4", fixed = TRUE)
+  expect_match(
+    conditionMessage(out$error),
+    "deep failure at level 4",
+    fixed = TRUE
+  )
   expect_null(out$value)
   expect_identical(
     out$events,
@@ -331,7 +339,11 @@ test_that("nested handler errors unwind R frames in order", {
   for (i in seq_len(10)) {
     out <- run_nested_handler_parse(error_at = 4L)
     expect_s3_class(out$error, "error")
-    expect_match(conditionMessage(out$error), "deep failure at level 4", fixed = TRUE)
+    expect_match(
+      conditionMessage(out$error),
+      "deep failure at level 4",
+      fixed = TRUE
+    )
   }
 
   expect_identical(parse_yaml("value: ok"), list(value = "ok"))

@@ -28,7 +28,7 @@
       parse_yaml(NA)
     Condition
       Error in `parse_yaml()`:
-      ! Expected Strings got Logicals
+      ! Argument `text` must be character, not logical
 
 ---
 
@@ -36,7 +36,7 @@
       parse_yaml(NA_integer_)
     Condition
       Error in `parse_yaml()`:
-      ! Expected Strings got Integers
+      ! Argument `text` must be character, not integer
 
 ---
 
@@ -44,7 +44,7 @@
       parse_yaml(NA_real_)
     Condition
       Error in `parse_yaml()`:
-      ! Expected Strings got Doubles
+      ! Argument `text` must be character, not double
 
 ---
 
@@ -52,7 +52,7 @@
       parse_yaml(NA_complex_)
     Condition
       Error in `parse_yaml()`:
-      ! Expected Strings got Complexes
+      ! Argument `text` must be character, not complex
 
 ---
 
