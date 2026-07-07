@@ -11,6 +11,7 @@
 //!   implicit key), falling back to quoting instead.
 
 use core::fmt;
+use std::borrow::Cow;
 
 use saphyr::{EmitError, Mapping, Scalar, Yaml};
 
@@ -440,54 +441,75 @@ fn folded_lines(s: &str, width: usize) -> Option<Vec<&str>> {
     Some(lines)
 }
 
-/// Check if the string requires quoting. Copied from saphyr's emitter.
+/// Check whether a character may appear in a single-line plain scalar.
+///
+/// This is YAML 1.2 `c-printable` minus line breaks, tabs, and the byte order
+/// mark. Tabs are technically permitted inside plain scalars but interact
+/// badly with indentation handling in many parsers, so they are quoted.
+fn is_plain_safe_char(c: char) -> bool {
+    c != '\u{feff}'
+        && matches!(
+            c,
+            '\x20'..='\x7e' | '\u{85}' | '\u{a0}'..='\u{d7ff}' | '\u{e000}'..='\u{10ffff}'
+        )
+}
+
+/// Check if the string must be double-quoted rather than emitted as a plain
+/// scalar.
+///
+/// This follows the YAML 1.2 plain-scalar grammar for block context (this
+/// emitter never emits plain scalars inside flow collections), plus the core
+/// schema for tag resolution — so `yes`, `on`, and friends are strings and do
+/// not need quoting, while anything `Scalar::parse_from_cow` (the resolver
+/// the parser applies to plain scalars) would read back as null, boolean,
+/// integer, or float does.
 fn need_quotes(string: &str) -> bool {
-    fn need_quotes_spaces(string: &str) -> bool {
-        string.starts_with(' ') || string.ends_with(' ')
+    // The empty plain scalar resolves to null.
+    let Some(first) = string.chars().next() else {
+        return true;
+    };
+
+    // Would be resolved as a non-string by the core schema.
+    if !matches!(
+        Scalar::parse_from_cow(Cow::Borrowed(string)),
+        Scalar::String(_)
+    ) {
+        return true;
     }
 
-    string.is_empty()
-        || need_quotes_spaces(string)
-        || string.starts_with(|character: char| {
-            matches!(
-                character,
-                '&' | '*' | '?' | '|' | '-' | '<' | '>' | '=' | '!' | '%' | '@'
-            )
-        })
-        || string.contains(|character: char| {
-            matches!(character, ':'
-            | '{'
-            | '}'
-            | '['
-            | ']'
-            | ','
-            | '#'
-            | '`'
-            | '\"'
-            | '\''
-            | '\\'
-            | '\0'..='\x06'
-            | '\t'
-            | '\n'
-            | '\r'
-            | '\x0e'..='\x1a'
-            | '\x1c'..='\x1f')
-        })
-        || [
-            // http://yaml.org/type/bool.html
-            // Note: 'y', 'Y', 'n', 'N', is not quoted deliberately, as in libyaml. PyYAML also parse
-            // them as string, not booleans, although it is violating the YAML 1.1 specification.
-            // See https://github.com/dtolnay/serde-yaml/pull/83#discussion_r152628088.
-            "yes", "Yes", "YES", "no", "No", "NO", "True", "TRUE", "true", "False", "FALSE",
-            "false", "on", "On", "ON", "off", "Off", "OFF",
-            // http://yaml.org/type/null.html
-            "null", "Null", "NULL", "~",
-        ]
-        .contains(&string)
-        || string.starts_with('.')
-        || string.starts_with("0x")
-        || string.parse::<i64>().is_ok()
-        || string.parse::<f64>().is_ok()
+    // Plain scalars cannot start or end with white space, and every character
+    // must be printable and single-line.
+    if string.starts_with(' ') || string.ends_with(' ') || !string.chars().all(is_plain_safe_char) {
+        return true;
+    }
+
+    // First-character indicator rules (`c-indicator`): `-`, `?`, and `:` are
+    // allowed when followed by a non-space character; the rest never are.
+    match first {
+        ',' | '[' | ']' | '{' | '}' | '#' | '&' | '*' | '!' | '|' | '>' | '\'' | '"' | '%'
+        | '@' | '`' => return true,
+        '-' | '?' | ':' => {
+            if string.len() == 1 || string[1..].starts_with(' ') {
+                return true;
+            }
+        }
+        _ => {}
+    }
+
+    // Could be mistaken for a document marker when emitted at the start of a
+    // line (root scalars and top-level keys sit in column 0).
+    if string.starts_with("---") || string.starts_with("...") {
+        return true;
+    }
+
+    // `: ` (or a trailing `:`) would end an implicit key, and ` #` would
+    // start a comment.
+    let bytes = string.as_bytes();
+    bytes.iter().enumerate().any(|(i, &b)| match b {
+        b':' => i + 1 == bytes.len() || bytes[i + 1] == b' ',
+        b'#' => i > 0 && bytes[i - 1] == b' ',
+        _ => false,
+    })
 }
 
 #[cfg(test)]
@@ -604,6 +626,116 @@ mod test {
         let output = emit_wrapped(&doc);
         assert!(output.contains("\"multi\\nline\": 1"), "{output}");
         assert_eq!(reparse(&output), doc);
+    }
+
+    #[test]
+    fn need_quotes_follows_yaml_1_2() {
+        use super::need_quotes;
+
+        // Plain under YAML 1.2: no 1.1 legacy booleans, indicators only
+        // matter at the start, quotes/backslashes/commas are fine inside.
+        let plain = [
+            "yes",
+            "No",
+            "on",
+            "OFF",
+            "y",
+            "n",
+            "don't",
+            "say \"hi\"",
+            "a\\b",
+            "a,b",
+            "f[0]",
+            "x{1}",
+            "foo#bar",
+            "foo:bar",
+            "a ? b",
+            "-x",
+            "?x",
+            ":x",
+            "--x",
+            ".gitignore",
+            "=",
+            "<y>",
+            "0xg",
+            "0o9",
+            "1_000",
+            "1.2.3",
+            "e5",
+            "inf",
+            "nan",
+            "a * b",
+            "5% off",
+        ];
+        for s in plain {
+            assert!(!need_quotes(s), "{s:?} should not need quotes");
+        }
+
+        // Would resolve as a non-string under the core schema.
+        let resolved = [
+            "~", "null", "NULL", "true", "False", "12", "+7", "-3", "0x1F", "0o17", "3.5", "-2e10",
+            ".5", ".inf", "-.Inf", ".NaN",
+        ];
+        // Structurally invalid as a plain scalar.
+        let structural = [
+            "",
+            " x",
+            "x ",
+            "a\tb",
+            "a\nb",
+            "- x",
+            "-",
+            "?",
+            ":",
+            ": x",
+            "foo: bar",
+            "foo:",
+            "a #b",
+            "[x",
+            "]x",
+            ",x",
+            "#x",
+            "&x",
+            "*x",
+            "!x",
+            "|x",
+            ">x",
+            "'x",
+            "\"x",
+            "%x",
+            "@x",
+            "`x",
+            "---",
+            "--- x",
+            "... x",
+            "\u{feff}x",
+        ];
+        for s in resolved.iter().chain(&structural) {
+            assert!(need_quotes(s), "{s:?} should need quotes");
+        }
+    }
+
+    #[test]
+    fn scalars_round_trip_as_values_and_keys() {
+        let samples = [
+            "yes", "don't", "a,b", "f[0]", "foo:bar", "foo#bar", "-x", "--x", "0xg", "~", "true",
+            "12", "0o17", ".inf", "- x", "foo: bar", "foo:", "a #b", "---", "... x", "=", "a  b",
+            "e5", "1.2.3",
+        ];
+        for s in samples {
+            let doc = mapping_with_value(s);
+            let out = emit_wrapped(&doc);
+            assert_eq!(reparse(&out), doc, "value {s:?} did not round-trip: {out}");
+
+            let mut mapping = saphyr::Mapping::new();
+            mapping.insert(
+                Yaml::Value(Scalar::String(s.to_string().into())),
+                Yaml::Value(Scalar::Integer(1)),
+            );
+            let doc = Yaml::Mapping(mapping);
+            let out = emit_wrapped(&doc);
+            assert_eq!(reparse(&out), doc, "key {s:?} did not round-trip: {out}");
+        }
     }
 
     #[test]
