@@ -10,10 +10,10 @@ SEXP unwind_protect_wrapper(SEXP (*fun)(void *data), void *data);
 void not_so_long_jump(void *jmpbuf, Rboolean jump);
 
 SEXP yaml12_dbg_yaml_ffi(SEXP text);
-SEXP yaml12_format_yaml_ffi(SEXP value, SEXP multi);
+SEXP yaml12_format_yaml_ffi(SEXP value, SEXP multi, SEXP width);
 SEXP yaml12_parse_yaml_ffi(SEXP text, SEXP multi, SEXP simplify, SEXP handlers);
 SEXP yaml12_read_yaml_ffi(SEXP path, SEXP multi, SEXP simplify, SEXP handlers);
-SEXP yaml12_write_yaml_ffi(SEXP value, SEXP path, SEXP multi);
+SEXP yaml12_write_yaml_ffi(SEXP value, SEXP path, SEXP multi, SEXP width);
 
 static uintptr_t TAGGED_POINTER_MASK = (uintptr_t)1;
 
@@ -37,8 +37,8 @@ SEXP wrap__dbg_yaml(SEXP text) {
     return handle_result(yaml12_dbg_yaml_ffi(text), "dbg_yaml");
 }
 
-SEXP wrap__format_yaml(SEXP value, SEXP multi) {
-    return handle_result(yaml12_format_yaml_ffi(value, multi), "format_yaml");
+SEXP wrap__format_yaml(SEXP value, SEXP multi, SEXP width) {
+    return handle_result(yaml12_format_yaml_ffi(value, multi, width), "format_yaml");
 }
 
 SEXP wrap__parse_yaml(SEXP text, SEXP multi, SEXP simplify, SEXP handlers) {
@@ -49,16 +49,16 @@ SEXP wrap__read_yaml(SEXP path, SEXP multi, SEXP simplify, SEXP handlers) {
     return handle_result(yaml12_read_yaml_ffi(path, multi, simplify, handlers), "read_yaml");
 }
 
-SEXP wrap__write_yaml(SEXP value, SEXP path, SEXP multi) {
-    return handle_result(yaml12_write_yaml_ffi(value, path, multi), "write_yaml");
+SEXP wrap__write_yaml(SEXP value, SEXP path, SEXP multi, SEXP width) {
+    return handle_result(yaml12_write_yaml_ffi(value, path, multi, width), "write_yaml");
 }
 
 static const R_CallMethodDef CallEntries[] = {
     {"wrap__parse_yaml", (DL_FUNC)&wrap__parse_yaml, 4},
     {"wrap__dbg_yaml", (DL_FUNC)&wrap__dbg_yaml, 1},
-    {"wrap__format_yaml", (DL_FUNC)&wrap__format_yaml, 2},
+    {"wrap__format_yaml", (DL_FUNC)&wrap__format_yaml, 3},
     {"wrap__read_yaml", (DL_FUNC)&wrap__read_yaml, 4},
-    {"wrap__write_yaml", (DL_FUNC)&wrap__write_yaml, 3},
+    {"wrap__write_yaml", (DL_FUNC)&wrap__write_yaml, 4},
     {NULL, NULL, 0}
 };
 

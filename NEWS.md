@@ -1,5 +1,12 @@
 # yaml12 (development version)
 
+* `format_yaml()` and `write_yaml()` now automatically wrap long strings:
+  strings that would produce a line wider than 80 columns are emitted as
+  folded block scalars (`>-`) broken at word boundaries. Folding restores a
+  single space at each break, so wrapped strings round-trip through
+  `parse_yaml()` unchanged. The new `width` argument controls the target
+  line width; use `width = Inf` to disable wrapping.
+
 * Updated the Rust integration to `rextendr` 0.5.0 and `extendr` 0.9.0,
   resolving `extendr` crates from crates.io. Source installs now require
   rustc 1.71 or newer. Vendored Rust crate attribution now points to crate

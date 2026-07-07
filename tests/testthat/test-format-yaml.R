@@ -19,6 +19,80 @@ test_that("format_yaml round-trips basic R lists", {
   expect_identical(parse_yaml(encoded, simplify = FALSE), obj)
 })
 
+test_that("format_yaml wraps long strings as folded block scalars", {
+  long <- paste(rep("word", 30), collapse = " ")
+  encoded <- format_yaml(list(key = long))
+  expect_true(grepl("key: >-\n", encoded, fixed = TRUE))
+  expect_true(all(nchar(strsplit(encoded, "\n")[[1]]) <= 80))
+  expect_identical(parse_yaml(encoded), list(key = long))
+})
+
+test_that("format_yaml wrapping round-trips nested structures", {
+  long <- paste(rep("word", 30), collapse = " ")
+  obj <- list(a = list(b = list(long, long)), c = long)
+  encoded <- format_yaml(obj)
+  expect_true(all(nchar(strsplit(encoded, "\n")[[1]]) <= 80))
+  expect_identical(parse_yaml(encoded, simplify = FALSE), obj)
+})
+
+test_that("format_yaml `width` argument controls wrapping", {
+  long <- paste(rep("word", 30), collapse = " ")
+
+  narrow <- format_yaml(list(key = long), width = 40)
+  expect_true(all(nchar(strsplit(narrow, "\n")[[1]]) <= 40))
+  expect_identical(parse_yaml(narrow), list(key = long))
+
+  unwrapped <- format_yaml(list(key = long), width = Inf)
+  expect_false(grepl(">-", unwrapped, fixed = TRUE))
+  expect_identical(parse_yaml(unwrapped), list(key = long))
+})
+
+test_that("write_yaml `width` argument controls wrapping", {
+  long <- paste(rep("word", 30), collapse = " ")
+  path <- withr::local_tempfile(fileext = ".yaml")
+
+  write_yaml(list(key = long), path, width = 40)
+  lines <- readLines(path)
+  expect_true(all(nchar(lines) <= 40))
+  expect_identical(read_yaml(path), list(key = long))
+
+  write_yaml(list(key = long), path, width = Inf)
+  expect_false(any(grepl(">-", readLines(path), fixed = TRUE)))
+  expect_identical(read_yaml(path), list(key = long))
+})
+
+test_that("format_yaml validates `width`", {
+  for (width in list(0, -1, -Inf, NA, NaN, "80", c(40, 80))) {
+    expect_error(
+      format_yaml(list(key = "value"), width = width),
+      "`width` must be a single number >= 1, or Inf",
+      fixed = TRUE
+    )
+  }
+})
+
+test_that("format_yaml leaves unbreakable long strings on one line", {
+  long <- strrep("x", 120)
+  encoded <- format_yaml(list(key = long))
+  expect_false(grepl(">-", encoded, fixed = TRUE))
+  expect_identical(parse_yaml(encoded), list(key = long))
+})
+
+test_that("format_yaml never wraps long mapping keys", {
+  key <- paste(rep("word", 30), collapse = " ")
+  obj <- setNames(list(1L), key)
+  encoded <- format_yaml(obj)
+  expect_false(grepl(">-", encoded, fixed = TRUE))
+  expect_identical(parse_yaml(encoded), obj)
+})
+
+test_that("format_yaml quotes long strings with unsafe whitespace", {
+  long <- paste0(" ", paste(rep("word", 25), collapse = " "))
+  encoded <- format_yaml(list(key = long))
+  expect_false(grepl(">-", encoded, fixed = TRUE))
+  expect_identical(parse_yaml(encoded), list(key = long))
+})
+
 test_that("format_yaml errors on duplicate names", {
   expect_error(
     format_yaml(list(a = 1, a = 2)),
