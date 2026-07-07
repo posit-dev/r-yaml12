@@ -1,5 +1,8 @@
 # yaml12 (development version)
 
+* `read_yaml()` and `write_yaml()` now expand tilde prefixes (`~`) in `path`,
+  as by `path.expand()` (#7).
+
 * Updated the Rust integration to `rextendr` 0.5.0 and `extendr` 0.9.0,
   resolving `extendr` crates from crates.io. Source installs now require
   rustc 1.71 or newer. Vendored Rust crate attribution now points to crate

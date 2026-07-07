@@ -9,6 +9,8 @@ use crate::r_to_yaml::yaml_body;
 use extendr_api::prelude::*;
 use extendr_ffi as ffi;
 use saphyr::{LoadableYamlNode, Yaml};
+use std::borrow::Cow;
+use std::ffi::{CStr, CString};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::result::Result as StdResult;
 use std::{cell::OnceCell, thread_local};
@@ -100,19 +102,42 @@ fn bool_arg(sexp: ffi::SEXP, name: &str) -> Fallible<bool> {
     bool_arg_from_robj(&value, name)
 }
 
-fn path_arg<'a>(value: &'a Robj, name: &str) -> Fallible<&'a str> {
-    value
-        .try_into()
-        .map_err(|_| api_other(format!("`{name}` must be a single, non-missing string")))
+extern "C" {
+    // R_ext/Utils.h; the routine behind `path.expand()`.
+    fn R_ExpandFileName(name: *const std::os::raw::c_char) -> *const std::os::raw::c_char;
 }
 
-fn optional_path_arg(value: &Robj) -> Fallible<Option<&str>> {
+fn expand_path(path: &str) -> Fallible<Cow<'_, str>> {
+    if !path.starts_with('~') {
+        return Ok(Cow::Borrowed(path));
+    }
+    let c_path =
+        CString::new(path).map_err(|_| api_other("`path` must not contain embedded NUL bytes"))?;
+    // R_ExpandFileName may return a pointer to a static buffer; copy it out
+    // before the next call can overwrite it. Fall back to the original path
+    // if the expansion is not valid UTF-8.
+    let expanded = unsafe { CStr::from_ptr(R_ExpandFileName(c_path.as_ptr())) };
+    match expanded.to_str() {
+        Ok(expanded) => Ok(Cow::Owned(expanded.to_string())),
+        Err(_) => Ok(Cow::Borrowed(path)),
+    }
+}
+
+fn path_arg<'a>(value: &'a Robj, name: &str) -> Fallible<Cow<'a, str>> {
+    let path: &str = value
+        .try_into()
+        .map_err(|_| api_other(format!("`{name}` must be a single, non-missing string")))?;
+    expand_path(path)
+}
+
+fn optional_path_arg(value: &Robj) -> Fallible<Option<Cow<'_, str>>> {
     if value.is_null() {
         Ok(None)
     } else {
-        Ok(Some(value.as_str().ok_or_else(|| {
-            api_other("`path` must be NULL or a single, non-missing string")
-        })?))
+        let path = value
+            .as_str()
+            .ok_or_else(|| api_other("`path` must be NULL or a single, non-missing string"))?;
+        Ok(Some(expand_path(path)?))
     }
 }
 
@@ -141,6 +166,7 @@ cached_sym!(YAML_TAG_SYM, yaml_tag, sym_yaml_tag);
 ///
 /// @param value Any R object composed of lists, atomic vectors, and scalars.
 /// @param path Scalar string file path to write YAML to when using `write_yaml()`.
+///   Tilde prefixes (`~`) are expanded as by [base::path.expand()].
 ///   When `NULL` (the default), write to R's standard output connection.
 /// @param multi When `TRUE`, treat `value` as a list of YAML documents and encode a stream.
 /// @return `format_yaml()` returns a scalar character string containing YAML.
@@ -182,7 +208,8 @@ r_entrypoint! {
 /// Mappings with keys that are not all simple scalar strings are returned as a named list with a `yaml_keys` attribute.
 ///
 /// @param text Character vector; elements are concatenated with `"\n"`.
-/// @param path Scalar string path to a YAML file`.
+/// @param path Scalar string path to a YAML file. Tilde prefixes (`~`) are
+///   expanded as by [base::path.expand()].
 /// @param multi When `TRUE`, return a list containing all documents in the stream.
 /// @param simplify When `FALSE`, keep YAML sequences as R lists instead of simplifying to atomic vectors.
 /// @param handlers Named list of R functions with names corresponding to YAML tags; matching handlers transform tagged values.
@@ -274,7 +301,7 @@ r_entrypoint! {
     fn yaml12_read_yaml_ffi(path, multi, simplify, handlers) {
         let path = robj_arg(path);
         read_yaml(
-            path_arg(&path, "path")?,
+            path_arg(&path, "path")?.as_ref(),
             bool_arg(multi, "multi")?,
             bool_arg(simplify, "simplify")?,
             robj_arg(handlers),
@@ -304,6 +331,10 @@ r_entrypoint! {
     fn yaml12_write_yaml_ffi(value, path, multi) {
         let value = robj_arg(value);
         let path = robj_arg(path);
-        write_yaml(value, optional_path_arg(&path)?, bool_arg(multi, "multi")?)
+        write_yaml(
+            value,
+            optional_path_arg(&path)?.as_deref(),
+            bool_arg(multi, "multi")?,
+        )
     }
 }

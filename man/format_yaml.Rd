@@ -15,6 +15,7 @@ write_yaml(value, path = NULL, multi = FALSE)
 \item{multi}{When \code{TRUE}, treat \code{value} as a list of YAML documents and encode a stream.}
 
 \item{path}{Scalar string file path to write YAML to when using \code{write_yaml()}.
+Tilde prefixes (\code{~}) are expanded as by \code{\link[base:path.expand]{base::path.expand()}}.
 When \code{NULL} (the default), write to R's standard output connection.}
 }
 \value{
