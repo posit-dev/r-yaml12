@@ -93,6 +93,260 @@ test_that("format_yaml quotes long strings with unsafe whitespace", {
   expect_identical(parse_yaml(encoded), list(key = long))
 })
 
+expect_yaml_roundtrip <- function(object, width = 80, info = NULL) {
+  actual <- tryCatch(
+    parse_yaml(format_yaml(object, width = width), simplify = FALSE),
+    error = identity
+  )
+
+  if (inherits(actual, "error")) {
+    fail(
+      paste("YAML round trip failed:", conditionMessage(actual)),
+      info = info
+    )
+    return(invisible())
+  }
+
+  expect_identical(
+    actual,
+    object,
+    info = info
+  )
+}
+
+expect_scalar_yaml_roundtrip <- function(value, width = 80, info = NULL) {
+  expect_yaml_roundtrip(list(value = value), width, info)
+}
+
+lorem_words <- strsplit(
+  paste(
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+    "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+  ),
+  " ",
+  fixed = TRUE
+)[[1]]
+
+lorem_with_separator <- function(position, separator) {
+  paste0(
+    paste(lorem_words[seq_len(position)], collapse = " "),
+    separator,
+    paste(lorem_words[(position + 1):length(lorem_words)], collapse = " ")
+  )
+}
+
+test_that("format_yaml round-trips compound horizontal whitespace", {
+  separators <- c(
+    space = " ",
+    two_spaces = "  ",
+    four_spaces = "    ",
+    tab = "\t",
+    two_tabs = "\t\t",
+    space_tab = " \t",
+    tab_space = "\t ",
+    space_tab_space = " \t "
+  )
+
+  for (position in seq_len(length(lorem_words) - 1)) {
+    for (separator_name in names(separators)) {
+      value <- lorem_with_separator(position, separators[[separator_name]])
+
+      for (width in c(20, 40, 80, Inf)) {
+        expect_scalar_yaml_roundtrip(
+          value,
+          width,
+          info = sprintf(
+            "separator %s at gap %d with width %s",
+            separator_name,
+            position,
+            width
+          )
+        )
+      }
+    }
+  }
+})
+
+test_that("format_yaml round-trips embedded line whitespace", {
+  separators <- c(
+    newline = "\n",
+    two_newlines = "\n\n",
+    three_newlines = "\n\n\n",
+    space_newline = " \n",
+    tab_newline = "\t\n",
+    newline_space = "\n ",
+    newline_two_spaces = "\n  ",
+    newline_tab = "\n\t",
+    spaced_blank_line = "\n \n",
+    tabbed_blank_line = "\n\t\n",
+    crlf = "\r\n",
+    carriage_return = "\r",
+    form_feed = "\f",
+    vertical_tab = "\v"
+  )
+
+  for (position in seq_len(length(lorem_words) - 1)) {
+    for (separator_name in names(separators)) {
+      value <- lorem_with_separator(position, separators[[separator_name]])
+
+      for (width in c(20, 80, Inf)) {
+        expect_scalar_yaml_roundtrip(
+          value,
+          width,
+          info = sprintf(
+            "separator %s at gap %d with width %s",
+            separator_name,
+            position,
+            width
+          )
+        )
+      }
+    }
+  }
+})
+
+test_that("format_yaml round-trips leading and trailing whitespace", {
+  edges <- c(
+    none = "",
+    space = " ",
+    two_spaces = "  ",
+    tab = "\t",
+    space_tab = " \t",
+    newline = "\n",
+    two_newlines = "\n\n",
+    three_newlines = "\n\n\n",
+    space_newline = " \n",
+    tab_newline = "\t\n",
+    newline_space = "\n ",
+    newline_tab = "\n\t",
+    spaced_blank_line = "\n \n",
+    tabbed_blank_line = "\n\t\n"
+  )
+  lorem <- paste(lorem_words, collapse = " ")
+
+  for (prefix_name in names(edges)) {
+    for (suffix_name in names(edges)) {
+      value <- paste0(edges[[prefix_name]], lorem, edges[[suffix_name]])
+
+      for (width in c(40, Inf)) {
+        expect_scalar_yaml_roundtrip(
+          value,
+          width,
+          info = sprintf(
+            "prefix %s and suffix %s with width %s",
+            prefix_name,
+            suffix_name,
+            width
+          )
+        )
+      }
+    }
+  }
+})
+
+test_that("format_yaml round-trips whitespace-only strings", {
+  values <- c(
+    empty = "",
+    space = " ",
+    two_spaces = "  ",
+    tab = "\t",
+    two_tabs = "\t\t",
+    mixed_horizontal = " \t ",
+    newline = "\n",
+    two_newlines = "\n\n",
+    three_newlines = "\n\n\n",
+    space_newline = " \n",
+    tab_newline = "\t\n",
+    newline_space = "\n ",
+    newline_tab = "\n\t",
+    spaced_blank_line = "\n \n",
+    tabbed_blank_line = "\n\t\n",
+    whitespace_lines = " \n  \n\t"
+  )
+
+  for (value_name in names(values)) {
+    for (width in c(20, Inf)) {
+      expect_scalar_yaml_roundtrip(
+        values[[value_name]],
+        width,
+        info = sprintf("%s with width %s", value_name, width)
+      )
+    }
+  }
+})
+
+test_that("format_yaml round-trips compound whitespace patterns", {
+  clauses <- c(
+    "Lorem ipsum dolor sit amet",
+    "consectetur adipiscing elit",
+    "sed do eiusmod tempor incididunt ut labore et dolore magna aliqua"
+  )
+  separators <- c(
+    space = " ",
+    two_spaces = "  ",
+    tab = "\t",
+    space_tab_space = " \t ",
+    newline = "\n",
+    two_newlines = "\n\n",
+    space_newline = " \n",
+    newline_space = "\n ",
+    spaced_blank_line = "\n \n"
+  )
+
+  for (first_name in names(separators)) {
+    for (second_name in names(separators)) {
+      value <- paste0(
+        clauses[[1]],
+        separators[[first_name]],
+        clauses[[2]],
+        separators[[second_name]],
+        clauses[[3]]
+      )
+
+      expect_scalar_yaml_roundtrip(
+        value,
+        width = 40,
+        info = sprintf("separators %s and %s", first_name, second_name)
+      )
+    }
+  }
+})
+
+test_that("format_yaml round-trips whitespace in scalar contexts", {
+  lorem <- paste(lorem_words, collapse = " ")
+  values <- c(
+    plain = lorem,
+    repeated_spaces = sub(" ipsum ", "  ipsum   ", lorem, fixed = TRUE),
+    embedded_tab = sub(" ipsum ", "\t ipsum\t", lorem, fixed = TRUE),
+    embedded_newline = sub(" ipsum ", "\nipsum\n", lorem, fixed = TRUE),
+    leading_whitespace = paste0(" \t", lorem),
+    trailing_whitespace = paste0(lorem, " \t"),
+    trailing_newline = paste0(lorem, "\n"),
+    trailing_newlines = paste0(lorem, "\n\n")
+  )
+
+  for (value_name in names(values)) {
+    value <- values[[value_name]]
+    objects <- list(
+      root = value,
+      sequence = list(value),
+      mapping = list(value = value),
+      nested = list(outer = list(inner = value)),
+      mapping_key = setNames(list("payload"), value)
+    )
+
+    for (context_name in names(objects)) {
+      object <- objects[[context_name]]
+
+      expect_yaml_roundtrip(
+        object,
+        width = 40,
+        info = sprintf("%s in %s context", value_name, context_name)
+      )
+    }
+  }
+})
+
 test_that("format_yaml errors on duplicate names", {
   expect_error(
     format_yaml(list(a = 1, a = 2)),
