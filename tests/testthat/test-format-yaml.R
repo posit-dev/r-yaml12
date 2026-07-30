@@ -64,6 +64,27 @@ test_that("format_yaml respects narrow widths", {
   expect_identical(parse_yaml(encoded), list(key = value))
 })
 
+test_that("format_yaml includes inline prefixes when wrapping", {
+  objects <- list(
+    mapping = list(abcdefghijkl = "aa bb cc"),
+    sequence = list("aa bb cc")
+  )
+  widths <- c(mapping = 20, sequence = 9)
+
+  for (context in names(objects)) {
+    encoded <- format_yaml(objects[[context]], width = widths[[context]])
+    expect_true(
+      all(nchar(strsplit(encoded, "\n")[[1]]) <= widths[[context]]),
+      info = context
+    )
+    expect_identical(
+      parse_yaml(encoded, simplify = FALSE),
+      objects[[context]],
+      info = context
+    )
+  }
+})
+
 test_that("write_yaml `width` argument controls wrapping", {
   long <- paste(rep("word", 30), collapse = " ")
   path <- withr::local_tempfile(fileext = ".yaml")

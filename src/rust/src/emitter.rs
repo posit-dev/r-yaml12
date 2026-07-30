@@ -10,14 +10,31 @@
 //! - Mapping keys never use block styles (a block scalar cannot be an
 //!   implicit key), falling back to quoting instead.
 
-use core::fmt;
+use core::fmt::{self, Write as _};
 use std::borrow::Cow;
 
 use saphyr::{EmitError, Mapping, Scalar, Yaml};
 
+struct ColumnTrackingWriter<'a> {
+    writer: &'a mut dyn fmt::Write,
+    column: usize,
+}
+
+impl fmt::Write for ColumnTrackingWriter<'_> {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.writer.write_str(s)?;
+        if let Some((_, suffix)) = s.rsplit_once('\n') {
+            self.column = suffix.chars().count();
+        } else {
+            self.column += s.chars().count();
+        }
+        Ok(())
+    }
+}
+
 /// The YAML serializer.
 pub struct YamlEmitter<'a> {
-    writer: &'a mut dyn fmt::Write,
+    writer: ColumnTrackingWriter<'a>,
     best_indent: usize,
     compact: bool,
     level: isize,
@@ -96,7 +113,7 @@ impl<'a> YamlEmitter<'a> {
     /// Create a new emitter serializing into `writer`.
     pub fn new(writer: &'a mut dyn fmt::Write) -> Self {
         YamlEmitter {
-            writer,
+            writer: ColumnTrackingWriter { writer, column: 0 },
             best_indent: 2,
             compact: true,
             level: -1,
@@ -164,7 +181,7 @@ impl<'a> YamlEmitter<'a> {
                 } else if let Some(lines) = self.folded_wrap_lines(v) {
                     self.emit_folded_block(&lines)?;
                 } else if need_quotes(v) {
-                    escape_str(self.writer, v)?;
+                    escape_str(&mut self.writer, v)?;
                 } else {
                     write!(self.writer, "{v}")?;
                 }
@@ -353,8 +370,11 @@ impl<'a> YamlEmitter<'a> {
         if self.emitting_key || !is_foldable_string(s) {
             return None;
         }
-        let line_width = width.saturating_sub(self.folded_block_indent());
-        folded_lines(s, line_width)
+        let inline_width = width.saturating_sub(self.writer.column);
+        folded_lines(s, inline_width)?;
+
+        let block_width = width.saturating_sub(self.folded_block_indent());
+        Some(folded_lines(s, block_width).unwrap_or_else(|| vec![s]))
     }
 
     fn folded_block_indent(&self) -> usize {
