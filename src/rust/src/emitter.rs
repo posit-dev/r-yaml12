@@ -340,7 +340,7 @@ impl<'a> YamlEmitter<'a> {
         self.multiline_strings
             && !self.emitting_key
             && s.contains('\n')
-            && is_valid_literal_block_scalar(s)
+            && is_safe_literal_block_scalar(s)
     }
 
     /// Return the string split into folded-block lines when it should be
@@ -368,6 +368,18 @@ fn is_valid_literal_block_scalar(string: &str) -> bool {
     string.chars().all(|character: char| {
         matches!(character, '\t' | '\n' | '\x20'..='\x7e' | '\u{0085}' | '\u{00a0}'..='\u{d7fff}')
     })
+}
+
+/// Check that the emitter's implicit indentation and clip chomping preserve
+/// the scalar exactly. More-indented lines and multiple trailing newlines need
+/// explicit block scalar indicators, which this emitter does not produce.
+fn is_safe_literal_block_scalar(string: &str) -> bool {
+    is_valid_literal_block_scalar(string)
+        && !string.ends_with("\n\n")
+        && string
+            .split('\n')
+            .filter(|line| !line.is_empty())
+            .all(|line| !line.starts_with([' ', '\t']))
 }
 
 /// Check that a string can be emitted as a folded block scalar without
@@ -488,11 +500,7 @@ fn need_quotes(string: &str) -> bool {
     match first {
         ',' | '[' | ']' | '{' | '}' | '#' | '&' | '*' | '!' | '|' | '>' | '\'' | '"' | '%'
         | '@' | '`' => return true,
-        '-' | '?' | ':' => {
-            if string.len() == 1 || string[1..].starts_with(' ') {
-                return true;
-            }
-        }
+        '-' | '?' | ':' if string.len() == 1 || string[1..].starts_with(' ') => return true,
         _ => {}
     }
 
