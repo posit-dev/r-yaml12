@@ -236,14 +236,15 @@ impl<'a> YamlEmitter<'a> {
     fn emit_folded_block(&mut self, lines: &[&str]) -> EmitResult {
         // Wrapped strings never contain a trailing newline, so always chomp (`-`).
         self.writer.write_str(">-")?;
-        self.level += 1;
+        let indent = self.folded_block_indent();
         for line in lines {
             writeln!(self.writer)?;
-            self.write_indent()?;
+            for _ in 0..indent {
+                self.writer.write_str(" ")?;
+            }
             // Block scalar content is literal text; no escaping.
             self.writer.write_str(line)?;
         }
-        self.level -= 1;
         Ok(())
     }
 
@@ -348,20 +349,18 @@ impl<'a> YamlEmitter<'a> {
     #[must_use]
     fn folded_wrap_lines<'s>(&self, s: &'s str) -> Option<Vec<&'s str>> {
         let width = self.string_wrap_width?;
-        // Keys must stay on one line. At the root (`level < 0`) block scalar
-        // content would sit in column 0, where a line such as `---` would
-        // terminate the document.
-        if self.emitting_key || self.level < 0 || !is_foldable_string(s) {
+        // Keys must stay on one line.
+        if self.emitting_key || !is_foldable_string(s) {
             return None;
         }
-        let indent = (self.level as usize + 1) * self.best_indent;
-        let line_width = width.saturating_sub(indent).max(MIN_FOLD_WIDTH);
+        let line_width = width.saturating_sub(self.folded_block_indent());
         folded_lines(s, line_width)
     }
-}
 
-/// Never wrap lines shorter than this, however deep the indentation.
-const MIN_FOLD_WIDTH: usize = 16;
+    fn folded_block_indent(&self) -> usize {
+        (self.level + 1).max(1) as usize * self.best_indent
+    }
+}
 
 /// Copied from saphyr's crate-private `char_traits::is_valid_literal_block_scalar`.
 fn is_valid_literal_block_scalar(string: &str) -> bool {

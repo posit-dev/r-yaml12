@@ -47,6 +47,23 @@ test_that("format_yaml `width` argument controls wrapping", {
   expect_identical(parse_yaml(unwrapped), list(key = long))
 })
 
+test_that("format_yaml wraps root strings within `width`", {
+  value <- paste(rep("word", 30), collapse = " ")
+  encoded <- format_yaml(value, width = 20)
+
+  expect_true(startsWith(encoded, ">-\n"))
+  expect_true(all(nchar(strsplit(encoded, "\n")[[1]]) <= 20))
+  expect_identical(parse_yaml(encoded), value)
+})
+
+test_that("format_yaml respects narrow widths", {
+  value <- paste(rep("aa", 12), collapse = " ")
+  encoded <- format_yaml(list(key = value), width = 10)
+
+  expect_true(all(nchar(strsplit(encoded, "\n")[[1]]) <= 10))
+  expect_identical(parse_yaml(encoded), list(key = value))
+})
+
 test_that("write_yaml `width` argument controls wrapping", {
   long <- paste(rep("word", 30), collapse = " ")
   path <- withr::local_tempfile(fileext = ".yaml")
