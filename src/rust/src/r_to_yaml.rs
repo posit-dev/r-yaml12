@@ -1,3 +1,4 @@
+use crate::emitter::YamlEmitter;
 use crate::{api_other, sym_yaml_keys, sym_yaml_tag, Fallible};
 use crate::{
     timestamp::{
@@ -7,7 +8,7 @@ use crate::{
     TIMESTAMP_SUPPORT_ENABLED,
 };
 use extendr_api::prelude::*;
-use saphyr::{Mapping, Scalar, Tag, Yaml, YamlEmitter};
+use saphyr::{Mapping, Scalar, Tag, Yaml};
 use std::{borrow::Cow, fs, os::raw::c_char};
 
 const PRINTF_NO_FMT_CSTRING: &[c_char] = &[37, 115, 0]; // "%s\0"
@@ -20,7 +21,11 @@ pub(crate) fn yaml_body(yaml: &str, multi: bool) -> &str {
     }
 }
 
-fn emit_yaml_documents(docs: &[Yaml<'static>], multi: bool) -> Fallible<String> {
+fn emit_yaml_documents(
+    docs: &[Yaml<'static>],
+    multi: bool,
+    width: Option<usize>,
+) -> Fallible<String> {
     if docs.is_empty() {
         return if multi {
             Ok(String::from("---\n"))
@@ -31,6 +36,7 @@ fn emit_yaml_documents(docs: &[Yaml<'static>], multi: bool) -> Fallible<String> 
     let mut output = String::new();
     let mut emitter = YamlEmitter::new(&mut output);
     emitter.multiline_strings(true);
+    emitter.string_wrap_width(width);
     if multi {
         emitter
             .dump_docs(docs)
@@ -378,7 +384,11 @@ fn extract_yaml_tag(robj: &Robj) -> Fallible<Option<Tag>> {
     Ok(Some(tag))
 }
 
-pub(crate) fn format_yaml_impl(value: &Robj, multi: bool) -> Fallible<String> {
+pub(crate) fn format_yaml_impl(
+    value: &Robj,
+    multi: bool,
+    width: Option<usize>,
+) -> Fallible<String> {
     if multi {
         let list = value.as_list().ok_or_else(|| {
             Error::Other("`value` must be a list when `multi = TRUE`".to_string())
@@ -392,14 +402,19 @@ pub(crate) fn format_yaml_impl(value: &Robj, multi: bool) -> Fallible<String> {
         for doc in list.values() {
             docs.push(robj_to_yaml(&doc)?);
         }
-        emit_yaml_documents(&docs, true)
+        emit_yaml_documents(&docs, true, width)
     } else {
-        robj_to_yaml(value).and_then(|yaml| emit_yaml_documents(&[yaml], false))
+        robj_to_yaml(value).and_then(|yaml| emit_yaml_documents(&[yaml], false, width))
     }
 }
 
-pub(crate) fn write_yaml_impl(value: &Robj, path: Option<&str>, multi: bool) -> Fallible<()> {
-    let mut output = format_yaml_impl(value, multi)?;
+pub(crate) fn write_yaml_impl(
+    value: &Robj,
+    path: Option<&str>,
+    multi: bool,
+    width: Option<usize>,
+) -> Fallible<()> {
+    let mut output = format_yaml_impl(value, multi, width)?;
     // `dump_docs()` ends multi-doc streams with a trailing newline; `dump()` does not.
     // Both always emit the `---\n` document start.
     if multi {

@@ -19,6 +19,532 @@ test_that("format_yaml round-trips basic R lists", {
   expect_identical(parse_yaml(encoded, simplify = FALSE), obj)
 })
 
+test_that("format_yaml quotes arbitrary-sized core integer strings", {
+  values <- c(
+    "0x8000000000000000",
+    "0xFFFFFFFFFFFFFFFF",
+    "0o1000000000000000000000"
+  )
+
+  for (value in values) {
+    encoded <- format_yaml(value, width = Inf)
+
+    expect_identical(encoded, paste0("\"", value, "\""), info = value)
+    expect_identical(parse_yaml(encoded), value, info = value)
+  }
+
+  expect_identical(format_yaml("0xg", width = Inf), "0xg")
+})
+
+expect_scalar_serialization <- function(
+  value,
+  scalar_yaml,
+  key_yaml = paste0(scalar_yaml, ": 1")
+) {
+  info <- encodeString(value, quote = "\"")
+
+  encoded <- format_yaml(value, width = Inf)
+  expect_identical(encoded, scalar_yaml, info = info)
+  expect_identical(parse_yaml(encoded), value, info = info)
+
+  object <- setNames(list(1L), value)
+  encoded <- format_yaml(object, width = Inf)
+  expect_identical(encoded, key_yaml, info = info)
+  expect_identical(parse_yaml(encoded, simplify = FALSE), object, info = info)
+}
+
+test_that("format_yaml emits YAML 1.2 plain strings through its public API", {
+  values <- c(
+    "yes",
+    "No",
+    "on",
+    "OFF",
+    "y",
+    "n",
+    "don't",
+    "say \"hi\"",
+    "a\\b",
+    "a,b",
+    "f[0]",
+    "x{1}",
+    "foo#bar",
+    "foo:bar",
+    "a ? b",
+    "-x",
+    "?x",
+    ":x",
+    "--x",
+    ".gitignore",
+    "=",
+    "<y>",
+    "0xg",
+    "0o9",
+    "1_000",
+    "1.2.3",
+    "e5",
+    "inf",
+    "nan",
+    "a * b",
+    "5% off",
+    "a  b"
+  )
+
+  for (value in values) {
+    expect_scalar_serialization(value, value)
+  }
+})
+
+test_that("format_yaml quotes core-schema strings through its public API", {
+  values <- c(
+    "~",
+    "null",
+    "NULL",
+    "true",
+    "False",
+    "12",
+    "+7",
+    "-3",
+    "0x1F",
+    "0o17",
+    "3.5",
+    "-2e10",
+    ".5",
+    ".inf",
+    "-.Inf",
+    ".NaN"
+  )
+
+  for (value in values) {
+    expect_scalar_serialization(value, paste0("\"", value, "\""))
+  }
+})
+
+test_that("format_yaml quotes structurally unsafe plain scalars", {
+  values <- c(
+    "",
+    " x",
+    "x ",
+    "- x",
+    "-",
+    "?",
+    ":",
+    ": x",
+    "foo: bar",
+    "foo:",
+    "a #b",
+    "[x",
+    "]x",
+    ",x",
+    "#x",
+    "&x",
+    "*x",
+    "!x",
+    "|x",
+    ">x",
+    "'x",
+    "%x",
+    "@x",
+    "`x",
+    "---",
+    "--- x",
+    "... x",
+    "\ufeffx"
+  )
+
+  for (value in values) {
+    expect_scalar_serialization(value, paste0("\"", value, "\""))
+  }
+
+  expect_scalar_serialization("a\tb", "\"a\\tb\"")
+  expect_scalar_serialization("\"x", "\"\\\"x\"")
+  expect_scalar_serialization("a\nb", "|-\na\nb", "\"a\\nb\": 1")
+})
+
+test_that("format_yaml wraps long strings as folded block scalars", {
+  long <- paste(rep("word", 30), collapse = " ")
+  encoded <- format_yaml(list(key = long))
+  expect_true(grepl("key: >-\n", encoded, fixed = TRUE))
+  expect_true(all(nchar(strsplit(encoded, "\n")[[1]]) <= 80))
+  expect_identical(parse_yaml(encoded), list(key = long))
+})
+
+test_that("format_yaml wrapping round-trips nested structures", {
+  long <- paste(rep("word", 30), collapse = " ")
+  obj <- list(a = list(b = list(long, long)), c = long)
+  encoded <- format_yaml(obj)
+  expect_true(all(nchar(strsplit(encoded, "\n")[[1]]) <= 80))
+  expect_identical(parse_yaml(encoded, simplify = FALSE), obj)
+})
+
+test_that("format_yaml `width` argument controls wrapping", {
+  long <- paste(rep("word", 30), collapse = " ")
+
+  narrow <- format_yaml(list(key = long), width = 40)
+  expect_true(all(nchar(strsplit(narrow, "\n")[[1]]) <= 40))
+  expect_identical(parse_yaml(narrow), list(key = long))
+
+  unwrapped <- format_yaml(list(key = long), width = Inf)
+  expect_false(grepl(">-", unwrapped, fixed = TRUE))
+  expect_identical(parse_yaml(unwrapped), list(key = long))
+})
+
+test_that("format_yaml wraps root strings within `width`", {
+  value <- paste(rep("word", 30), collapse = " ")
+  encoded <- format_yaml(value, width = 20)
+
+  expect_true(startsWith(encoded, ">-\n"))
+  expect_true(all(nchar(strsplit(encoded, "\n")[[1]]) <= 20))
+  expect_identical(parse_yaml(encoded), value)
+})
+
+test_that("format_yaml counts quoting when deciding to wrap", {
+  values <- c(
+    quotes = paste0("# ", strrep("a ", 38), "aa"),
+    escapes = paste0("# ", strrep("a ", 37), "\\ aa")
+  )
+
+  for (value_name in names(values)) {
+    value <- values[[value_name]]
+    encoded <- format_yaml(value, width = 80)
+
+    expect_true(startsWith(encoded, ">-\n"), info = value_name)
+    expect_true(
+      all(nchar(strsplit(encoded, "\n", fixed = TRUE)[[1]]) <= 80),
+      info = value_name
+    )
+    expect_identical(parse_yaml(encoded), value, info = value_name)
+  }
+})
+
+test_that("format_yaml respects narrow widths", {
+  value <- paste(rep("aa", 12), collapse = " ")
+  encoded <- format_yaml(list(key = value), width = 10)
+
+  expect_true(all(nchar(strsplit(encoded, "\n")[[1]]) <= 10))
+  expect_identical(parse_yaml(encoded), list(key = value))
+})
+
+test_that("format_yaml includes inline prefixes when wrapping", {
+  objects <- list(
+    mapping = list(abcdefghijkl = "aa bb cc"),
+    sequence = list("aa bb cc")
+  )
+  widths <- c(mapping = 20, sequence = 9)
+
+  for (context in names(objects)) {
+    encoded <- format_yaml(objects[[context]], width = widths[[context]])
+    expect_true(
+      all(nchar(strsplit(encoded, "\n")[[1]]) <= widths[[context]]),
+      info = context
+    )
+    expect_identical(
+      parse_yaml(encoded, simplify = FALSE),
+      objects[[context]],
+      info = context
+    )
+  }
+})
+
+test_that("write_yaml `width` argument controls wrapping", {
+  long <- paste(rep("word", 30), collapse = " ")
+  path <- withr::local_tempfile(fileext = ".yaml")
+
+  write_yaml(list(key = long), path, width = 40)
+  lines <- readLines(path)
+  expect_true(all(nchar(lines) <= 40))
+  expect_identical(read_yaml(path), list(key = long))
+
+  write_yaml(list(key = long), path, width = Inf)
+  expect_false(any(grepl(">-", readLines(path), fixed = TRUE)))
+  expect_identical(read_yaml(path), list(key = long))
+})
+
+test_that("format_yaml validates `width`", {
+  for (width in list(0, -1, -Inf, NA, NaN, "80", c(40, 80))) {
+    expect_error(
+      format_yaml(list(key = "value"), width = width),
+      "`width` must be a single number >= 1, or Inf",
+      fixed = TRUE
+    )
+  }
+})
+
+test_that("format_yaml leaves unbreakable long strings on one line", {
+  long <- strrep("x", 120)
+  encoded <- format_yaml(list(key = long))
+  expect_false(grepl(">-", encoded, fixed = TRUE))
+  expect_identical(parse_yaml(encoded), list(key = long))
+})
+
+test_that("format_yaml never wraps long mapping keys", {
+  key <- paste(rep("word", 30), collapse = " ")
+  obj <- setNames(list(1L), key)
+  encoded <- format_yaml(obj)
+  expect_false(grepl(">-", encoded, fixed = TRUE))
+  expect_identical(parse_yaml(encoded), obj)
+})
+
+test_that("format_yaml quotes long strings with unsafe whitespace", {
+  long <- paste0(" ", paste(rep("word", 25), collapse = " "))
+  encoded <- format_yaml(list(key = long))
+  expect_false(grepl(">-", encoded, fixed = TRUE))
+  expect_identical(parse_yaml(encoded), list(key = long))
+})
+
+expect_yaml_roundtrip <- function(object, width = 80, info = NULL) {
+  actual <- tryCatch(
+    parse_yaml(format_yaml(object, width = width), simplify = FALSE),
+    error = identity
+  )
+
+  if (inherits(actual, "error")) {
+    fail(
+      paste("YAML round trip failed:", conditionMessage(actual)),
+      info = info
+    )
+    return(invisible())
+  }
+
+  expect_identical(
+    actual,
+    object,
+    info = info
+  )
+}
+
+expect_scalar_yaml_roundtrip <- function(value, width = 80, info = NULL) {
+  expect_yaml_roundtrip(list(value = value), width, info)
+}
+
+lorem_words <- strsplit(
+  paste(
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+    "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+  ),
+  " ",
+  fixed = TRUE
+)[[1]]
+
+lorem_with_separator <- function(position, separator) {
+  paste0(
+    paste(lorem_words[seq_len(position)], collapse = " "),
+    separator,
+    paste(lorem_words[(position + 1):length(lorem_words)], collapse = " ")
+  )
+}
+
+test_that("format_yaml round-trips compound horizontal whitespace", {
+  separators <- c(
+    space = " ",
+    two_spaces = "  ",
+    four_spaces = "    ",
+    tab = "\t",
+    two_tabs = "\t\t",
+    space_tab = " \t",
+    tab_space = "\t ",
+    space_tab_space = " \t "
+  )
+
+  for (position in seq_len(length(lorem_words) - 1)) {
+    for (separator_name in names(separators)) {
+      value <- lorem_with_separator(position, separators[[separator_name]])
+
+      for (width in c(20, 40, 80, Inf)) {
+        expect_scalar_yaml_roundtrip(
+          value,
+          width,
+          info = sprintf(
+            "separator %s at gap %d with width %s",
+            separator_name,
+            position,
+            width
+          )
+        )
+      }
+    }
+  }
+})
+
+test_that("format_yaml round-trips embedded line whitespace", {
+  separators <- c(
+    newline = "\n",
+    two_newlines = "\n\n",
+    three_newlines = "\n\n\n",
+    space_newline = " \n",
+    tab_newline = "\t\n",
+    newline_space = "\n ",
+    newline_two_spaces = "\n  ",
+    newline_tab = "\n\t",
+    spaced_blank_line = "\n \n",
+    tabbed_blank_line = "\n\t\n",
+    crlf = "\r\n",
+    carriage_return = "\r",
+    form_feed = "\f",
+    vertical_tab = "\v"
+  )
+
+  for (position in seq_len(length(lorem_words) - 1)) {
+    for (separator_name in names(separators)) {
+      value <- lorem_with_separator(position, separators[[separator_name]])
+
+      for (width in c(20, 80, Inf)) {
+        expect_scalar_yaml_roundtrip(
+          value,
+          width,
+          info = sprintf(
+            "separator %s at gap %d with width %s",
+            separator_name,
+            position,
+            width
+          )
+        )
+      }
+    }
+  }
+})
+
+test_that("format_yaml round-trips leading and trailing whitespace", {
+  edges <- c(
+    none = "",
+    space = " ",
+    two_spaces = "  ",
+    tab = "\t",
+    space_tab = " \t",
+    newline = "\n",
+    two_newlines = "\n\n",
+    three_newlines = "\n\n\n",
+    space_newline = " \n",
+    tab_newline = "\t\n",
+    newline_space = "\n ",
+    newline_tab = "\n\t",
+    spaced_blank_line = "\n \n",
+    tabbed_blank_line = "\n\t\n"
+  )
+  lorem <- paste(lorem_words, collapse = " ")
+
+  for (prefix_name in names(edges)) {
+    for (suffix_name in names(edges)) {
+      value <- paste0(edges[[prefix_name]], lorem, edges[[suffix_name]])
+
+      for (width in c(40, Inf)) {
+        expect_scalar_yaml_roundtrip(
+          value,
+          width,
+          info = sprintf(
+            "prefix %s and suffix %s with width %s",
+            prefix_name,
+            suffix_name,
+            width
+          )
+        )
+      }
+    }
+  }
+})
+
+test_that("format_yaml round-trips whitespace-only strings", {
+  values <- c(
+    empty = "",
+    space = " ",
+    two_spaces = "  ",
+    tab = "\t",
+    two_tabs = "\t\t",
+    mixed_horizontal = " \t ",
+    newline = "\n",
+    two_newlines = "\n\n",
+    three_newlines = "\n\n\n",
+    space_newline = " \n",
+    tab_newline = "\t\n",
+    newline_space = "\n ",
+    newline_tab = "\n\t",
+    spaced_blank_line = "\n \n",
+    tabbed_blank_line = "\n\t\n",
+    whitespace_lines = " \n  \n\t"
+  )
+
+  for (value_name in names(values)) {
+    for (width in c(20, Inf)) {
+      expect_scalar_yaml_roundtrip(
+        values[[value_name]],
+        width,
+        info = sprintf("%s with width %s", value_name, width)
+      )
+    }
+  }
+})
+
+test_that("format_yaml round-trips compound whitespace patterns", {
+  clauses <- c(
+    "Lorem ipsum dolor sit amet",
+    "consectetur adipiscing elit",
+    "sed do eiusmod tempor incididunt ut labore et dolore magna aliqua"
+  )
+  separators <- c(
+    space = " ",
+    two_spaces = "  ",
+    tab = "\t",
+    space_tab_space = " \t ",
+    newline = "\n",
+    two_newlines = "\n\n",
+    space_newline = " \n",
+    newline_space = "\n ",
+    spaced_blank_line = "\n \n"
+  )
+
+  for (first_name in names(separators)) {
+    for (second_name in names(separators)) {
+      value <- paste0(
+        clauses[[1]],
+        separators[[first_name]],
+        clauses[[2]],
+        separators[[second_name]],
+        clauses[[3]]
+      )
+
+      expect_scalar_yaml_roundtrip(
+        value,
+        width = 40,
+        info = sprintf("separators %s and %s", first_name, second_name)
+      )
+    }
+  }
+})
+
+test_that("format_yaml round-trips whitespace in scalar contexts", {
+  lorem <- paste(lorem_words, collapse = " ")
+  values <- c(
+    plain = lorem,
+    repeated_spaces = sub(" ipsum ", "  ipsum   ", lorem, fixed = TRUE),
+    embedded_tab = sub(" ipsum ", "\t ipsum\t", lorem, fixed = TRUE),
+    embedded_newline = sub(" ipsum ", "\nipsum\n", lorem, fixed = TRUE),
+    leading_whitespace = paste0(" \t", lorem),
+    trailing_whitespace = paste0(lorem, " \t"),
+    trailing_newline = paste0(lorem, "\n"),
+    trailing_newlines = paste0(lorem, "\n\n")
+  )
+
+  for (value_name in names(values)) {
+    value <- values[[value_name]]
+    objects <- list(
+      root = value,
+      sequence = list(value),
+      mapping = list(value = value),
+      nested = list(outer = list(inner = value)),
+      mapping_key = setNames(list("payload"), value)
+    )
+
+    for (context_name in names(objects)) {
+      object <- objects[[context_name]]
+
+      expect_yaml_roundtrip(
+        object,
+        width = 40,
+        info = sprintf("%s in %s context", value_name, context_name)
+      )
+    }
+  }
+})
+
 test_that("format_yaml errors on duplicate names", {
   expect_error(
     format_yaml(list(a = 1, a = 2)),

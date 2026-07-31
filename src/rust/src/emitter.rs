@@ -1,0 +1,713 @@
+//! YAML serialization with support for wrapping long strings.
+//!
+//! Derived from the `saphyr` crate's emitter (`src/emitter.rs`, MIT OR
+//! Apache-2.0, <https://github.com/saphyr-rs/saphyr>), extended with:
+//!
+//! - `string_wrap_width`: long single-line strings are emitted as folded
+//!   block scalars (`>-`) wrapped at word boundaries. Folding turns each
+//!   line break back into a single space when parsed, so wrapped strings
+//!   round-trip exactly.
+//! - Mapping keys never use block styles (a block scalar cannot be an
+//!   implicit key), falling back to quoting instead.
+
+use core::fmt::{self, Write as _};
+use std::borrow::Cow;
+
+use saphyr::{EmitError, Mapping, Scalar, Yaml};
+
+struct ColumnTrackingWriter<'a> {
+    writer: &'a mut dyn fmt::Write,
+    column: usize,
+}
+
+impl fmt::Write for ColumnTrackingWriter<'_> {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.writer.write_str(s)?;
+        if let Some((_, suffix)) = s.rsplit_once('\n') {
+            self.column = suffix.chars().count();
+        } else {
+            self.column += s.chars().count();
+        }
+        Ok(())
+    }
+}
+
+/// The YAML serializer.
+pub struct YamlEmitter<'a> {
+    writer: ColumnTrackingWriter<'a>,
+    best_indent: usize,
+    compact: bool,
+    level: isize,
+    multiline_strings: bool,
+    string_wrap_width: Option<usize>,
+    emitting_key: bool,
+}
+
+/// A convenience alias for emitter functions that may fail without returning a value.
+pub type EmitResult = Result<(), EmitError>;
+
+fn escape_sequence(byte: u8) -> Option<&'static str> {
+    Some(match byte {
+        b'"' => "\\\"",
+        b'\\' => "\\\\",
+        b'\x00' => "\\u0000",
+        b'\x01' => "\\u0001",
+        b'\x02' => "\\u0002",
+        b'\x03' => "\\u0003",
+        b'\x04' => "\\u0004",
+        b'\x05' => "\\u0005",
+        b'\x06' => "\\u0006",
+        b'\x07' => "\\u0007",
+        b'\x08' => "\\b",
+        b'\t' => "\\t",
+        b'\n' => "\\n",
+        b'\x0b' => "\\u000b",
+        b'\x0c' => "\\f",
+        b'\r' => "\\r",
+        b'\x0e' => "\\u000e",
+        b'\x0f' => "\\u000f",
+        b'\x10' => "\\u0010",
+        b'\x11' => "\\u0011",
+        b'\x12' => "\\u0012",
+        b'\x13' => "\\u0013",
+        b'\x14' => "\\u0014",
+        b'\x15' => "\\u0015",
+        b'\x16' => "\\u0016",
+        b'\x17' => "\\u0017",
+        b'\x18' => "\\u0018",
+        b'\x19' => "\\u0019",
+        b'\x1a' => "\\u001a",
+        b'\x1b' => "\\u001b",
+        b'\x1c' => "\\u001c",
+        b'\x1d' => "\\u001d",
+        b'\x1e' => "\\u001e",
+        b'\x1f' => "\\u001f",
+        b'\x7f' => "\\u007f",
+        _ => return None,
+    })
+}
+
+// from serialize::json
+fn escape_str(wr: &mut dyn fmt::Write, v: &str) -> Result<(), fmt::Error> {
+    wr.write_str("\"")?;
+
+    let mut start = 0;
+
+    for (i, byte) in v.bytes().enumerate() {
+        let Some(escaped) = escape_sequence(byte) else {
+            continue;
+        };
+
+        if start < i {
+            wr.write_str(&v[start..i])?;
+        }
+
+        wr.write_str(escaped)?;
+
+        start = i + 1;
+    }
+
+    if start != v.len() {
+        wr.write_str(&v[start..])?;
+    }
+
+    wr.write_str("\"")?;
+    Ok(())
+}
+
+/// Extra columns added by double-quoting and escaping a string.
+fn escaped_str_overhead(v: &str) -> usize {
+    2 + v
+        .bytes()
+        .filter_map(escape_sequence)
+        .map(|escaped| escaped.len() - 1)
+        .sum::<usize>()
+}
+
+impl<'a> YamlEmitter<'a> {
+    /// Create a new emitter serializing into `writer`.
+    pub fn new(writer: &'a mut dyn fmt::Write) -> Self {
+        YamlEmitter {
+            writer: ColumnTrackingWriter { writer, column: 0 },
+            best_indent: 2,
+            compact: true,
+            level: -1,
+            multiline_strings: false,
+            string_wrap_width: None,
+            emitting_key: false,
+        }
+    }
+
+    /// Render strings containing multiple lines in literal style.
+    pub fn multiline_strings(&mut self, multiline_strings: bool) {
+        self.multiline_strings = multiline_strings;
+    }
+
+    /// Wrap single-line strings longer than `width` characters as folded
+    /// block scalars (`>-`), breaking at word boundaries so that emitted
+    /// lines stay within `width` columns (including indentation) whenever
+    /// possible. Wrapping never changes the parsed value: folding restores
+    /// exactly one space at each break.
+    pub fn string_wrap_width(&mut self, width: Option<usize>) {
+        self.string_wrap_width = width;
+    }
+
+    /// Dump Yaml to an output stream.
+    /// # Errors
+    /// Returns `EmitError` when an error occurs.
+    pub fn dump(&mut self, doc: &Yaml) -> EmitResult {
+        // write DocumentStart
+        writeln!(self.writer, "---")?;
+        self.level = -1;
+        self.emit_node(doc)
+    }
+
+    /// Dump multiple YAML documents to an output stream as a stream.
+    ///
+    /// Each document is preceded by a document start marker (`---`) and
+    /// followed by a newline.
+    pub fn dump_docs(&mut self, docs: &[Yaml]) -> EmitResult {
+        for doc in docs {
+            self.dump(doc)?;
+            self.writer.write_str("\n")?;
+        }
+        Ok(())
+    }
+
+    fn write_indent(&mut self) -> EmitResult {
+        if self.level <= 0 {
+            return Ok(());
+        }
+        for _ in 0..self.level {
+            for _ in 0..self.best_indent {
+                write!(self.writer, " ")?;
+            }
+        }
+        Ok(())
+    }
+
+    fn emit_node(&mut self, node: &Yaml) -> EmitResult {
+        match *node {
+            Yaml::Sequence(ref v) => self.emit_sequence(v),
+            Yaml::Mapping(ref h) => self.emit_mapping(h),
+            Yaml::Value(Scalar::String(ref v)) => {
+                if self.should_emit_string_as_block(v) {
+                    self.emit_literal_block(v)?;
+                } else if let Some(lines) = self.folded_wrap_lines(v) {
+                    self.emit_folded_block(&lines)?;
+                } else if need_quotes(v) {
+                    escape_str(&mut self.writer, v)?;
+                } else {
+                    write!(self.writer, "{v}")?;
+                }
+                Ok(())
+            }
+            Yaml::Value(Scalar::Boolean(v)) => {
+                if v {
+                    self.writer.write_str("true")?;
+                } else {
+                    self.writer.write_str("false")?;
+                }
+                Ok(())
+            }
+            Yaml::Value(Scalar::Integer(v)) => Ok(write!(self.writer, "{v}")?),
+            Yaml::Value(Scalar::FloatingPoint(ref v)) => Ok(write!(self.writer, "{v}")?),
+            Yaml::Value(Scalar::Null) | Yaml::BadValue => Ok(write!(self.writer, "~")?),
+            Yaml::Representation(ref v, style, ref tag) => {
+                if let Some(tag) = tag {
+                    write!(self.writer, "{} ", tag.as_ref())?;
+                }
+                match style {
+                    saphyr::ScalarStyle::Plain => write!(self.writer, "{v}")?,
+                    saphyr::ScalarStyle::SingleQuoted => write!(self.writer, "'{v}'")?,
+                    saphyr::ScalarStyle::DoubleQuoted => write!(self.writer, "\"{v}\"")?,
+                    saphyr::ScalarStyle::Literal | saphyr::ScalarStyle::Folded => {
+                        unreachable!("`Yaml::Representation` nodes are never built for emission")
+                    }
+                }
+                Ok(())
+            }
+            Yaml::Tagged(ref tag, ref node) => {
+                write!(self.writer, "{} ", tag.as_ref())?;
+                // We need to insert a newline after the tag when followed by a
+                // non-empty sequence or mapping. `emit_sequence` and
+                // `emit_mapping` do not add that extra newline at the beginning.
+                if node.is_non_empty_collection() {
+                    self.level += 1;
+                    writeln!(self.writer)?;
+                    self.write_indent()?;
+                    self.level -= 1;
+                }
+                self.emit_node(node.as_ref())
+            }
+            // XXX(chenyh) Alias
+            Yaml::Alias(_) => Ok(()),
+        }
+    }
+
+    fn emit_literal_block(&mut self, v: &str) -> EmitResult {
+        let ends_with_newline = v.ends_with('\n');
+        if ends_with_newline {
+            self.writer.write_str("|")?;
+        } else {
+            self.writer.write_str("|-")?;
+        }
+
+        self.level += 1;
+        // lines() will omit the last line if it is empty.
+        for line in v.lines() {
+            writeln!(self.writer)?;
+            self.write_indent()?;
+            // It's literal text, so don't escape special chars.
+            self.writer.write_str(line)?;
+        }
+        self.level -= 1;
+        Ok(())
+    }
+
+    fn emit_folded_block(&mut self, lines: &[&str]) -> EmitResult {
+        // Wrapped strings never contain a trailing newline, so always chomp (`-`).
+        self.writer.write_str(">-")?;
+        let indent = self.folded_block_indent();
+        for line in lines {
+            writeln!(self.writer)?;
+            for _ in 0..indent {
+                self.writer.write_str(" ")?;
+            }
+            // Block scalar content is literal text; no escaping.
+            self.writer.write_str(line)?;
+        }
+        Ok(())
+    }
+
+    fn emit_sequence(&mut self, v: &[Yaml]) -> EmitResult {
+        if v.is_empty() {
+            write!(self.writer, "[]")?;
+        } else {
+            self.level += 1;
+            for (cnt, x) in v.iter().enumerate() {
+                if cnt > 0 {
+                    writeln!(self.writer)?;
+                    self.write_indent()?;
+                }
+                write!(self.writer, "-")?;
+                self.emit_val(true, x)?;
+            }
+            self.level -= 1;
+        }
+        Ok(())
+    }
+
+    fn emit_mapping(&mut self, h: &Mapping) -> EmitResult {
+        if h.is_empty() {
+            self.writer.write_str("{}")?;
+        } else {
+            self.level += 1;
+            for (cnt, (k, v)) in h.iter().enumerate() {
+                let complex_key = matches!(k, Yaml::Mapping(_) | Yaml::Sequence(_));
+                if cnt > 0 {
+                    writeln!(self.writer)?;
+                    self.write_indent()?;
+                }
+                if complex_key {
+                    write!(self.writer, "?")?;
+                    self.emit_val(true, k)?;
+                    writeln!(self.writer)?;
+                    self.write_indent()?;
+                    write!(self.writer, ":")?;
+                    self.emit_val(true, v)?;
+                } else {
+                    // Implicit keys must stay on one line: block styles
+                    // (literal/folded) are not allowed there.
+                    self.emitting_key = true;
+                    let key_result = self.emit_node(k);
+                    self.emitting_key = false;
+                    key_result?;
+                    write!(self.writer, ":")?;
+                    self.emit_val(false, v)?;
+                }
+            }
+            self.level -= 1;
+        }
+        Ok(())
+    }
+
+    /// Emit a yaml as a hash or array value: i.e., which should appear
+    /// following a ":" or "-", either after a space, or on a new line.
+    /// If `inline` is true, then the preceding characters are distinct
+    /// and short enough to respect the compact flag.
+    fn emit_val(&mut self, inline: bool, val: &Yaml) -> EmitResult {
+        match *val {
+            Yaml::Sequence(ref v) => {
+                if (inline && self.compact) || v.is_empty() {
+                    write!(self.writer, " ")?;
+                } else {
+                    writeln!(self.writer)?;
+                    self.level += 1;
+                    self.write_indent()?;
+                    self.level -= 1;
+                }
+                self.emit_sequence(v)
+            }
+            Yaml::Mapping(ref h) => {
+                if (inline && self.compact) || h.is_empty() {
+                    write!(self.writer, " ")?;
+                } else {
+                    writeln!(self.writer)?;
+                    self.level += 1;
+                    self.write_indent()?;
+                    self.level -= 1;
+                }
+                self.emit_mapping(h)
+            }
+            _ => {
+                write!(self.writer, " ")?;
+                self.emit_node(val)
+            }
+        }
+    }
+
+    /// Check whether the string should be emitted as a literal block.
+    #[must_use]
+    fn should_emit_string_as_block(&self, s: &str) -> bool {
+        self.multiline_strings
+            && !self.emitting_key
+            && s.contains('\n')
+            && is_safe_literal_block_scalar(s)
+    }
+
+    /// Return the string split into folded-block lines when it should be
+    /// wrapped, or `None` to emit it on a single line.
+    #[must_use]
+    fn folded_wrap_lines<'s>(&self, s: &'s str) -> Option<Vec<&'s str>> {
+        let width = self.string_wrap_width?;
+        // Keys must stay on one line.
+        if self.emitting_key || !is_foldable_string(s) {
+            return None;
+        }
+        let inline_width = width.saturating_sub(self.writer.column);
+        let inline_overhead = if need_quotes(s) {
+            escaped_str_overhead(s)
+        } else {
+            0
+        };
+        folded_lines(s, inline_width.saturating_sub(inline_overhead))?;
+
+        let block_width = width.saturating_sub(self.folded_block_indent());
+        Some(folded_lines(s, block_width).unwrap_or_else(|| vec![s]))
+    }
+
+    fn folded_block_indent(&self) -> usize {
+        (self.level + 1).max(1) as usize * self.best_indent
+    }
+}
+
+/// Copied from saphyr's crate-private `char_traits::is_valid_literal_block_scalar`.
+fn is_valid_literal_block_scalar(string: &str) -> bool {
+    string.chars().all(|character: char| {
+        matches!(character, '\t' | '\n' | '\x20'..='\x7e' | '\u{0085}' | '\u{00a0}'..='\u{d7fff}')
+    })
+}
+
+/// Check that the emitter's implicit indentation and clip chomping preserve
+/// the scalar exactly. More-indented lines and multiple trailing newlines need
+/// explicit block scalar indicators, which this emitter does not produce.
+fn is_safe_literal_block_scalar(string: &str) -> bool {
+    is_valid_literal_block_scalar(string)
+        && !string.ends_with("\n\n")
+        && string
+            .split('\n')
+            .filter(|line| !line.is_empty())
+            .all(|line| !line.starts_with([' ', '\t']))
+}
+
+/// Check that a string can be emitted as a folded block scalar without
+/// changing its parsed value: block-scalar-safe characters only, no line
+/// breaks, and no leading/trailing white space (which folding would drop or
+/// which would confuse indentation detection).
+fn is_foldable_string(s: &str) -> bool {
+    !s.is_empty()
+        && !s.starts_with([' ', '\t'])
+        && !s.ends_with([' ', '\t'])
+        && !s.contains('\n')
+        && is_valid_literal_block_scalar(s)
+}
+
+/// Split `s` into lines of at most `width` characters for a folded block
+/// scalar, or `None` when `s` fits or cannot be split.
+///
+/// Breaks are only taken at a single space flanked by non-white-space on both
+/// sides: folding joins lines with exactly one space, and a line that starts
+/// or ends with white space would be treated as "more indented" and not
+/// folded. A word longer than `width` yields a longer line rather than being
+/// split.
+fn folded_lines(s: &str, width: usize) -> Option<Vec<&str>> {
+    // (byte offset, char offset) of each break candidate.
+    let mut candidates: Vec<(usize, usize)> = Vec::new();
+    let mut chars = 0;
+    let mut prev = '\0';
+    let mut iter = s.char_indices().peekable();
+    while let Some((idx, ch)) = iter.next() {
+        if ch == ' '
+            && !matches!(prev, '\0' | ' ' | '\t')
+            && matches!(iter.peek(), Some(&(_, next)) if next != ' ' && next != '\t')
+        {
+            candidates.push((idx, chars));
+        }
+        chars += 1;
+        prev = ch;
+    }
+    let total_chars = chars;
+    if total_chars <= width || candidates.is_empty() {
+        return None;
+    }
+
+    let mut lines = Vec::new();
+    let (mut start_byte, mut start_chars) = (0, 0);
+    let mut next = 0;
+    while total_chars - start_chars > width && next < candidates.len() {
+        // Break at the furthest candidate that fits, or at the first one past
+        // an over-long word.
+        let mut chosen = None;
+        while next < candidates.len() && candidates[next].1 - start_chars <= width {
+            chosen = Some(candidates[next]);
+            next += 1;
+        }
+        let (break_byte, break_chars) = match chosen {
+            Some(candidate) => candidate,
+            None => {
+                let candidate = candidates[next];
+                next += 1;
+                candidate
+            }
+        };
+        lines.push(&s[start_byte..break_byte]);
+        // Skip the space; folding will restore it.
+        (start_byte, start_chars) = (break_byte + 1, break_chars + 1);
+    }
+    lines.push(&s[start_byte..]);
+    if lines.len() < 2 {
+        return None;
+    }
+    Some(lines)
+}
+
+/// Check whether a character may appear in a single-line plain scalar.
+///
+/// This is YAML 1.2 `c-printable` minus line breaks, tabs, and the byte order
+/// mark. Tabs are technically permitted inside plain scalars but interact
+/// badly with indentation handling in many parsers, so they are quoted.
+fn is_plain_safe_char(c: char) -> bool {
+    c != '\u{feff}'
+        && matches!(
+            c,
+            '\x20'..='\x7e' | '\u{85}' | '\u{a0}'..='\u{d7ff}' | '\u{e000}'..='\u{10ffff}'
+        )
+}
+
+/// Check for YAML 1.2 core-schema integer syntax without parsing the value.
+fn is_core_schema_integer(string: &str) -> bool {
+    let decimal = string
+        .strip_prefix('+')
+        .or_else(|| string.strip_prefix('-'))
+        .unwrap_or(string);
+    if !decimal.is_empty() && decimal.bytes().all(|byte| byte.is_ascii_digit()) {
+        return true;
+    }
+
+    if let Some(octal) = string.strip_prefix("0o") {
+        return !octal.is_empty() && octal.bytes().all(|byte| matches!(byte, b'0'..=b'7'));
+    }
+
+    if let Some(hexadecimal) = string.strip_prefix("0x") {
+        return !hexadecimal.is_empty() && hexadecimal.bytes().all(|byte| byte.is_ascii_hexdigit());
+    }
+
+    false
+}
+
+/// Check if the string must be double-quoted rather than emitted as a plain
+/// scalar.
+///
+/// This follows the YAML 1.2 plain-scalar grammar for block context (this
+/// emitter never emits plain scalars inside flow collections), plus the core
+/// schema for tag resolution — so `yes`, `on`, and friends are strings and do
+/// not need quoting. Core integer syntax is detected independently because
+/// the parser's resolver is bounded to `i64`; its resolver handles nulls,
+/// booleans, and floats.
+fn need_quotes(string: &str) -> bool {
+    // The empty plain scalar resolves to null.
+    let Some(first) = string.chars().next() else {
+        return true;
+    };
+
+    // Would be resolved as a non-string by the core schema.
+    if is_core_schema_integer(string)
+        || !matches!(
+            Scalar::parse_from_cow(Cow::Borrowed(string)),
+            Scalar::String(_)
+        )
+    {
+        return true;
+    }
+
+    // Plain scalars cannot start or end with white space, and every character
+    // must be printable and single-line.
+    if string.starts_with(' ') || string.ends_with(' ') || !string.chars().all(is_plain_safe_char) {
+        return true;
+    }
+
+    // First-character indicator rules (`c-indicator`): `-`, `?`, and `:` are
+    // allowed when followed by a non-space character; the rest never are.
+    match first {
+        ',' | '[' | ']' | '{' | '}' | '#' | '&' | '*' | '!' | '|' | '>' | '\'' | '"' | '%'
+        | '@' | '`' => return true,
+        '-' | '?' | ':' if string.len() == 1 || string[1..].starts_with(' ') => return true,
+        _ => {}
+    }
+
+    // Could be mistaken for a document marker when emitted at the start of a
+    // line (root scalars and top-level keys sit in column 0).
+    if string.starts_with("---") || string.starts_with("...") {
+        return true;
+    }
+
+    // `: ` (or a trailing `:`) would end an implicit key, and ` #` would
+    // start a comment.
+    let bytes = string.as_bytes();
+    bytes.iter().enumerate().any(|(i, &b)| match b {
+        b':' => i + 1 == bytes.len() || bytes[i + 1] == b' ',
+        b'#' => i > 0 && bytes[i - 1] == b' ',
+        _ => false,
+    })
+}
+
+#[cfg(test)]
+mod test {
+    use super::{folded_lines, YamlEmitter};
+    use saphyr::{LoadableYamlNode, Scalar, Yaml};
+
+    fn emit_wrapped(doc: &Yaml) -> String {
+        let mut output = String::new();
+        let mut emitter = YamlEmitter::new(&mut output);
+        emitter.multiline_strings(true);
+        emitter.string_wrap_width(Some(80));
+        emitter.dump(doc).unwrap();
+        output
+    }
+
+    fn reparse(yaml: &str) -> Yaml<'static> {
+        Yaml::load_from_str(yaml).unwrap().remove(0)
+    }
+
+    fn mapping_with_value(value: &str) -> Yaml<'static> {
+        let mut mapping = saphyr::Mapping::new();
+        mapping.insert(
+            Yaml::Value(Scalar::String("key".into())),
+            Yaml::Value(Scalar::String(value.to_string().into())),
+        );
+        Yaml::Mapping(mapping)
+    }
+
+    #[test]
+    fn wraps_long_strings_as_folded_blocks() {
+        let value = "word ".repeat(30).trim_end().to_string();
+        let doc = mapping_with_value(&value);
+        let output = emit_wrapped(&doc);
+        assert!(output.contains("key: >-\n"), "{output}");
+        for line in output.lines() {
+            assert!(line.chars().count() <= 80, "line too long: {line:?}");
+        }
+        assert_eq!(reparse(&output), doc);
+    }
+
+    #[test]
+    fn wrapping_respects_indentation() {
+        let value = "word ".repeat(30).trim_end().to_string();
+        let mut inner = saphyr::Mapping::new();
+        inner.insert(
+            Yaml::Value(Scalar::String("inner".into())),
+            Yaml::Value(Scalar::String(value.into())),
+        );
+        let mut outer = saphyr::Mapping::new();
+        outer.insert(
+            Yaml::Value(Scalar::String("outer".into())),
+            Yaml::Mapping(inner),
+        );
+        let doc = Yaml::Mapping(outer);
+        let output = emit_wrapped(&doc);
+        for line in output.lines() {
+            assert!(line.chars().count() <= 80, "line too long: {line:?}");
+        }
+        assert_eq!(reparse(&output), doc);
+    }
+
+    #[test]
+    fn short_and_unbreakable_strings_stay_inline() {
+        let short = mapping_with_value("just a short string");
+        assert!(emit_wrapped(&short).contains("key: just a short string"));
+
+        let unbreakable = mapping_with_value(&"x".repeat(120));
+        assert!(!emit_wrapped(&unbreakable).contains(">-"));
+    }
+
+    #[test]
+    fn strings_with_unsafe_whitespace_are_not_folded() {
+        for value in [
+            format!(" {}", "word ".repeat(25).trim_end()),
+            format!("{} ", "word ".repeat(25).trim_end()),
+        ] {
+            let doc = mapping_with_value(&value);
+            let output = emit_wrapped(&doc);
+            assert!(!output.contains(">-"), "{output}");
+            assert_eq!(reparse(&output), doc);
+        }
+
+        // Double spaces and tab-adjacent spaces are not break points.
+        let value = format!("{}  {}", "y".repeat(50), "z".repeat(50));
+        let doc = mapping_with_value(&value);
+        let output = emit_wrapped(&doc);
+        assert!(!output.contains(">-"), "{output}");
+        assert_eq!(reparse(&output), doc);
+    }
+
+    #[test]
+    fn long_mapping_keys_are_not_wrapped() {
+        let key = "word ".repeat(30).trim_end().to_string();
+        let mut mapping = saphyr::Mapping::new();
+        mapping.insert(
+            Yaml::Value(Scalar::String(key.into())),
+            Yaml::Value(Scalar::Integer(1)),
+        );
+        let doc = Yaml::Mapping(mapping);
+        let output = emit_wrapped(&doc);
+        assert!(!output.contains(">-"), "{output}");
+        assert_eq!(reparse(&output), doc);
+    }
+
+    #[test]
+    fn multiline_keys_are_quoted_not_literal_blocks() {
+        let mut mapping = saphyr::Mapping::new();
+        mapping.insert(
+            Yaml::Value(Scalar::String("multi\nline".into())),
+            Yaml::Value(Scalar::Integer(1)),
+        );
+        let doc = Yaml::Mapping(mapping);
+        let output = emit_wrapped(&doc);
+        assert!(output.contains("\"multi\\nline\": 1"), "{output}");
+        assert_eq!(reparse(&output), doc);
+    }
+
+    #[test]
+    fn folded_lines_break_only_at_safe_spaces() {
+        let s = "aaaa bbbb cccc dddd";
+        assert_eq!(folded_lines(s, 9), Some(vec!["aaaa bbbb", "cccc dddd"]));
+        // A word longer than the width gets its own over-long line.
+        let s = "aaaaaaaaaaaa bb";
+        assert_eq!(folded_lines(s, 4), Some(vec!["aaaaaaaaaaaa", "bb"]));
+        // No break points at all.
+        assert_eq!(folded_lines(&"a".repeat(20), 4), None);
+        // Already fits.
+        assert_eq!(folded_lines("aa bb", 10), None);
+    }
+}

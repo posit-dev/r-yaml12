@@ -61,15 +61,27 @@ dbg_yaml <- function(text) invisible(.Call(wrap__dbg_yaml, text))
 
 #' Format or write R objects as YAML 1.2.
 #'
+#' @description
 #' `format_yaml()` returns YAML as a character string. `write_yaml()` writes a
 #' YAML stream to a file or stdout and always emits document start (`---`)
 #' markers and a final end (`...`) marker. Both functions honor a `yaml_tag`
 #' attribute on values (see examples).
 #'
+#' Long strings are automatically wrapped: when a string would produce a line
+#' wider than `width` columns, it is emitted as a YAML folded block scalar
+#' (`>-`) broken at word boundaries. Folding turns each line break back into
+#' a single space, so wrapped strings round-trip through `parse_yaml()`
+#' unchanged. Strings without a safe break point (e.g. no spaces) are left on
+#' one line, and mapping keys are never wrapped.
+#'
 #' @param value Any R object composed of lists, atomic vectors, and scalars.
 #' @param path Scalar string file path to write YAML to when using `write_yaml()`.
 #'   When `NULL` (the default), write to R's standard output connection.
 #' @param multi When `TRUE`, treat `value` as a list of YAML documents and encode a stream.
+#' @param width Target maximum line width in columns; strings that would
+#'   produce wider lines are wrapped. Individual lines may still exceed
+#'   `width` when there is no safe break point (e.g. a single long word) or
+#'   under deep indentation. Use `Inf` to disable wrapping.
 #' @return `format_yaml()` returns a scalar character string containing YAML.
 #'   `write_yaml()` invisibly returns `value`.
 #' @rdname format_yaml
@@ -84,7 +96,7 @@ dbg_yaml <- function(text) invisible(.Call(wrap__dbg_yaml, text))
 #' cat(tagged_yaml <- format_yaml(tagged), "\n")
 #'
 #' dput(parse_yaml(tagged_yaml))
-format_yaml <- function(value, multi = FALSE) .Call(wrap__format_yaml, value, multi)
+format_yaml <- function(value, multi = FALSE, width = 80) .Call(wrap__format_yaml, value, multi, width)
 
 #' Read YAML 1.2 document(s) from a file path.
 #'
@@ -105,7 +117,7 @@ read_yaml <- function(path, multi = FALSE, simplify = TRUE, handlers = NULL) .Ca
 #' tagged <- structure("1 + 1", yaml_tag = "!expr")
 #' write_yaml(tagged)
 #' @export
-write_yaml <- function(value, path = NULL, multi = FALSE) invisible(.Call(wrap__write_yaml, value, path, multi))
+write_yaml <- function(value, path = NULL, multi = FALSE, width = 80) invisible(.Call(wrap__write_yaml, value, path, multi, width))
 
 
 # nolint end

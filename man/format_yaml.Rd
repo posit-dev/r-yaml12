@@ -5,14 +5,19 @@
 \alias{write_yaml}
 \title{Format or write R objects as YAML 1.2.}
 \usage{
-format_yaml(value, multi = FALSE)
+format_yaml(value, multi = FALSE, width = 80)
 
-write_yaml(value, path = NULL, multi = FALSE)
+write_yaml(value, path = NULL, multi = FALSE, width = 80)
 }
 \arguments{
 \item{value}{Any R object composed of lists, atomic vectors, and scalars.}
 
 \item{multi}{When \code{TRUE}, treat \code{value} as a list of YAML documents and encode a stream.}
+
+\item{width}{Target maximum line width in columns; strings that would
+produce wider lines are wrapped. Individual lines may still exceed
+\code{width} when there is no safe break point (e.g. a single long word) or
+under deep indentation. Use \code{Inf} to disable wrapping.}
 
 \item{path}{Scalar string file path to write YAML to when using \code{write_yaml()}.
 When \code{NULL} (the default), write to R's standard output connection.}
@@ -26,6 +31,13 @@ When \code{NULL} (the default), write to R's standard output connection.}
 YAML stream to a file or stdout and always emits document start (\verb{---})
 markers and a final end (\code{...}) marker. Both functions honor a \code{yaml_tag}
 attribute on values (see examples).
+
+Long strings are automatically wrapped: when a string would produce a line
+wider than \code{width} columns, it is emitted as a YAML folded block scalar
+(\verb{>-}) broken at word boundaries. Folding turns each line break back into
+a single space, so wrapped strings round-trip through \code{parse_yaml()}
+unchanged. Strings without a safe break point (e.g. no spaces) are left on
+one line, and mapping keys are never wrapped.
 }
 \examples{
 cat(format_yaml(list(foo = 1, bar = list(TRUE, NA))))
