@@ -14,48 +14,63 @@ void not_so_long_jump(void *jmpbuf, Rboolean jump);
 SEXP yaml12_dbg_yaml_ffi(SEXP text);
 SEXP yaml12_format_yaml_ffi(SEXP value, SEXP multi, SEXP width);
 SEXP yaml12_parse_yaml_ffi(SEXP text, SEXP multi, SEXP simplify, SEXP handlers);
-SEXP yaml12_read_yaml_ffi(SEXP path, SEXP multi, SEXP simplify, SEXP handlers);
-SEXP yaml12_write_yaml_ffi(SEXP value, SEXP path, SEXP multi, SEXP width);
+SEXP yaml12_read_yaml_ffi(
+    const char *path,
+    size_t path_len,
+    SEXP multi,
+    SEXP simplify,
+    SEXP handlers
+);
+SEXP yaml12_write_yaml_ffi(
+    SEXP value,
+    const char *path,
+    size_t path_len,
+    SEXP multi,
+    SEXP width
+);
 
 static uintptr_t TAGGED_POINTER_MASK = (uintptr_t)1;
 static SEXP path_expand_sym;
 
-static Rboolean has_tilde_prefix(SEXP path) {
+static inline SEXP path_string(SEXP path) {
     if (TYPEOF(path) != STRSXP || XLENGTH(path) != 1) {
+        Rf_error("`path` must be a single, non-missing string");
+    }
+
+    SEXP string = STRING_ELT(path, 0);
+    if (string == NA_STRING) {
+        Rf_error("`path` must be a single, non-missing string");
+    }
+    return string;
+}
+
+static inline Rboolean maybe_path_expand(SEXP *path, SEXP *string) {
+    if (CHAR(*string)[0] != '~') {
         return FALSE;
     }
-
-    SEXP string = STRING_ELT(path, 0);
-    return string != NA_STRING && CHAR(string)[0] == '~';
-}
-
-static Rboolean is_ascii(SEXP string) {
-    const unsigned char *bytes = (const unsigned char *)CHAR(string);
-    R_xlen_t length = XLENGTH(string);
-    for (R_xlen_t i = 0; i < length; i++) {
-        if (bytes[i] > 0x7f) {
-            return FALSE;
-        }
-    }
-    return TRUE;
-}
-
-/* Precondition: has_tilde_prefix(path). */
-static SEXP expand_tilde_path(SEXP path) {
-    SEXP string = STRING_ELT(path, 0);
-    if (memchr(CHAR(string), '\0', (size_t)XLENGTH(string)) != NULL) {
+    if (memchr(CHAR(*string), '\0', (size_t)XLENGTH(*string)) != NULL) {
         Rf_error("`path` must not contain embedded NUL bytes");
     }
 
-    if (Rf_getCharCE(string) == CE_NATIVE || is_ascii(string)) {
-        /* R_ExpandFileName may return static storage; copy it immediately. */
-        return Rf_mkString(R_ExpandFileName(CHAR(string)));
+    if (Rf_getCharCE(*string) == CE_NATIVE) {
+        const char *expanded = R_ExpandFileName(CHAR(*string));
+        if (expanded[0] == '~') {
+            Rf_error("`path` could not be expanded");
+        }
+        *path = Rf_mkString(expanded);
+    } else {
+        SEXP call = PROTECT(Rf_lang2(path_expand_sym, *path));
+        *path = Rf_eval(call, R_BaseEnv);
+        *string = STRING_ELT(*path, 0);
+        if (CHAR(*string)[0] == '~') {
+            Rf_error("`path` could not be expanded");
+        }
+        UNPROTECT(1);
+        return TRUE;
     }
 
-    SEXP call = PROTECT(Rf_lang2(path_expand_sym, path));
-    SEXP expanded = Rf_eval(call, R_BaseEnv);
-    UNPROTECT(1);
-    return expanded;
+    *string = STRING_ELT(*path, 0);
+    return TRUE;
 }
 
 static SEXP handle_result(SEXP res_, const char *call_name) {
@@ -87,36 +102,70 @@ SEXP wrap__parse_yaml(SEXP text, SEXP multi, SEXP simplify, SEXP handlers) {
 }
 
 SEXP wrap__read_yaml(SEXP path, SEXP multi, SEXP simplify, SEXP handlers) {
-    if (!has_tilde_prefix(path)) {
-        return handle_result(yaml12_read_yaml_ffi(path, multi, simplify, handlers), "read_yaml");
+    SEXP string = path_string(path);
+    if (maybe_path_expand(&path, &string)) {
+        path = PROTECT(path);
+        SEXP result = handle_result(
+            yaml12_read_yaml_ffi(
+                CHAR(string),
+                (size_t)XLENGTH(string),
+                multi,
+                simplify,
+                handlers
+            ),
+            "read_yaml"
+        );
+        UNPROTECT(1);
+        return result;
     }
 
-    path = PROTECT(expand_tilde_path(path));
-    if (has_tilde_prefix(path)) {
-        Rf_error("`path` could not be expanded");
-    }
-
-    SEXP result = handle_result(
-        yaml12_read_yaml_ffi(path, multi, simplify, handlers),
+    return handle_result(
+        yaml12_read_yaml_ffi(
+            CHAR(string),
+            (size_t)XLENGTH(string),
+            multi,
+            simplify,
+            handlers
+        ),
         "read_yaml"
     );
-    UNPROTECT(1);
-    return result;
 }
 
 SEXP wrap__write_yaml(SEXP value, SEXP path, SEXP multi, SEXP width) {
-    if (!has_tilde_prefix(path)) {
-        return handle_result(yaml12_write_yaml_ffi(value, path, multi, width), "write_yaml");
+    if (path == R_NilValue) {
+        return handle_result(
+            yaml12_write_yaml_ffi(value, NULL, 0, multi, width),
+            "write_yaml"
+        );
     }
 
-    path = PROTECT(expand_tilde_path(path));
-    if (has_tilde_prefix(path)) {
-        Rf_error("`path` could not be expanded");
+    SEXP string = path_string(path);
+    if (maybe_path_expand(&path, &string)) {
+        path = PROTECT(path);
+        SEXP result = handle_result(
+            yaml12_write_yaml_ffi(
+                value,
+                CHAR(string),
+                (size_t)XLENGTH(string),
+                multi,
+                width
+            ),
+            "write_yaml"
+        );
+        UNPROTECT(1);
+        return result;
     }
 
-    SEXP result = handle_result(yaml12_write_yaml_ffi(value, path, multi, width), "write_yaml");
-    UNPROTECT(1);
-    return result;
+    return handle_result(
+        yaml12_write_yaml_ffi(
+            value,
+            CHAR(string),
+            (size_t)XLENGTH(string),
+            multi,
+            width
+        ),
+        "write_yaml"
+    );
 }
 
 static const R_CallMethodDef CallEntries[] = {

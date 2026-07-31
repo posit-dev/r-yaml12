@@ -37,6 +37,25 @@ test_that("write_yaml defaults to R stdout when path is NULL", {
   expect_identical(parse_yaml(output), value)
 })
 
+test_that("paths must be single, non-missing strings", {
+  invalid_paths <- list(NULL, NA_character_, character(), c("a", "b"), 1)
+  for (path in invalid_paths) {
+    expect_error(
+      read_yaml(path),
+      "`path` must be a single, non-missing string",
+      fixed = TRUE
+    )
+  }
+
+  for (path in invalid_paths[-1]) {
+    expect_error(
+      write_yaml(list(), path),
+      "`path` must be a single, non-missing string",
+      fixed = TRUE
+    )
+  }
+})
+
 test_that("write_yaml and read_yaml handle multi-document streams", {
   path <- tempfile("yaml12-", fileext = ".yaml")
   on.exit(unlink(path), add = TRUE)

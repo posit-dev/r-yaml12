@@ -71,11 +71,19 @@ fn ffi_catch(f: impl FnOnce() -> Fallible<Robj>) -> ffi::SEXP {
     }
 }
 
+macro_rules! ffi_entrypoint {
+    (fn $name:ident($($arg:ident: $arg_type:ty),* $(,)?) $body:block) => {
+        #[no_mangle]
+        pub extern "C" fn $name($($arg: $arg_type),*) -> ffi::SEXP {
+            ffi_catch(|| $body)
+        }
+    };
+}
+
 macro_rules! r_entrypoint {
     (fn $name:ident($($arg:ident),* $(,)?) $body:block) => {
-        #[no_mangle]
-        pub extern "C" fn $name($($arg: ffi::SEXP),*) -> ffi::SEXP {
-            ffi_catch(|| $body)
+        ffi_entrypoint! {
+            fn $name($($arg: ffi::SEXP),*) $body
         }
     };
 }
@@ -101,25 +109,7 @@ fn bool_arg(sexp: ffi::SEXP, name: &str) -> Fallible<bool> {
     bool_arg_from_robj(&value, name)
 }
 
-fn path_arg<'a>(value: &'a Robj, name: &str) -> Fallible<&'a str> {
-    let invalid = || api_other(format!("`{name}` must be a single, non-missing string"));
-    if value.rtype() != Rtype::Strings || value.len() != 1 {
-        return Err(invalid());
-    }
-
-    let charsxp = unsafe { ffi::STRING_ELT(value.get(), 0) };
-    if charsxp == unsafe { ffi::R_NaString } {
-        return Err(invalid());
-    }
-
-    // `value` protects the parent STRSXP for this borrow, and CHARSXP data is
-    // immutable.
-    let bytes: &'a [u8] = unsafe {
-        std::slice::from_raw_parts(
-            ffi::R_CHAR(charsxp).cast::<u8>(),
-            ffi::Rf_xlength(charsxp) as usize,
-        )
-    };
+fn path_arg<'a>(bytes: &'a [u8], name: &str) -> Fallible<&'a str> {
     let path = std::str::from_utf8(bytes)
         .map_err(|_| api_other(format!("`{name}` is not valid UTF-8")))?;
     if path.as_bytes().contains(&0) {
@@ -143,14 +133,6 @@ fn width_arg(sexp: ffi::SEXP, name: &str) -> Fallible<Option<usize>> {
         Ok(None)
     } else {
         Ok(Some(width.floor() as usize))
-    }
-}
-
-fn optional_path_arg(value: &Robj) -> Fallible<Option<&str>> {
-    if value.is_null() {
-        Ok(None)
-    } else {
-        path_arg(value, "path").map(Some)
     }
 }
 
@@ -332,11 +314,20 @@ fn read_yaml(path: &str, multi: bool, simplify: bool, handlers: Robj) -> Fallibl
     yaml_to_r::read_yaml_impl(path, multi, simplify, handlers)
 }
 
-r_entrypoint! {
-    fn yaml12_read_yaml_ffi(path, multi, simplify, handlers) {
-        let path = robj_arg(path);
+ffi_entrypoint! {
+    fn yaml12_read_yaml_ffi(
+        path: *const std::os::raw::c_char,
+        path_len: usize,
+        multi: ffi::SEXP,
+        simplify: ffi::SEXP,
+        handlers: ffi::SEXP,
+    ) {
+        if path.is_null() {
+            return Err(api_other("`path` must be a single, non-missing string"));
+        }
+        let path = unsafe { std::slice::from_raw_parts(path.cast::<u8>(), path_len) };
         read_yaml(
-            path_arg(&path, "path")?,
+            path_arg(path, "path")?,
             bool_arg(multi, "multi")?,
             bool_arg(simplify, "simplify")?,
             robj_arg(handlers),
@@ -367,13 +358,24 @@ fn write_yaml(
     Ok(value)
 }
 
-r_entrypoint! {
-    fn yaml12_write_yaml_ffi(value, path, multi, width) {
+ffi_entrypoint! {
+    fn yaml12_write_yaml_ffi(
+        value: ffi::SEXP,
+        path: *const std::os::raw::c_char,
+        path_len: usize,
+        multi: ffi::SEXP,
+        width: ffi::SEXP,
+    ) {
         let value = robj_arg(value);
-        let path = robj_arg(path);
+        let path = if path.is_null() {
+            None
+        } else {
+            let bytes = unsafe { std::slice::from_raw_parts(path.cast::<u8>(), path_len) };
+            Some(path_arg(bytes, "path")?)
+        };
         write_yaml(
             value,
-            optional_path_arg(&path)?,
+            path,
             bool_arg(multi, "multi")?,
             width_arg(width, "width")?,
         )
