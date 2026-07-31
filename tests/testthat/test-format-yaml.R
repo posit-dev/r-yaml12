@@ -36,6 +36,130 @@ test_that("format_yaml quotes arbitrary-sized core integer strings", {
   expect_identical(format_yaml("0xg", width = Inf), "0xg")
 })
 
+expect_scalar_serialization <- function(
+  value,
+  scalar_yaml,
+  key_yaml = paste0(scalar_yaml, ": 1")
+) {
+  info <- encodeString(value, quote = "\"")
+
+  encoded <- format_yaml(value, width = Inf)
+  expect_identical(encoded, scalar_yaml, info = info)
+  expect_identical(parse_yaml(encoded), value, info = info)
+
+  object <- setNames(list(1L), value)
+  encoded <- format_yaml(object, width = Inf)
+  expect_identical(encoded, key_yaml, info = info)
+  expect_identical(parse_yaml(encoded, simplify = FALSE), object, info = info)
+}
+
+test_that("format_yaml emits YAML 1.2 plain strings through its public API", {
+  values <- c(
+    "yes",
+    "No",
+    "on",
+    "OFF",
+    "y",
+    "n",
+    "don't",
+    "say \"hi\"",
+    "a\\b",
+    "a,b",
+    "f[0]",
+    "x{1}",
+    "foo#bar",
+    "foo:bar",
+    "a ? b",
+    "-x",
+    "?x",
+    ":x",
+    "--x",
+    ".gitignore",
+    "=",
+    "<y>",
+    "0xg",
+    "0o9",
+    "1_000",
+    "1.2.3",
+    "e5",
+    "inf",
+    "nan",
+    "a * b",
+    "5% off",
+    "a  b"
+  )
+
+  for (value in values) {
+    expect_scalar_serialization(value, value)
+  }
+})
+
+test_that("format_yaml quotes core-schema strings through its public API", {
+  values <- c(
+    "~",
+    "null",
+    "NULL",
+    "true",
+    "False",
+    "12",
+    "+7",
+    "-3",
+    "0x1F",
+    "0o17",
+    "3.5",
+    "-2e10",
+    ".5",
+    ".inf",
+    "-.Inf",
+    ".NaN"
+  )
+
+  for (value in values) {
+    expect_scalar_serialization(value, paste0("\"", value, "\""))
+  }
+})
+
+test_that("format_yaml quotes structurally unsafe plain scalars", {
+  values <- c(
+    "",
+    " x",
+    "x ",
+    "- x",
+    "-",
+    "?",
+    ":",
+    ": x",
+    "foo: bar",
+    "foo:",
+    "a #b",
+    "[x",
+    "]x",
+    ",x",
+    "#x",
+    "&x",
+    "*x",
+    "!x",
+    "|x",
+    ">x",
+    "'x",
+    "%x",
+    "@x",
+    "`x",
+    "---",
+    "--- x",
+    "... x",
+    "\ufeffx"
+  )
+
+  for (value in values) {
+    expect_scalar_serialization(value, paste0("\"", value, "\""))
+  }
+
+  expect_scalar_serialization("a\tb", "\"a\\tb\"")
+  expect_scalar_serialization("\"x", "\"\\\"x\"")
+  expect_scalar_serialization("a\nb", "|-\na\nb", "\"a\\nb\": 1")
+})
+
 test_that("format_yaml wraps long strings as folded block scalars", {
   long <- paste(rep("word", 30), collapse = " ")
   encoded <- format_yaml(list(key = long))
