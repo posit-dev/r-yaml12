@@ -10,8 +10,6 @@ use crate::r_to_yaml::yaml_body;
 use extendr_api::prelude::*;
 use extendr_ffi as ffi;
 use saphyr::{LoadableYamlNode, Yaml};
-use std::borrow::Cow;
-use std::ffi::{CStr, CString};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::result::Result as StdResult;
 use std::{cell::OnceCell, thread_local};
@@ -103,31 +101,33 @@ fn bool_arg(sexp: ffi::SEXP, name: &str) -> Fallible<bool> {
     bool_arg_from_robj(&value, name)
 }
 
-extern "C" {
-    // R_ext/Utils.h; the routine behind `path.expand()`.
-    fn R_ExpandFileName(name: *const std::os::raw::c_char) -> *const std::os::raw::c_char;
-}
-
-fn expand_path(path: &str) -> Fallible<Cow<'_, str>> {
-    if !path.starts_with('~') {
-        return Ok(Cow::Borrowed(path));
+fn path_arg<'a>(value: &'a Robj, name: &str) -> Fallible<&'a str> {
+    let invalid = || api_other(format!("`{name}` must be a single, non-missing string"));
+    if value.rtype() != Rtype::Strings || value.len() != 1 {
+        return Err(invalid());
     }
-    let c_path =
-        CString::new(path).map_err(|_| api_other("`path` must not contain embedded NUL bytes"))?;
-    // R_ExpandFileName may return a pointer to a static buffer; copy it out
-    // before the next call can overwrite it.
-    let expanded = unsafe { CStr::from_ptr(R_ExpandFileName(c_path.as_ptr())) };
-    let expanded = expanded
-        .to_str()
-        .map_err(|_| api_other("expanded `path` is not valid UTF-8"))?;
-    Ok(Cow::Owned(expanded.to_string()))
-}
 
-fn path_arg<'a>(value: &'a Robj, name: &str) -> Fallible<Cow<'a, str>> {
-    let path: &str = value
-        .try_into()
-        .map_err(|_| api_other(format!("`{name}` must be a single, non-missing string")))?;
-    expand_path(path)
+    let charsxp = unsafe { ffi::STRING_ELT(value.get(), 0) };
+    if charsxp == unsafe { ffi::R_NaString } {
+        return Err(invalid());
+    }
+
+    // `value` protects the parent STRSXP for this borrow, and CHARSXP data is
+    // immutable.
+    let bytes: &'a [u8] = unsafe {
+        std::slice::from_raw_parts(
+            ffi::R_CHAR(charsxp).cast::<u8>(),
+            ffi::Rf_xlength(charsxp) as usize,
+        )
+    };
+    let path = std::str::from_utf8(bytes)
+        .map_err(|_| api_other(format!("`{name}` is not valid UTF-8")))?;
+    if path.as_bytes().contains(&0) {
+        return Err(api_other(format!(
+            "`{name}` must not contain embedded NUL bytes"
+        )));
+    }
+    Ok(path)
 }
 
 /// Parse the `width` argument: a single number >= 1, or `Inf` to disable
@@ -146,14 +146,11 @@ fn width_arg(sexp: ffi::SEXP, name: &str) -> Fallible<Option<usize>> {
     }
 }
 
-fn optional_path_arg(value: &Robj) -> Fallible<Option<Cow<'_, str>>> {
+fn optional_path_arg(value: &Robj) -> Fallible<Option<&str>> {
     if value.is_null() {
         Ok(None)
     } else {
-        let path = value
-            .as_str()
-            .ok_or_else(|| api_other("`path` must be NULL or a single, non-missing string"))?;
-        Ok(Some(expand_path(path)?))
+        path_arg(value, "path").map(Some)
     }
 }
 
@@ -339,7 +336,7 @@ r_entrypoint! {
     fn yaml12_read_yaml_ffi(path, multi, simplify, handlers) {
         let path = robj_arg(path);
         read_yaml(
-            path_arg(&path, "path")?.as_ref(),
+            path_arg(&path, "path")?,
             bool_arg(multi, "multi")?,
             bool_arg(simplify, "simplify")?,
             robj_arg(handlers),
@@ -376,7 +373,7 @@ r_entrypoint! {
         let path = robj_arg(path);
         write_yaml(
             value,
-            optional_path_arg(&path)?.as_deref(),
+            optional_path_arg(&path)?,
             bool_arg(multi, "multi")?,
             width_arg(width, "width")?,
         )
