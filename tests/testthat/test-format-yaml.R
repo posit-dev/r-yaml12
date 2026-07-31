@@ -19,6 +19,23 @@ test_that("format_yaml round-trips basic R lists", {
   expect_identical(parse_yaml(encoded, simplify = FALSE), obj)
 })
 
+test_that("format_yaml quotes arbitrary-sized core integer strings", {
+  values <- c(
+    "0x8000000000000000",
+    "0xFFFFFFFFFFFFFFFF",
+    "0o1000000000000000000000"
+  )
+
+  for (value in values) {
+    encoded <- format_yaml(value, width = Inf)
+
+    expect_identical(encoded, paste0("\"", value, "\""), info = value)
+    expect_identical(parse_yaml(encoded), value, info = value)
+  }
+
+  expect_identical(format_yaml("0xg", width = Inf), "0xg")
+})
+
 test_that("format_yaml wraps long strings as folded block scalars", {
   long <- paste(rep("word", 30), collapse = " ")
   encoded <- format_yaml(list(key = long))

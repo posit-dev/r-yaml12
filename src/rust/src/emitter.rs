@@ -505,15 +505,36 @@ fn is_plain_safe_char(c: char) -> bool {
         )
 }
 
+/// Check for YAML 1.2 core-schema integer syntax without parsing the value.
+fn is_core_schema_integer(string: &str) -> bool {
+    let decimal = string
+        .strip_prefix('+')
+        .or_else(|| string.strip_prefix('-'))
+        .unwrap_or(string);
+    if !decimal.is_empty() && decimal.bytes().all(|byte| byte.is_ascii_digit()) {
+        return true;
+    }
+
+    if let Some(octal) = string.strip_prefix("0o") {
+        return !octal.is_empty() && octal.bytes().all(|byte| matches!(byte, b'0'..=b'7'));
+    }
+
+    if let Some(hexadecimal) = string.strip_prefix("0x") {
+        return !hexadecimal.is_empty() && hexadecimal.bytes().all(|byte| byte.is_ascii_hexdigit());
+    }
+
+    false
+}
+
 /// Check if the string must be double-quoted rather than emitted as a plain
 /// scalar.
 ///
 /// This follows the YAML 1.2 plain-scalar grammar for block context (this
 /// emitter never emits plain scalars inside flow collections), plus the core
 /// schema for tag resolution — so `yes`, `on`, and friends are strings and do
-/// not need quoting, while anything `Scalar::parse_from_cow` (the resolver
-/// the parser applies to plain scalars) would read back as null, boolean,
-/// integer, or float does.
+/// not need quoting. Core integer syntax is detected independently because
+/// the parser's resolver is bounded to `i64`; its resolver handles nulls,
+/// booleans, and floats.
 fn need_quotes(string: &str) -> bool {
     // The empty plain scalar resolves to null.
     let Some(first) = string.chars().next() else {
@@ -521,10 +542,12 @@ fn need_quotes(string: &str) -> bool {
     };
 
     // Would be resolved as a non-string by the core schema.
-    if !matches!(
-        Scalar::parse_from_cow(Cow::Borrowed(string)),
-        Scalar::String(_)
-    ) {
+    if is_core_schema_integer(string)
+        || !matches!(
+            Scalar::parse_from_cow(Cow::Borrowed(string)),
+            Scalar::String(_)
+        )
+    {
         return true;
     }
 
