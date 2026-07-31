@@ -3,10 +3,10 @@
 //! Derived from the `saphyr` crate's emitter (`src/emitter.rs`, MIT OR
 //! Apache-2.0, <https://github.com/saphyr-rs/saphyr>), extended with:
 //!
-//! - `string_wrap_width`: long single-line strings are emitted as folded
-//!   block scalars (`>-`) wrapped at word boundaries. Folding turns each
-//!   line break back into a single space when parsed, so wrapped strings
-//!   round-trip exactly.
+//! - `string_wrap_width`: long single-line strings and paragraph-shaped
+//!   multiline strings are emitted as folded block scalars wrapped at word
+//!   boundaries. Folding round-trips the original spaces and paragraph
+//!   breaks exactly.
 //! - Mapping keys never use block styles (a block scalar cannot be an
 //!   implicit key), falling back to quoting instead.
 
@@ -18,6 +18,17 @@ use saphyr::{EmitError, Mapping, Scalar, Yaml};
 struct ColumnTrackingWriter<'a> {
     writer: &'a mut dyn fmt::Write,
     column: usize,
+}
+
+#[derive(Clone, Copy)]
+enum Chomping {
+    Strip,
+    Clip,
+}
+
+struct FoldedBlock<'a> {
+    lines: Vec<&'a str>,
+    chomping: Chomping,
 }
 
 impl fmt::Write for ColumnTrackingWriter<'_> {
@@ -143,11 +154,10 @@ impl<'a> YamlEmitter<'a> {
         self.multiline_strings = multiline_strings;
     }
 
-    /// Wrap single-line strings longer than `width` characters as folded
-    /// block scalars (`>-`), breaking at word boundaries so that emitted
+    /// Wrap long single-line strings and paragraph-shaped multiline strings
+    /// as folded block scalars, breaking at word boundaries so that emitted
     /// lines stay within `width` columns (including indentation) whenever
-    /// possible. Wrapping never changes the parsed value: folding restores
-    /// exactly one space at each break.
+    /// possible. Wrapping never changes the parsed value.
     pub fn string_wrap_width(&mut self, width: Option<usize>) {
         self.string_wrap_width = width;
     }
@@ -191,10 +201,10 @@ impl<'a> YamlEmitter<'a> {
             Yaml::Sequence(ref v) => self.emit_sequence(v),
             Yaml::Mapping(ref h) => self.emit_mapping(h),
             Yaml::Value(Scalar::String(ref v)) => {
-                if self.should_emit_string_as_block(v) {
+                if let Some(block) = self.folded_block(v) {
+                    self.emit_folded_block(&block)?;
+                } else if self.should_emit_string_as_block(v) {
                     self.emit_literal_block(v)?;
-                } else if let Some(lines) = self.folded_wrap_lines(v) {
-                    self.emit_folded_block(&lines)?;
                 } else if need_quotes(v) {
                     escape_str(&mut self.writer, v)?;
                 } else {
@@ -253,26 +263,33 @@ impl<'a> YamlEmitter<'a> {
             self.writer.write_str("|-")?;
         }
 
-        self.level += 1;
+        let indent = self.block_indent();
         // lines() will omit the last line if it is empty.
         for line in v.lines() {
             writeln!(self.writer)?;
-            self.write_indent()?;
+            if !line.is_empty() {
+                for _ in 0..indent {
+                    self.writer.write_str(" ")?;
+                }
+            }
             // It's literal text, so don't escape special chars.
             self.writer.write_str(line)?;
         }
-        self.level -= 1;
         Ok(())
     }
 
-    fn emit_folded_block(&mut self, lines: &[&str]) -> EmitResult {
-        // Wrapped strings never contain a trailing newline, so always chomp (`-`).
-        self.writer.write_str(">-")?;
-        let indent = self.folded_block_indent();
-        for line in lines {
+    fn emit_folded_block(&mut self, block: &FoldedBlock<'_>) -> EmitResult {
+        match block.chomping {
+            Chomping::Strip => self.writer.write_str(">-")?,
+            Chomping::Clip => self.writer.write_str(">")?,
+        }
+        let indent = self.block_indent();
+        for line in &block.lines {
             writeln!(self.writer)?;
-            for _ in 0..indent {
-                self.writer.write_str(" ")?;
+            if !line.is_empty() {
+                for _ in 0..indent {
+                    self.writer.write_str(" ")?;
+                }
             }
             // Block scalar content is literal text; no escaping.
             self.writer.write_str(line)?;
@@ -376,28 +393,47 @@ impl<'a> YamlEmitter<'a> {
             && is_safe_literal_block_scalar(s)
     }
 
-    /// Return the string split into folded-block lines when it should be
-    /// wrapped, or `None` to emit it on a single line.
+    /// Return a lossless folded-block representation when the string should
+    /// be wrapped, or `None` to use another scalar style.
     #[must_use]
-    fn folded_wrap_lines<'s>(&self, s: &'s str) -> Option<Vec<&'s str>> {
+    fn folded_block<'s>(&self, s: &'s str) -> Option<FoldedBlock<'s>> {
         let width = self.string_wrap_width?;
         // Keys must stay on one line.
-        if self.emitting_key || !is_foldable_string(s) {
+        if self.emitting_key {
+            return None;
+        }
+
+        let (body, chomping) = if let Some(body) = s.strip_suffix('\n') {
+            if body.ends_with('\n') {
+                return None;
+            }
+            (body, Chomping::Clip)
+        } else {
+            (s, Chomping::Strip)
+        };
+
+        if s.contains('\n') {
+            return folded_paragraphs(body, width.saturating_sub(self.block_indent()))
+                .map(|lines| FoldedBlock { lines, chomping });
+        }
+
+        if !is_foldable_string(body) {
             return None;
         }
         let inline_width = width.saturating_sub(self.writer.column);
-        let inline_overhead = if need_quotes(s) {
-            escaped_str_overhead(s)
+        let inline_overhead = if need_quotes(body) {
+            escaped_str_overhead(body)
         } else {
             0
         };
-        folded_lines(s, inline_width.saturating_sub(inline_overhead))?;
+        folded_lines(body, inline_width.saturating_sub(inline_overhead))?;
 
-        let block_width = width.saturating_sub(self.folded_block_indent());
-        Some(folded_lines(s, block_width).unwrap_or_else(|| vec![s]))
+        let block_width = width.saturating_sub(self.block_indent());
+        let lines = folded_lines(body, block_width).unwrap_or_else(|| vec![body]);
+        Some(FoldedBlock { lines, chomping })
     }
 
-    fn folded_block_indent(&self) -> usize {
+    fn block_indent(&self) -> usize {
         (self.level + 1).max(1) as usize * self.best_indent
     }
 }
@@ -410,15 +446,17 @@ fn is_valid_literal_block_scalar(string: &str) -> bool {
 }
 
 /// Check that the emitter's implicit indentation and clip chomping preserve
-/// the scalar exactly. More-indented lines and multiple trailing newlines need
-/// explicit block scalar indicators, which this emitter does not produce.
+/// the scalar exactly. The first nonempty line establishes the base
+/// indentation; later lines may be more indented. Multiple trailing newlines
+/// need an explicit block scalar indicator, which this emitter does not
+/// produce.
 fn is_safe_literal_block_scalar(string: &str) -> bool {
     is_valid_literal_block_scalar(string)
         && !string.ends_with("\n\n")
         && string
             .split('\n')
-            .filter(|line| !line.is_empty())
-            .all(|line| !line.starts_with([' ', '\t']))
+            .find(|line| !line.is_empty())
+            .map_or(true, |line| !line.starts_with([' ', '\t']))
 }
 
 /// Check that a string can be emitted as a folded block scalar without
@@ -431,6 +469,30 @@ fn is_foldable_string(s: &str) -> bool {
         && !s.ends_with([' ', '\t'])
         && !s.contains('\n')
         && is_valid_literal_block_scalar(s)
+}
+
+/// Wrap unindented, single-line paragraphs separated by exactly two newlines.
+/// Folded YAML needs two empty physical lines to preserve each paragraph break.
+fn folded_paragraphs(s: &str, width: usize) -> Option<Vec<&str>> {
+    let mut lines = Vec::new();
+    let mut wrapped = false;
+
+    for (index, paragraph) in s.split("\n\n").enumerate() {
+        if !is_foldable_string(paragraph) {
+            return None;
+        }
+        if index > 0 {
+            lines.extend(["", ""]);
+        }
+        if let Some(paragraph_lines) = folded_lines(paragraph, width) {
+            lines.extend(paragraph_lines);
+            wrapped = true;
+        } else {
+            lines.push(paragraph);
+        }
+    }
+
+    wrapped.then_some(lines)
 }
 
 /// Split `s` into lines of at most `width` characters for a folded block

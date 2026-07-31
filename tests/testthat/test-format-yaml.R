@@ -53,6 +53,17 @@ expect_scalar_serialization <- function(
   expect_identical(parse_yaml(encoded, simplify = FALSE), object, info = info)
 }
 
+expect_yaml_emission <- function(object, expected, width = 80, info = NULL) {
+  encoded <- format_yaml(object, width = width)
+  expect_identical(encoded, expected, info = info)
+  expect_identical(
+    parse_yaml(encoded, simplify = FALSE),
+    object,
+    info = info
+  )
+  invisible(encoded)
+}
+
 test_that("format_yaml emits YAML 1.2 plain strings through its public API", {
   values <- c(
     "yes",
@@ -157,7 +168,7 @@ test_that("format_yaml quotes structurally unsafe plain scalars", {
 
   expect_scalar_serialization("a\tb", "\"a\\tb\"")
   expect_scalar_serialization("\"x", "\"\\\"x\"")
-  expect_scalar_serialization("a\nb", "|-\na\nb", "\"a\\nb\": 1")
+  expect_scalar_serialization("a\nb", "|-\n  a\n  b", "\"a\\nb\": 1")
 })
 
 test_that("format_yaml wraps long strings as folded block scalars", {
@@ -166,6 +177,246 @@ test_that("format_yaml wraps long strings as folded block scalars", {
   expect_true(grepl("key: >-\n", encoded, fixed = TRUE))
   expect_true(all(nchar(strsplit(encoded, "\n")[[1]]) <= 80))
   expect_identical(parse_yaml(encoded), list(key = long))
+})
+
+test_that("format_yaml chooses folded chomping from the value", {
+  paragraph <- "alpha beta gamma delta epsilon"
+  values <- c(strip = paragraph, clip = paste0(paragraph, "\n"))
+  headers <- c(strip = ">-", clip = ">")
+
+  for (value_name in names(values)) {
+    expect_yaml_emission(
+      list(body = values[[value_name]]),
+      paste0(
+        "body: ",
+        headers[[value_name]],
+        "\n",
+        "  alpha beta gamma\n",
+        "  delta epsilon"
+      ),
+      width = 20,
+      info = value_name
+    )
+  }
+})
+
+test_that("format_yaml folds Markdown paragraph breaks losslessly", {
+  paragraph <- "alpha beta gamma delta epsilon"
+  body <- paste(paragraph, paragraph, sep = "\n\n")
+  values <- c(strip = body, clip = paste0(body, "\n"))
+  headers <- c(strip = ">-", clip = ">")
+
+  for (value_name in names(values)) {
+    encoded <- expect_yaml_emission(
+      list(body = values[[value_name]]),
+      paste0(
+        "body: ",
+        headers[[value_name]],
+        "\n",
+        "  alpha beta gamma\n",
+        "  delta epsilon\n\n\n",
+        "  alpha beta gamma\n",
+        "  delta epsilon"
+      ),
+      width = 20,
+      info = value_name
+    )
+
+    expect_true(
+      grepl("delta epsilon\n\n\n  alpha", encoded, fixed = TRUE),
+      info = value_name
+    )
+    expect_false(
+      any(grepl("[[:blank:]]+$", strsplit(encoded, "\n")[[1]])),
+      info = value_name
+    )
+  }
+})
+
+test_that("format_yaml folds paragraphs in every scalar context", {
+  paragraph <- "alpha beta gamma delta epsilon"
+  value <- paste(paragraph, paragraph, sep = "\n\n")
+  cases <- list(
+    root = list(
+      object = value,
+      expected = paste0(
+        ">-\n",
+        "  alpha beta gamma\n",
+        "  delta epsilon\n\n\n",
+        "  alpha beta gamma\n",
+        "  delta epsilon"
+      )
+    ),
+    sequence = list(
+      object = list(value),
+      expected = paste0(
+        "- >-\n",
+        "  alpha beta gamma\n",
+        "  delta epsilon\n\n\n",
+        "  alpha beta gamma\n",
+        "  delta epsilon"
+      )
+    ),
+    mapping = list(
+      object = list(body = value),
+      expected = paste0(
+        "body: >-\n",
+        "  alpha beta gamma\n",
+        "  delta epsilon\n\n\n",
+        "  alpha beta gamma\n",
+        "  delta epsilon"
+      )
+    ),
+    nested = list(
+      object = list(outer = list(body = value)),
+      expected = paste0(
+        "outer:\n",
+        "  body: >-\n",
+        "    alpha beta gamma\n",
+        "    delta epsilon\n\n\n",
+        "    alpha beta gamma\n",
+        "    delta epsilon"
+      )
+    )
+  )
+
+  for (context in names(cases)) {
+    encoded <- expect_yaml_emission(
+      cases[[context]]$object,
+      cases[[context]]$expected,
+      width = 20,
+      info = context
+    )
+    expect_true(
+      all(nchar(strsplit(encoded, "\n")[[1]]) <= 20),
+      info = context
+    )
+  }
+})
+
+test_that("format_yaml keeps line-oriented multiline strings literal", {
+  values <- c(
+    nested_list = "- outer\n  - nested",
+    blockquote = "> first quoted line\n> second quoted line",
+    code = "```r\nprint('hello')\n```"
+  )
+  for (value_name in names(values)) {
+    value <- values[[value_name]]
+    expect_yaml_emission(
+      list(body = value),
+      paste0("body: |-\n  ", gsub("\n", "\n  ", value, fixed = TRUE)),
+      width = 20,
+      info = value_name
+    )
+  }
+
+  paragraph <- "alpha beta gamma delta epsilon"
+  value <- paste(paragraph, paragraph, sep = "\n")
+  expect_yaml_emission(
+    list(body = value),
+    paste0(
+      "body: |-\n",
+      "  alpha beta gamma delta epsilon\n",
+      "  alpha beta gamma delta epsilon"
+    ),
+    width = 20
+  )
+})
+
+test_that("format_yaml emits empty literal lines without indentation", {
+  encoded <- expect_yaml_emission(
+    list(body = "alpha\n\nomega"),
+    "body: |-\n  alpha\n\n  omega"
+  )
+  expect_false(any(grepl("[[:blank:]]+$", strsplit(encoded, "\n")[[1]])))
+
+  expect_yaml_emission(
+    list(body = "\n- outer\n  - nested"),
+    "body: |-\n\n  - outer\n    - nested"
+  )
+})
+
+test_that("format_yaml indents root literal content", {
+  values <- c(
+    document_start = "foo\n---\nbar",
+    document_end = "foo\n...\nbar"
+  )
+
+  for (value_name in names(values)) {
+    value <- values[[value_name]]
+    expect_yaml_emission(
+      value,
+      paste0("|-\n  ", gsub("\n", "\n  ", value, fixed = TRUE)),
+      width = Inf,
+      info = value_name
+    )
+  }
+})
+
+test_that("format_yaml retains conservative multiline fallbacks", {
+  quoted <- list(
+    leading_spaces = c(
+      value = "  indented\nnext",
+      expected = "body: \"  indented\\nnext\""
+    ),
+    leading_tab = c(
+      value = "\tindented\nnext",
+      expected = "body: \"\\tindented\\nnext\""
+    ),
+    trailing_newlines = c(
+      value = "alpha\nbeta\n\n",
+      expected = "body: \"alpha\\nbeta\\n\\n\""
+    )
+  )
+
+  for (case_name in names(quoted)) {
+    expect_yaml_emission(
+      list(body = quoted[[case_name]][["value"]]),
+      quoted[[case_name]][["expected"]],
+      width = 20,
+      info = case_name
+    )
+  }
+
+  unsafe_gaps <- c(
+    repeated_spaces = paste0(strrep("a", 25), "  ", strrep("b", 25)),
+    tab = paste0(strrep("a", 25), "\t", strrep("b", 25))
+  )
+  for (case_name in names(unsafe_gaps)) {
+    value <- paste(unsafe_gaps[[case_name]], "tail", sep = "\n\n")
+    encoded <- format_yaml(list(body = value), width = 20)
+    expect_false(grepl("body: >", encoded, fixed = TRUE), info = case_name)
+    expect_identical(
+      parse_yaml(encoded, simplify = FALSE),
+      list(body = value),
+      info = case_name
+    )
+  }
+})
+
+test_that("format_yaml keeps paragraph-shaped mapping keys inline", {
+  paragraph <- "alpha beta gamma delta epsilon"
+  key <- paste(paragraph, paragraph, sep = "\n\n")
+  object <- setNames(list("payload"), key)
+  encoded <- format_yaml(object, width = 20)
+
+  expect_false(grepl("|", encoded, fixed = TRUE))
+  expect_false(grepl(">", encoded, fixed = TRUE))
+  expect_identical(parse_yaml(encoded, simplify = FALSE), object)
+})
+
+test_that("format_yaml leaves multiline wrapping disabled at infinite width", {
+  paragraph <- "alpha beta gamma delta epsilon"
+  value <- paste(paragraph, paragraph, sep = "\n\n")
+  expect_yaml_emission(
+    list(body = value),
+    paste0(
+      "body: |-\n",
+      "  alpha beta gamma delta epsilon\n\n",
+      "  alpha beta gamma delta epsilon"
+    ),
+    width = Inf
+  )
 })
 
 test_that("format_yaml wrapping round-trips nested structures", {
