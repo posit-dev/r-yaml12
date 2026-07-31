@@ -5,12 +5,20 @@ writes a YAML stream to a file or stdout and always emits document start
 (`---`) markers and a final end (`...`) marker. Both functions honor a
 `yaml_tag` attribute on values (see examples).
 
+Long strings are automatically wrapped: when a string would produce a
+line wider than `width` columns, it is emitted as a YAML folded block
+scalar (`>-`) broken at word boundaries. Folding turns each line break
+back into a single space, so wrapped strings round-trip through
+[`parse_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/parse_yaml.md)
+unchanged. Strings without a safe break point (e.g. no spaces) are left
+on one line, and mapping keys are never wrapped.
+
 ## Usage
 
 ``` r
-format_yaml(value, multi = FALSE)
+format_yaml(value, multi = FALSE, width = 80)
 
-write_yaml(value, path = NULL, multi = FALSE)
+write_yaml(value, path = NULL, multi = FALSE, width = 80)
 ```
 
 ## Arguments
@@ -23,6 +31,13 @@ write_yaml(value, path = NULL, multi = FALSE)
 
   When `TRUE`, treat `value` as a list of YAML documents and encode a
   stream.
+
+- width:
+
+  Target maximum line width in columns; strings that would produce wider
+  lines are wrapped. Individual lines may still exceed `width` when
+  there is no safe break point (e.g. a single long word) or under deep
+  indentation. Use `Inf` to disable wrapping.
 
 - path:
 
