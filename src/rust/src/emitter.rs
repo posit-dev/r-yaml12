@@ -46,6 +46,47 @@ pub struct YamlEmitter<'a> {
 /// A convenience alias for emitter functions that may fail without returning a value.
 pub type EmitResult = Result<(), EmitError>;
 
+fn escape_sequence(byte: u8) -> Option<&'static str> {
+    Some(match byte {
+        b'"' => "\\\"",
+        b'\\' => "\\\\",
+        b'\x00' => "\\u0000",
+        b'\x01' => "\\u0001",
+        b'\x02' => "\\u0002",
+        b'\x03' => "\\u0003",
+        b'\x04' => "\\u0004",
+        b'\x05' => "\\u0005",
+        b'\x06' => "\\u0006",
+        b'\x07' => "\\u0007",
+        b'\x08' => "\\b",
+        b'\t' => "\\t",
+        b'\n' => "\\n",
+        b'\x0b' => "\\u000b",
+        b'\x0c' => "\\f",
+        b'\r' => "\\r",
+        b'\x0e' => "\\u000e",
+        b'\x0f' => "\\u000f",
+        b'\x10' => "\\u0010",
+        b'\x11' => "\\u0011",
+        b'\x12' => "\\u0012",
+        b'\x13' => "\\u0013",
+        b'\x14' => "\\u0014",
+        b'\x15' => "\\u0015",
+        b'\x16' => "\\u0016",
+        b'\x17' => "\\u0017",
+        b'\x18' => "\\u0018",
+        b'\x19' => "\\u0019",
+        b'\x1a' => "\\u001a",
+        b'\x1b' => "\\u001b",
+        b'\x1c' => "\\u001c",
+        b'\x1d' => "\\u001d",
+        b'\x1e' => "\\u001e",
+        b'\x1f' => "\\u001f",
+        b'\x7f' => "\\u007f",
+        _ => return None,
+    })
+}
+
 // from serialize::json
 fn escape_str(wr: &mut dyn fmt::Write, v: &str) -> Result<(), fmt::Error> {
     wr.write_str("\"")?;
@@ -53,43 +94,8 @@ fn escape_str(wr: &mut dyn fmt::Write, v: &str) -> Result<(), fmt::Error> {
     let mut start = 0;
 
     for (i, byte) in v.bytes().enumerate() {
-        let escaped = match byte {
-            b'"' => "\\\"",
-            b'\\' => "\\\\",
-            b'\x00' => "\\u0000",
-            b'\x01' => "\\u0001",
-            b'\x02' => "\\u0002",
-            b'\x03' => "\\u0003",
-            b'\x04' => "\\u0004",
-            b'\x05' => "\\u0005",
-            b'\x06' => "\\u0006",
-            b'\x07' => "\\u0007",
-            b'\x08' => "\\b",
-            b'\t' => "\\t",
-            b'\n' => "\\n",
-            b'\x0b' => "\\u000b",
-            b'\x0c' => "\\f",
-            b'\r' => "\\r",
-            b'\x0e' => "\\u000e",
-            b'\x0f' => "\\u000f",
-            b'\x10' => "\\u0010",
-            b'\x11' => "\\u0011",
-            b'\x12' => "\\u0012",
-            b'\x13' => "\\u0013",
-            b'\x14' => "\\u0014",
-            b'\x15' => "\\u0015",
-            b'\x16' => "\\u0016",
-            b'\x17' => "\\u0017",
-            b'\x18' => "\\u0018",
-            b'\x19' => "\\u0019",
-            b'\x1a' => "\\u001a",
-            b'\x1b' => "\\u001b",
-            b'\x1c' => "\\u001c",
-            b'\x1d' => "\\u001d",
-            b'\x1e' => "\\u001e",
-            b'\x1f' => "\\u001f",
-            b'\x7f' => "\\u007f",
-            _ => continue,
+        let Some(escaped) = escape_sequence(byte) else {
+            continue;
         };
 
         if start < i {
@@ -107,6 +113,15 @@ fn escape_str(wr: &mut dyn fmt::Write, v: &str) -> Result<(), fmt::Error> {
 
     wr.write_str("\"")?;
     Ok(())
+}
+
+/// Extra columns added by double-quoting and escaping a string.
+fn escaped_str_overhead(v: &str) -> usize {
+    2 + v
+        .bytes()
+        .filter_map(escape_sequence)
+        .map(|escaped| escaped.len() - 1)
+        .sum::<usize>()
 }
 
 impl<'a> YamlEmitter<'a> {
@@ -371,7 +386,12 @@ impl<'a> YamlEmitter<'a> {
             return None;
         }
         let inline_width = width.saturating_sub(self.writer.column);
-        folded_lines(s, inline_width)?;
+        let inline_overhead = if need_quotes(s) {
+            escaped_str_overhead(s)
+        } else {
+            0
+        };
+        folded_lines(s, inline_width.saturating_sub(inline_overhead))?;
 
         let block_width = width.saturating_sub(self.folded_block_indent());
         Some(folded_lines(s, block_width).unwrap_or_else(|| vec![s]))

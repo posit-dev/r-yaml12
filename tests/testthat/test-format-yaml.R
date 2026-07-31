@@ -56,6 +56,25 @@ test_that("format_yaml wraps root strings within `width`", {
   expect_identical(parse_yaml(encoded), value)
 })
 
+test_that("format_yaml counts quoting when deciding to wrap", {
+  values <- c(
+    quotes = paste0("# ", strrep("a ", 38), "aa"),
+    escapes = paste0("# ", strrep("a ", 37), "\\ aa")
+  )
+
+  for (value_name in names(values)) {
+    value <- values[[value_name]]
+    encoded <- format_yaml(value, width = 80)
+
+    expect_true(startsWith(encoded, ">-\n"), info = value_name)
+    expect_true(
+      all(nchar(strsplit(encoded, "\n", fixed = TRUE)[[1]]) <= 80),
+      info = value_name
+    )
+    expect_identical(parse_yaml(encoded), value, info = value_name)
+  }
+})
+
 test_that("format_yaml respects narrow widths", {
   value <- paste(rep("aa", 12), collapse = " ")
   encoded <- format_yaml(list(key = value), width = 10)
