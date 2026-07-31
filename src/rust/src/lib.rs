@@ -1,3 +1,4 @@
+mod emitter;
 mod handlers;
 mod r_to_yaml;
 mod timestamp;
@@ -130,6 +131,22 @@ fn path_arg<'a>(value: &'a Robj, name: &str) -> Fallible<Cow<'a, str>> {
     expand_path(path)
 }
 
+/// Parse the `width` argument: a single number >= 1, or `Inf` to disable
+/// wrapping (`None`).
+fn width_arg(sexp: ffi::SEXP, name: &str) -> Fallible<Option<usize>> {
+    let value = robj_from_sexp(sexp);
+    let invalid = || api_other(format!("`{name}` must be a single number >= 1, or Inf"));
+    let width: f64 = (&value).try_into().map_err(|_| invalid())?;
+    if width.is_nan() || width < 1.0 {
+        return Err(invalid());
+    }
+    if width.is_infinite() {
+        Ok(None)
+    } else {
+        Ok(Some(width.floor() as usize))
+    }
+}
+
 fn optional_path_arg(value: &Robj) -> Fallible<Option<Cow<'_, str>>> {
     if value.is_null() {
         Ok(None)
@@ -159,16 +176,34 @@ cached_sym!(YAML_TAG_SYM, yaml_tag, sym_yaml_tag);
 
 /// Format or write R objects as YAML 1.2.
 ///
+/// @description
 /// `format_yaml()` returns YAML as a character string. `write_yaml()` writes a
 /// YAML stream to a file or stdout and always emits document start (`---`)
 /// markers and a final end (`...`) marker. Both functions honor a `yaml_tag`
 /// attribute on values (see examples).
+///
+/// Long single-line strings and multiline strings containing unindented,
+/// single-line paragraphs separated by exactly one blank line are
+/// automatically wrapped when a line would be wider than `width` columns and
+/// has a safe word boundary. Wrapped strings use a YAML folded block scalar:
+/// `>-` preserves no final newline, while `>` preserves exactly one. Paragraph
+/// breaks and all other string content round-trip through `parse_yaml()`
+/// unchanged. Strings that cannot be folded losslessly use a literal or quoted
+/// representation, and mapping keys are never wrapped.
+///
+/// Literal blocks keep physical blank lines empty and preserve later-indented
+/// lines when the first nonempty line establishes the base indentation.
 ///
 /// @param value Any R object composed of lists, atomic vectors, and scalars.
 /// @param path Scalar string file path to write YAML to when using `write_yaml()`.
 ///   Tilde prefixes (`~`) are expanded as by [base::path.expand()].
 ///   When `NULL` (the default), write to R's standard output connection.
 /// @param multi When `TRUE`, treat `value` as a list of YAML documents and encode a stream.
+/// @param width Target maximum line width in columns. Long single-line strings
+///   and unindented paragraphs with safe word boundaries are wrapped.
+///   Individual lines may still exceed `width` when there is no safe break
+///   point (e.g. a single long word) or under deep indentation. Use `Inf` to
+///   disable wrapping.
 /// @return `format_yaml()` returns a scalar character string containing YAML.
 ///   `write_yaml()` invisibly returns `value`.
 /// @rdname format_yaml
@@ -183,8 +218,8 @@ cached_sym!(YAML_TAG_SYM, yaml_tag, sym_yaml_tag);
 /// cat(tagged_yaml <- format_yaml(tagged), "\n")
 ///
 /// dput(parse_yaml(tagged_yaml))
-fn format_yaml(value: Robj, multi: bool) -> Fallible<Robj> {
-    let yaml = r_to_yaml::format_yaml_impl(&value, multi)?;
+fn format_yaml(value: Robj, multi: bool, width: Option<usize>) -> Fallible<Robj> {
+    let yaml = r_to_yaml::format_yaml_impl(&value, multi, width)?;
     let body = yaml_body(&yaml, multi);
     if body.len() > R_STRING_MAX_BYTES {
         return Err(api_other(
@@ -195,8 +230,12 @@ fn format_yaml(value: Robj, multi: bool) -> Fallible<Robj> {
 }
 
 r_entrypoint! {
-    fn yaml12_format_yaml_ffi(value, multi) {
-        format_yaml(robj_arg(value), bool_arg(multi, "multi")?)
+    fn yaml12_format_yaml_ffi(value, multi, width) {
+        format_yaml(
+            robj_arg(value),
+            bool_arg(multi, "multi")?,
+            width_arg(width, "width")?,
+        )
     }
 }
 
@@ -322,19 +361,25 @@ r_entrypoint! {
 /// tagged <- structure("1 + 1", yaml_tag = "!expr")
 /// write_yaml(tagged)
 /// @export
-fn write_yaml(value: Robj, path: Option<&str>, multi: bool) -> Fallible<Robj> {
-    r_to_yaml::write_yaml_impl(&value, path, multi)?;
+fn write_yaml(
+    value: Robj,
+    path: Option<&str>,
+    multi: bool,
+    width: Option<usize>,
+) -> Fallible<Robj> {
+    r_to_yaml::write_yaml_impl(&value, path, multi, width)?;
     Ok(value)
 }
 
 r_entrypoint! {
-    fn yaml12_write_yaml_ffi(value, path, multi) {
+    fn yaml12_write_yaml_ffi(value, path, multi, width) {
         let value = robj_arg(value);
         let path = robj_arg(path);
         write_yaml(
             value,
             optional_path_arg(&path)?.as_deref(),
             bool_arg(multi, "multi")?,
+            width_arg(width, "width")?,
         )
     }
 }

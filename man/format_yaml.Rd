@@ -5,14 +5,20 @@
 \alias{write_yaml}
 \title{Format or write R objects as YAML 1.2.}
 \usage{
-format_yaml(value, multi = FALSE)
+format_yaml(value, multi = FALSE, width = 80)
 
-write_yaml(value, path = NULL, multi = FALSE)
+write_yaml(value, path = NULL, multi = FALSE, width = 80)
 }
 \arguments{
 \item{value}{Any R object composed of lists, atomic vectors, and scalars.}
 
 \item{multi}{When \code{TRUE}, treat \code{value} as a list of YAML documents and encode a stream.}
+
+\item{width}{Target maximum line width in columns. Long single-line strings
+and unindented paragraphs with safe word boundaries are wrapped.
+Individual lines may still exceed \code{width} when there is no safe break
+point (e.g. a single long word) or under deep indentation. Use \code{Inf} to
+disable wrapping.}
 
 \item{path}{Scalar string file path to write YAML to when using \code{write_yaml()}.
 Tilde prefixes (\code{~}) are expanded as by \code{\link[base:path.expand]{base::path.expand()}}.
@@ -27,6 +33,18 @@ When \code{NULL} (the default), write to R's standard output connection.}
 YAML stream to a file or stdout and always emits document start (\verb{---})
 markers and a final end (\code{...}) marker. Both functions honor a \code{yaml_tag}
 attribute on values (see examples).
+
+Long single-line strings and multiline strings containing unindented,
+single-line paragraphs separated by exactly one blank line are
+automatically wrapped when a line would be wider than \code{width} columns and
+has a safe word boundary. Wrapped strings use a YAML folded block scalar:
+\verb{>-} preserves no final newline, while \code{>} preserves exactly one. Paragraph
+breaks and all other string content round-trip through \code{parse_yaml()}
+unchanged. Strings that cannot be folded losslessly use a literal or quoted
+representation, and mapping keys are never wrapped.
+
+Literal blocks keep physical blank lines empty and preserve later-indented
+lines when the first nonempty line establishes the base indentation.
 }
 \examples{
 cat(format_yaml(list(foo = 1, bar = list(TRUE, NA))))
