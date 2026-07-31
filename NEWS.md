@@ -7,7 +7,9 @@
   preserves exactly one. Paragraph breaks and all other string content
   round-trip through `parse_yaml()` unchanged. The new `width` argument
   controls the target line width; `width = Inf` disables folded wrapping,
-  mapping keys remain inline, and unsafe values use a lossless fallback.
+  mapping keys never use block scalars, and unsafe values use a lossless
+  fallback. Mapping keys longer than YAML's implicit-key limit use explicit
+  mapping syntax.
 
 * Multiline literal blocks now keep physical blank lines empty and preserve
   later-indented lines when the first nonempty line establishes the base

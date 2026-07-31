@@ -7,13 +7,13 @@
 //!   multiline strings are emitted as folded block scalars wrapped at word
 //!   boundaries. Folding round-trips the original spaces and paragraph
 //!   breaks exactly.
-//! - Mapping keys never use block styles (a block scalar cannot be an
-//!   implicit key), falling back to quoting instead.
+//! - Mapping keys never use block styles. Keys longer than YAML's simple-key
+//!   limit use explicit mapping syntax.
 
 use core::fmt::{self, Write as _};
 use std::borrow::Cow;
 
-use saphyr::{EmitError, Mapping, Scalar, Yaml};
+use saphyr::{EmitError, Mapping, Scalar, ScalarStyle, Tag, Yaml};
 
 struct ColumnTrackingWriter<'a> {
     writer: &'a mut dyn fmt::Write,
@@ -321,14 +321,17 @@ impl<'a> YamlEmitter<'a> {
         } else {
             self.level += 1;
             for (cnt, (k, v)) in h.iter().enumerate() {
-                let complex_key = matches!(k, Yaml::Mapping(_) | Yaml::Sequence(_));
+                let explicit_key = requires_explicit_key(k);
                 if cnt > 0 {
                     writeln!(self.writer)?;
                     self.write_indent()?;
                 }
-                if complex_key {
+                if explicit_key {
                     write!(self.writer, "?")?;
-                    self.emit_val(true, k)?;
+                    self.emitting_key = true;
+                    let key_result = self.emit_val(true, k);
+                    self.emitting_key = false;
+                    key_result?;
                     writeln!(self.writer)?;
                     self.write_indent()?;
                     write!(self.writer, ":")?;
@@ -449,14 +452,24 @@ fn is_valid_literal_block_scalar(string: &str) -> bool {
 /// the scalar exactly. The first nonempty line establishes the base
 /// indentation; later lines may be more indented. Multiple trailing newlines
 /// need an explicit block scalar indicator, which this emitter does not
-/// produce.
+/// produce. An all-empty multiline value has no base indentation and may be
+/// consumed as separation before the following node, so it is quoted.
 fn is_safe_literal_block_scalar(string: &str) -> bool {
     is_valid_literal_block_scalar(string)
         && !string.ends_with("\n\n")
         && string
             .split('\n')
             .find(|line| !line.is_empty())
-            .map_or(true, |line| !line.starts_with([' ', '\t']))
+            .is_some_and(|line| !line.starts_with([' ', '\t']))
+}
+
+fn has_edge_whitespace(string: &str) -> bool {
+    let mut chars = string.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    let last = chars.next_back().unwrap_or(first);
+    first.is_whitespace() || last.is_whitespace()
 }
 
 /// Check that a string can be emitted as a folded block scalar without
@@ -465,8 +478,7 @@ fn is_safe_literal_block_scalar(string: &str) -> bool {
 /// which would confuse indentation detection).
 fn is_foldable_string(s: &str) -> bool {
     !s.is_empty()
-        && !s.starts_with([' ', '\t'])
-        && !s.ends_with([' ', '\t'])
+        && !has_edge_whitespace(s)
         && !s.contains('\n')
         && is_valid_literal_block_scalar(s)
 }
@@ -615,7 +627,7 @@ fn need_quotes(string: &str) -> bool {
 
     // Plain scalars cannot start or end with white space, and every character
     // must be printable and single-line.
-    if string.starts_with(' ') || string.ends_with(' ') || !string.chars().all(is_plain_safe_char) {
+    if has_edge_whitespace(string) || !string.chars().all(is_plain_safe_char) {
         return true;
     }
 
@@ -642,6 +654,67 @@ fn need_quotes(string: &str) -> bool {
         b'#' => i > 0 && bytes[i - 1] == b' ',
         _ => false,
     })
+}
+
+// YAML limits an implicit simple key's emitted representation to 1024 Unicode
+// characters. Longer keys require explicit `?` / `:` mapping syntax.
+const MAX_SIMPLE_KEY_LENGTH: usize = 1024;
+
+fn rendered_string_length(string: &str) -> usize {
+    string.chars().count()
+        + if need_quotes(string) {
+            escaped_str_overhead(string)
+        } else {
+            0
+        }
+}
+
+fn rendered_tag_length(tag: &Tag) -> usize {
+    if tag.handle == "!" {
+        1 + tag.suffix.chars().count()
+    } else {
+        tag.handle.chars().count() + 1 + tag.suffix.chars().count()
+    }
+}
+
+/// Return the length of an implicit key's emitted representation, or `None`
+/// when the key requires explicit mapping syntax regardless of length.
+fn implicit_key_length(key: &Yaml<'_>) -> Option<usize> {
+    match key {
+        Yaml::Value(Scalar::String(string)) => Some(rendered_string_length(string)),
+        Yaml::Value(Scalar::Boolean(value)) => Some(if *value { 4 } else { 5 }),
+        Yaml::Value(Scalar::Integer(value)) => Some(value.to_string().len()),
+        Yaml::Value(Scalar::FloatingPoint(value)) => Some(value.to_string().len()),
+        Yaml::Value(Scalar::Null) | Yaml::BadValue => Some(1),
+        Yaml::Representation(value, style, tag) => {
+            let value_length = match style {
+                ScalarStyle::Plain => value.chars().count(),
+                ScalarStyle::SingleQuoted | ScalarStyle::DoubleQuoted => {
+                    value.chars().count().saturating_add(2)
+                }
+                ScalarStyle::Literal | ScalarStyle::Folded => return None,
+            };
+            Some(tag.as_ref().map_or(value_length, |tag| {
+                rendered_tag_length(tag)
+                    .saturating_add(1)
+                    .saturating_add(value_length)
+            }))
+        }
+        Yaml::Tagged(tag, node) => implicit_key_length(node).map(|length| {
+            rendered_tag_length(tag)
+                .saturating_add(1)
+                .saturating_add(length)
+        }),
+        Yaml::Alias(_) => Some(0),
+        Yaml::Mapping(_) | Yaml::Sequence(_) => None,
+    }
+}
+
+fn requires_explicit_key(key: &Yaml<'_>) -> bool {
+    match implicit_key_length(key) {
+        Some(length) => length > MAX_SIMPLE_KEY_LENGTH,
+        None => true,
+    }
 }
 
 #[cfg(test)]

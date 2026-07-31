@@ -543,10 +543,22 @@ test_that("format_yaml quotes long strings with unsafe whitespace", {
 })
 
 expect_yaml_roundtrip <- function(object, width = 80, info = NULL) {
-  actual <- tryCatch(
-    parse_yaml(format_yaml(object, width = width), simplify = FALSE),
-    error = identity
+  encoded <- tryCatch(format_yaml(object, width = width), error = identity)
+
+  if (inherits(encoded, "error")) {
+    fail(
+      paste("YAML emission failed:", conditionMessage(encoded)),
+      info = info
+    )
+    return(invisible())
+  }
+
+  emitted_info <- paste0(
+    "emitted YAML: ",
+    encodeString(encoded, quote = "\"")
   )
+  info <- paste(c(info, emitted_info), collapse = "\n")
+  actual <- tryCatch(parse_yaml(encoded, simplify = FALSE), error = identity)
 
   if (inherits(actual, "error")) {
     fail(
@@ -561,11 +573,90 @@ expect_yaml_roundtrip <- function(object, width = 80, info = NULL) {
     object,
     info = info
   )
+
+  invisible(encoded)
 }
 
 expect_scalar_yaml_roundtrip <- function(value, width = 80, info = NULL) {
   expect_yaml_roundtrip(list(value = value), width, info)
 }
+
+unicode_whitespace_code_points <- c(
+  0x0085L,
+  0x00a0L,
+  0x1680L,
+  0x2000L:0x200aL,
+  0x2028L,
+  0x2029L,
+  0x202fL,
+  0x205fL,
+  0x3000L
+)
+
+test_that("format_yaml uses explicit syntax for overlong mapping keys", {
+  keys <- c(
+    plain = strrep("x", 1025),
+    unicode = strrep("\u6f22", 1025),
+    escaped = strrep("\n", 512)
+  )
+
+  for (key_name in names(keys)) {
+    object <- setNames(list("payload"), keys[[key_name]])
+    encoded <- expect_yaml_roundtrip(object, width = 20, info = key_name)
+
+    expect_true(startsWith(encoded, "? "), info = key_name)
+    expect_false(grepl("? |", encoded, fixed = TRUE), info = key_name)
+    expect_false(grepl("? >", encoded, fixed = TRUE), info = key_name)
+  }
+})
+
+test_that("format_yaml keeps mapping keys at the simple-key limit implicit", {
+  keys <- c(
+    plain = strrep("x", 1024),
+    unicode = strrep("\u6f22", 1024),
+    escaped = strrep("\n", 511)
+  )
+
+  for (key_name in names(keys)) {
+    object <- setNames(list("payload"), keys[[key_name]])
+    encoded <- expect_yaml_roundtrip(object, width = 20, info = key_name)
+
+    expect_false(startsWith(encoded, "? "), info = key_name)
+  }
+})
+
+test_that("format_yaml uses explicit syntax for tagged collection keys", {
+  keys <- list(
+    sequence = structure(list(1L, 2L), yaml_tag = "!generated"),
+    mapping = structure(list(value = 1L), yaml_tag = "!generated")
+  )
+
+  for (key_name in names(keys)) {
+    object <- structure(
+      list("payload"),
+      names = "",
+      yaml_keys = list(keys[[key_name]])
+    )
+    encoded <- expect_yaml_roundtrip(object, width = 20, info = key_name)
+
+    expect_true(startsWith(encoded, "? !generated"), info = key_name)
+  }
+})
+
+test_that("format_yaml counts tags toward the simple-key limit", {
+  key <- structure(
+    "key",
+    yaml_tag = paste0("!", strrep("x", 1024))
+  )
+  object <- structure(
+    list("payload"),
+    names = "",
+    yaml_keys = list(key)
+  )
+  encoded <- expect_yaml_roundtrip(object, width = 20)
+
+  expect_true(startsWith(encoded, "? !"))
+})
 
 lorem_words <- strsplit(
   paste(
@@ -724,6 +815,45 @@ test_that("format_yaml round-trips whitespace-only strings", {
   }
 })
 
+test_that("format_yaml round-trips newline-only scalars before siblings", {
+  objects <- list(
+    sequence = list("\n", "after"),
+    mapping = list(value = "\n", after = "after"),
+    nested = list(outer = list(value = "\n", after = "after"))
+  )
+
+  for (context in names(objects)) {
+    for (width in c(20, Inf)) {
+      expect_yaml_roundtrip(
+        objects[[context]],
+        width,
+        info = sprintf("newline-only %s at width %s", context, width)
+      )
+    }
+  }
+})
+
+test_that("format_yaml round-trips Unicode whitespace-only strings", {
+  for (code_point in unicode_whitespace_code_points) {
+    value <- intToUtf8(code_point)
+    objects <- list(
+      root = value,
+      sequence = list(value),
+      mapping = list(value = value),
+      nested = list(outer = list(value = value)),
+      mapping_key = setNames(list("payload"), value)
+    )
+
+    for (context in names(objects)) {
+      expect_yaml_roundtrip(
+        objects[[context]],
+        width = Inf,
+        info = sprintf("U+%04X in %s", code_point, context)
+      )
+    }
+  }
+})
+
 test_that("format_yaml round-trips compound whitespace patterns", {
   clauses <- c(
     "Lorem ipsum dolor sit amet",
@@ -793,6 +923,197 @@ test_that("format_yaml round-trips whitespace in scalar contexts", {
         info = sprintf("%s in %s context", value_name, context_name)
       )
     }
+  }
+})
+
+test_that("format_yaml fuzzes exact string round-trips", {
+  fuzz_seed <- 20260731L
+  withr::local_seed(fuzz_seed)
+
+  widths <- c(1, 2, 5, 10, 20, 40, 80, Inf)
+  contexts <- c(
+    "root",
+    "sequence",
+    "mapping",
+    "nested",
+    "mapping_key",
+    "tagged"
+  )
+  families <- c("paragraphs", "literal", "fallback", "arbitrary")
+  paragraph_words <- c(
+    "alpha",
+    "beta",
+    "gamma",
+    "punctuation,",
+    "colon:inside",
+    "quote\"inside",
+    "back\\slash",
+    "caf\u00e9",
+    "e\u0301",
+    "\u6f22\u5b57",
+    strrep("unbreakable", 12)
+  )
+  first_lines <- c(
+    "first line",
+    "- outer",
+    "> blockquote",
+    "1. ordered item",
+    "```r"
+  )
+  later_lines <- c(
+    "second line",
+    "  - nested",
+    "    indented code",
+    "\tindented with a tab",
+    "",
+    "line with trailing space ",
+    "line with trailing tab\t"
+  )
+  unicode_whitespace <- intToUtf8(
+    unicode_whitespace_code_points,
+    multiple = TRUE
+  )
+  fallback_values <- c(
+    " leading space",
+    "trailing space ",
+    "\tleading tab",
+    "trailing tab\t",
+    "repeated  spaces",
+    "embedded\ttab",
+    "line\r\nbreak",
+    "carriage\rreturn",
+    "form\ffeed",
+    "vertical\vtab",
+    "\n",
+    "\n\n",
+    "value\n\n",
+    "value\n\n\n",
+    " \n  \n\t",
+    unicode_whitespace,
+    paste0(unicode_whitespace, "value"),
+    paste0("value", unicode_whitespace)
+  )
+  arbitrary_tokens <- c(
+    "",
+    paragraph_words,
+    "\U0001f642",
+    "-",
+    "?",
+    ":",
+    "#",
+    "---",
+    "...",
+    "[value]",
+    "{value}",
+    "'single'",
+    "\"double\"",
+    "\u0001",
+    "\u0007",
+    "\u007f",
+    unicode_whitespace
+  )
+  separators <- c(
+    "",
+    " ",
+    "  ",
+    "\t",
+    "\n",
+    "\n\n",
+    "\n\n\n",
+    " \n",
+    "\n ",
+    "\r\n",
+    "\r",
+    "\f",
+    "\v",
+    "\u00a0"
+  )
+  edges <- c("", " ", "\t", "\n", "\n\n", unicode_whitespace)
+
+  for (case in seq_len(2000L)) {
+    combination <- case - 1L
+    family <- families[[combination %% length(families) + 1L]]
+    context <- contexts[[
+      (combination %/% length(families)) %% length(contexts) + 1L
+    ]]
+    width <- widths[[
+      (combination %/% (length(families) * length(contexts))) %%
+        length(widths) +
+        1L
+    ]]
+
+    value <- switch(
+      family,
+      paragraphs = {
+        paragraph_count <- sample.int(3L, 1L)
+        paragraphs <- vapply(
+          seq_len(paragraph_count),
+          function(i) {
+            paste(
+              sample(
+                paragraph_words,
+                sample(18L:24L, 1L),
+                replace = TRUE
+              ),
+              collapse = " "
+            )
+          },
+          character(1)
+        )
+        paste0(
+          paste(paragraphs, collapse = "\n\n"),
+          if (sample(c(FALSE, TRUE), 1L)) "\n" else ""
+        )
+      },
+      literal = {
+        lines <- c(
+          sample(first_lines, 1L),
+          sample(later_lines, sample.int(6L, 1L), replace = TRUE)
+        )
+        paste0(
+          sample(c("", "\n", "\n\n"), 1L),
+          paste(lines, collapse = "\n"),
+          if (sample(c(FALSE, TRUE), 1L)) "\n" else ""
+        )
+      },
+      fallback = sample(fallback_values, 1L),
+      arbitrary = {
+        token_count <- sample.int(8L, 1L)
+        tokens <- sample(arbitrary_tokens, token_count, replace = TRUE)
+        value <- tokens[[1L]]
+        if (token_count > 1L) {
+          for (i in 2L:token_count) {
+            value <- paste0(
+              value,
+              sample(separators, 1L),
+              tokens[[i]]
+            )
+          }
+        }
+        paste0(sample(edges, 1L), value, sample(edges, 1L))
+      }
+    )
+
+    object <- switch(
+      context,
+      root = value,
+      sequence = list(value, "after"),
+      mapping = list(value = value, after = "after"),
+      nested = list(outer = list(value = value, after = "after")),
+      mapping_key = setNames(list("payload"), value),
+      tagged = structure(value, yaml_tag = "!generated")
+    )
+    info <- sprintf(
+      "seed %d, case %d, family %s, context %s, width %s, value %s",
+      fuzz_seed,
+      case,
+      family,
+      context,
+      width,
+      encodeString(value, quote = "\"")
+    )
+
+    expect_yaml_roundtrip(object, width, info)
   }
 })
 
