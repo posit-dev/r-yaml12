@@ -3,21 +3,29 @@
 YAML stream to a file or stdout and always emits document start (---)
 markers and a final end (...) marker. Both functions honor a yaml_tag
 attribute on values (see examples).
-Long strings are automatically wrapped: when a string would produce a line
-wider than width columns, it is emitted as a YAML folded block scalar
-(&amp;gt;-) broken at word boundaries. Folding turns each line break back into
-a single space, so wrapped strings round-trip through parse_yaml()
-unchanged. Strings without a safe break point (e.g. no spaces) are left on
-one line, and mapping keys are never wrapped."><meta property="og:description" content="format_yaml() returns YAML as a character string. write_yaml() writes a
+Long single-line strings and multiline strings containing unindented,
+single-line paragraphs separated by exactly one blank line are
+automatically wrapped when a line would be wider than width columns and
+has a safe word boundary. Wrapped strings use a YAML folded block scalar:
+&amp;gt;- preserves no final newline, while &amp;gt; preserves exactly one. Paragraph
+breaks and all other string content round-trip through parse_yaml()
+unchanged. Strings that cannot be folded losslessly use a literal or quoted
+representation, and mapping keys are never wrapped.
+Literal blocks keep physical blank lines empty and preserve later-indented
+lines when the first nonempty line establishes the base indentation."><meta property="og:description" content="format_yaml() returns YAML as a character string. write_yaml() writes a
 YAML stream to a file or stdout and always emits document start (---)
 markers and a final end (...) marker. Both functions honor a yaml_tag
 attribute on values (see examples).
-Long strings are automatically wrapped: when a string would produce a line
-wider than width columns, it is emitted as a YAML folded block scalar
-(&amp;gt;-) broken at word boundaries. Folding turns each line break back into
-a single space, so wrapped strings round-trip through parse_yaml()
-unchanged. Strings without a safe break point (e.g. no spaces) are left on
-one line, and mapping keys are never wrapped."><meta property="og:image" content="https://posit-dev.github.io/r-yaml12/logo.png"><meta name="robots" content="noindex"><script src="https://cdn.jsdelivr.net/gh/posit-dev/supported-by-posit/js/badge.min.js" data-max-height="43" data-light-bg="#666f76" data-light-fg="#f9f9f9"></script></head><body>
+Long single-line strings and multiline strings containing unindented,
+single-line paragraphs separated by exactly one blank line are
+automatically wrapped when a line would be wider than width columns and
+has a safe word boundary. Wrapped strings use a YAML folded block scalar:
+&amp;gt;- preserves no final newline, while &amp;gt; preserves exactly one. Paragraph
+breaks and all other string content round-trip through parse_yaml()
+unchanged. Strings that cannot be folded losslessly use a literal or quoted
+representation, and mapping keys are never wrapped.
+Literal blocks keep physical blank lines empty and preserve later-indented
+lines when the first nonempty line establishes the base indentation."><meta property="og:image" content="https://posit-dev.github.io/r-yaml12/logo.png"><meta name="robots" content="noindex"><script src="https://cdn.jsdelivr.net/gh/posit-dev/supported-by-posit/js/badge.min.js" data-max-height="43" data-light-bg="#666f76" data-light-fg="#f9f9f9"></script></head><body>
     <a href="#container" class="visually-hidden-focusable">Skip to content</a>
 
 
@@ -61,12 +69,16 @@ one line, and mapping keys are never wrapped."><meta property="og:image" content
 YAML stream to a file or stdout and always emits document start (<code>---</code>)
 markers and a final end (<code>...</code>) marker. Both functions honor a <code>yaml_tag</code>
 attribute on values (see examples).</p>
-<p>Long strings are automatically wrapped: when a string would produce a line
-wider than <code>width</code> columns, it is emitted as a YAML folded block scalar
-(<code>&gt;-</code>) broken at word boundaries. Folding turns each line break back into
-a single space, so wrapped strings round-trip through <code><a href="parse_yaml.html">parse_yaml()</a></code>
-unchanged. Strings without a safe break point (e.g. no spaces) are left on
-one line, and mapping keys are never wrapped.</p>
+<p>Long single-line strings and multiline strings containing unindented,
+single-line paragraphs separated by exactly one blank line are
+automatically wrapped when a line would be wider than <code>width</code> columns and
+has a safe word boundary. Wrapped strings use a YAML folded block scalar:
+<code>&gt;-</code> preserves no final newline, while <code>&gt;</code> preserves exactly one. Paragraph
+breaks and all other string content round-trip through <code><a href="parse_yaml.html">parse_yaml()</a></code>
+unchanged. Strings that cannot be folded losslessly use a literal or quoted
+representation, and mapping keys are never wrapped.</p>
+<p>Literal blocks keep physical blank lines empty and preserve later-indented
+lines when the first nonempty line establishes the base indentation.</p>
     </div>
 
     <div class="section level2">
@@ -89,10 +101,11 @@ one line, and mapping keys are never wrapped.</p>
 
 
 <dt id="arg-width">width<a class="anchor" aria-label="anchor" href="#arg-width"></a></dt>
-<dd><p>Target maximum line width in columns; strings that would
-produce wider lines are wrapped. Individual lines may still exceed
-<code>width</code> when there is no safe break point (e.g. a single long word) or
-under deep indentation. Use <code>Inf</code> to disable wrapping.</p></dd>
+<dd><p>Target maximum line width in columns. Long single-line strings
+and unindented paragraphs with safe word boundaries are wrapped.
+Individual lines may still exceed <code>width</code> when there is no safe break
+point (e.g. a single long word) or under deep indentation. Use <code>Inf</code> to
+disable wrapping.</p></dd>
 
 
 <dt id="arg-path">path<a class="anchor" aria-label="anchor" href="#arg-path"></a></dt>

@@ -5,13 +5,22 @@
 - [`format_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
   and
   [`write_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
-  now automatically wrap long strings: strings that would produce a line
-  wider than 80 columns are emitted as folded block scalars (`>-`)
-  broken at word boundaries. Folding restores a single space at each
-  break, so wrapped strings round-trip through
+  now automatically wrap long single-line strings and multiline strings
+  containing unindented, single-line paragraphs separated by exactly one
+  blank line. Strings with a safe word boundary are emitted as folded
+  block scalars: `>-` preserves no final newline, while `>` preserves
+  exactly one. Paragraph breaks and all other string content round-trip
+  through
   [`parse_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/parse_yaml.md)
   unchanged. The new `width` argument controls the target line width;
-  use `width = Inf` to disable wrapping.
+  `width = Inf` disables folded wrapping, mapping keys never use block
+  scalars, and unsafe values use a lossless fallback. Mapping keys
+  longer than YAML’s implicit-key limit use explicit mapping syntax.
+
+- Multiline literal blocks now keep physical blank lines empty and
+  preserve later-indented lines when the first nonempty line establishes
+  the base indentation. Root literal content is indented so document
+  markers inside a string cannot end the scalar.
 
 - [`format_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
   and

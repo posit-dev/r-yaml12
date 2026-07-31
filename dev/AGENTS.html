@@ -42,7 +42,7 @@
 <div class="section level2">
 <h2 id="map">Map<a class="anchor" aria-label="anchor" href="#map"></a></h2>
 <ul><li>
-<code>R/</code>: R API; <code>R/extendr-wrappers.R</code> is generated.</li>
+<code>R/</code>: R API; keep <code>R/extendr-wrappers.R</code> synchronized with the Rust API.</li>
 <li>
 <code>src/rust/</code>: nested Rust staticlib crate; run Cargo commands here.</li>
 <li>
@@ -54,8 +54,9 @@
 </ul></div>
 <div class="section level2">
 <h2 id="notes">Notes<a class="anchor" aria-label="anchor" href="#notes"></a></h2>
-<ul><li>Do not hand-edit generated files: <code>man/</code>, <code>NAMESPACE</code>, <code>R/extendr-wrappers.R</code>, <code>inst/AUTHORS</code>, <code>src/Makevars</code>, <code>src/Makevars.win</code>.</li>
-<li>If roxygen, Rust doc comments, exports, or Rd-facing surface change, regenerate from the package root with <code>rextendr::document(); devtools::document()</code>.</li>
+<ul><li>Do not hand-edit generated files: <code>man/</code>, <code>NAMESPACE</code>, <code>inst/AUTHORS</code>, <code>src/Makevars</code>, and <code>src/Makevars.win</code>.</li>
+<li>The custom Rust/C entrypoint layer does not expose rextendr’s <code>wrap__make_yaml12_wrappers</code> generator. Do not use <code>rextendr::document()</code>; it cannot update the checked-in wrappers.</li>
+<li>If Rust doc comments, exported signatures, or the Rd-facing surface change, update <code>R/extendr-wrappers.R</code> and <code>src/entrypoint.c</code> as applicable, then run <code>Rscript -e 'devtools::document()'</code> from the package root.</li>
 <li>Direct Cargo work happens in <code>src/rust</code>; Cargo discovery depends on the working directory.</li>
 <li>R package builds happen from the package root and invoke Rust through <code>configure*</code>, generated Makevars, and Cargo.</li>
 <li>Treat <code>src/rust/Cargo.lock</code>, <code>src/rust/vendor.tar.xz</code>, <code>src/rust/vendor-config.toml</code>, and <code>inst/AUTHORS</code> as one dependency snapshot.</li>
