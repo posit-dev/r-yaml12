@@ -223,6 +223,24 @@ test_that("tilde paths round-trip through a redirected HOME", {
   expect_identical(read_yaml("~/test.yaml"), value)
 })
 
+test_that("tilde expansion never falls back to a literal path", {
+  skip_on_os("windows")
+  workdir <- withr::local_tempdir("yaml12-workdir-")
+  dir.create(file.path(workdir, "~"))
+  writeLines("wrong: file", file.path(workdir, "~", "input.yaml"))
+  withr::local_dir(workdir)
+
+  home <- rawToChar(c(charToRaw(workdir), as.raw(255)))
+  withr::local_envvar(HOME = home)
+
+  expect_error(read_yaml("~/input.yaml"), "expanded `path` is not valid UTF-8")
+  expect_error(
+    write_yaml(list(right = "file"), "~/output.yaml"),
+    "expanded `path` is not valid UTF-8"
+  )
+  expect_false(file.exists(file.path(".", "~", "output.yaml")))
+})
+
 test_that("read_yaml errors clearly when the file cannot be read", {
   path <- tempfile("yaml12-missing-", fileext = ".yaml")
   expect_error(read_yaml(path), "Failed to read")

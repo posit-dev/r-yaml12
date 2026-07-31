@@ -115,13 +115,12 @@ fn expand_path(path: &str) -> Fallible<Cow<'_, str>> {
     let c_path =
         CString::new(path).map_err(|_| api_other("`path` must not contain embedded NUL bytes"))?;
     // R_ExpandFileName may return a pointer to a static buffer; copy it out
-    // before the next call can overwrite it. Fall back to the original path
-    // if the expansion is not valid UTF-8.
+    // before the next call can overwrite it.
     let expanded = unsafe { CStr::from_ptr(R_ExpandFileName(c_path.as_ptr())) };
-    match expanded.to_str() {
-        Ok(expanded) => Ok(Cow::Owned(expanded.to_string())),
-        Err(_) => Ok(Cow::Borrowed(path)),
-    }
+    let expanded = expanded
+        .to_str()
+        .map_err(|_| api_other("expanded `path` is not valid UTF-8"))?;
+    Ok(Cow::Owned(expanded.to_string()))
 }
 
 fn path_arg<'a>(value: &'a Robj, name: &str) -> Fallible<Cow<'a, str>> {
