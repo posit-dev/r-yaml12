@@ -10,6 +10,7 @@ use crate::r_to_yaml::yaml_body;
 use extendr_api::prelude::*;
 use extendr_ffi as ffi;
 use saphyr::{LoadableYamlNode, Yaml};
+use std::ffi::CStr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::result::Result as StdResult;
 use std::{cell::OnceCell, thread_local};
@@ -73,8 +74,11 @@ fn ffi_catch(f: impl FnOnce() -> Fallible<Robj>) -> ffi::SEXP {
 
 macro_rules! ffi_entrypoint {
     (fn $name:ident($($arg:ident: $arg_type:ty),* $(,)?) $body:block) => {
+        /// # Safety
+        ///
+        /// Arguments must satisfy the corresponding C wrapper's FFI contract.
         #[no_mangle]
-        pub extern "C" fn $name($($arg: $arg_type),*) -> ffi::SEXP {
+        pub unsafe extern "C" fn $name($($arg: $arg_type),*) -> ffi::SEXP {
             ffi_catch(|| $body)
         }
     };
@@ -109,15 +113,16 @@ fn bool_arg(sexp: ffi::SEXP, name: &str) -> Fallible<bool> {
     bool_arg_from_robj(&value, name)
 }
 
-fn path_arg<'a>(bytes: &'a [u8], name: &str) -> Fallible<&'a str> {
-    let path = std::str::from_utf8(bytes)
-        .map_err(|_| api_other(format!("`{name}` is not valid UTF-8")))?;
-    if path.as_bytes().contains(&0) {
+unsafe fn path_arg(path: *const std::os::raw::c_char, name: &str) -> Fallible<String> {
+    if path.is_null() {
         return Err(api_other(format!(
-            "`{name}` must not contain embedded NUL bytes"
+            "`{name}` must be a single, non-missing string"
         )));
     }
-    Ok(path)
+    unsafe { CStr::from_ptr(path) }
+        .to_str()
+        .map(str::to_owned)
+        .map_err(|_| api_other(format!("`{name}` is not valid UTF-8")))
 }
 
 /// Parse the `width` argument: a single number >= 1, or `Inf` to disable
@@ -317,17 +322,13 @@ fn read_yaml(path: &str, multi: bool, simplify: bool, handlers: Robj) -> Fallibl
 ffi_entrypoint! {
     fn yaml12_read_yaml_ffi(
         path: *const std::os::raw::c_char,
-        path_len: usize,
         multi: ffi::SEXP,
         simplify: ffi::SEXP,
         handlers: ffi::SEXP,
     ) {
-        if path.is_null() {
-            return Err(api_other("`path` must be a single, non-missing string"));
-        }
-        let path = unsafe { std::slice::from_raw_parts(path.cast::<u8>(), path_len) };
+        let path = unsafe { path_arg(path, "path")? };
         read_yaml(
-            path_arg(path, "path")?,
+            &path,
             bool_arg(multi, "multi")?,
             bool_arg(simplify, "simplify")?,
             robj_arg(handlers),
@@ -362,20 +363,18 @@ ffi_entrypoint! {
     fn yaml12_write_yaml_ffi(
         value: ffi::SEXP,
         path: *const std::os::raw::c_char,
-        path_len: usize,
         multi: ffi::SEXP,
         width: ffi::SEXP,
     ) {
-        let value = robj_arg(value);
         let path = if path.is_null() {
             None
         } else {
-            let bytes = unsafe { std::slice::from_raw_parts(path.cast::<u8>(), path_len) };
-            Some(path_arg(bytes, "path")?)
+            Some(unsafe { path_arg(path, "path")? })
         };
+        let value = robj_arg(value);
         write_yaml(
             value,
-            path,
+            path.as_deref(),
             bool_arg(multi, "multi")?,
             width_arg(width, "width")?,
         )
