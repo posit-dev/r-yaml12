@@ -450,6 +450,10 @@ fn is_valid_literal_block_scalar(string: &str) -> bool {
     })
 }
 
+fn first_content_byte(string: &str) -> Option<u8> {
+    string.bytes().find(|&byte| byte != b'\n')
+}
+
 /// Check that block indentation and clip chomping preserve the scalar exactly.
 /// Multiple trailing newlines require keep chomping, which this emitter does
 /// not produce. An all-empty multiline value may be consumed as separation
@@ -457,16 +461,13 @@ fn is_valid_literal_block_scalar(string: &str) -> bool {
 fn is_safe_literal_block_scalar(string: &str) -> bool {
     is_valid_literal_block_scalar(string)
         && !string.ends_with("\n\n")
-        && string.split('\n').any(|line| !line.is_empty())
+        && first_content_byte(string).is_some()
 }
 
 /// An explicit indentation indicator prevents leading spaces or a tab on the
 /// first nonempty line from being mistaken for the block's indentation.
 fn needs_explicit_block_indent(string: &str) -> bool {
-    string
-        .split('\n')
-        .find(|line| !line.is_empty())
-        .is_some_and(|line| line.starts_with([' ', '\t']))
+    matches!(first_content_byte(string), Some(b' ' | b'\t'))
 }
 
 fn has_edge_whitespace(string: &str) -> bool {
