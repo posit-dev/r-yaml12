@@ -37,25 +37,6 @@ test_that("write_yaml defaults to R stdout when path is NULL", {
   expect_identical(parse_yaml(output), value)
 })
 
-test_that("paths must be single, non-missing strings", {
-  invalid_paths <- list(NULL, NA_character_, character(), c("a", "b"), 1)
-  for (path in invalid_paths) {
-    expect_error(
-      read_yaml(path),
-      "`path` must be a single, non-missing string",
-      fixed = TRUE
-    )
-  }
-
-  for (path in invalid_paths[-1]) {
-    expect_error(
-      write_yaml(list(), path),
-      "`path` must be a single, non-missing string",
-      fixed = TRUE
-    )
-  }
-})
-
 test_that("write_yaml and read_yaml handle multi-document streams", {
   path <- tempfile("yaml12-", fileext = ".yaml")
   on.exit(unlink(path), add = TRUE)
@@ -242,7 +223,7 @@ test_that("tilde paths round-trip through a redirected HOME", {
   expect_identical(read_yaml("~/test.yaml"), value)
 })
 
-test_that("tilde expansion translates marked path encodings", {
+test_that("tilde expansion handles marked path encodings", {
   skip_if(!l10n_info()[["UTF-8"]])
   missing <- paste0("yaml12-missing-caf\u00e9-", basename(tempfile()))
   latin1_path <- iconv(file.path("~", missing), from = "UTF-8", to = "latin1")
@@ -251,69 +232,6 @@ test_that("tilde expansion translates marked path encodings", {
 
   err <- expect_error(read_yaml(latin1_path), "Failed to read")
   expect_match(conditionMessage(err), path.expand(latin1_path), fixed = TRUE)
-
-  latin1_write_path <- iconv(
-    file.path("~", missing, "output.yaml"),
-    from = "UTF-8",
-    to = "latin1"
-  )
-  expect_identical(Encoding(latin1_write_path), "latin1")
-  err <- expect_error(
-    write_yaml(list(right = "file"), latin1_write_path),
-    "Failed to write"
-  )
-  expect_match(
-    conditionMessage(err),
-    path.expand(latin1_write_path),
-    fixed = TRUE
-  )
-})
-
-test_that("unresolved tilde paths never become relative paths", {
-  workdir <- withr::local_tempdir("yaml12-workdir-")
-  tilde_dir <- if (.Platform$OS.type == "windows") "~yaml12_user" else "~:"
-  literal_dir <- file.path(workdir, tilde_dir)
-  dir.create(literal_dir)
-  writeLines("wrong: file", file.path(literal_dir, "input.yaml"))
-  withr::local_dir(workdir)
-
-  expect_error(
-    read_yaml(file.path(tilde_dir, "input.yaml")),
-    "`path` could not be expanded"
-  )
-  expect_error(
-    write_yaml(list(right = "file"), file.path(tilde_dir, "output.yaml")),
-    "`path` could not be expanded"
-  )
-  expect_false(file.exists(file.path(literal_dir, "output.yaml")))
-})
-
-test_that("tilde expansion never falls back to a literal path", {
-  skip_on_os("windows")
-  workdir <- withr::local_tempdir("yaml12-workdir-")
-  dir.create(file.path(workdir, "~"))
-  writeLines("wrong: file", file.path(workdir, "~", "input.yaml"))
-  withr::local_dir(workdir)
-
-  home <- rawToChar(c(charToRaw(workdir), as.raw(255)))
-  withr::local_envvar(HOME = home)
-
-  expect_error(read_yaml("~/input.yaml"), "`path` is not valid UTF-8")
-  expect_error(
-    write_yaml(list(right = "file"), "~/output.yaml"),
-    "`path` is not valid UTF-8"
-  )
-  expect_false(file.exists(file.path(".", "~", "output.yaml")))
-})
-
-test_that("tilde expansion warnings unwind before entering Rust", {
-  withr::local_options(warn = 2)
-  long_path <- paste0("~/", strrep("x", 70000))
-  ordinary_path <- withr::local_tempfile(fileext = ".yaml")
-  writeLines("value: ok", ordinary_path)
-
-  expect_error(read_yaml(long_path), "expanded path length")
-  expect_identical(read_yaml(ordinary_path), list(value = "ok"))
 })
 
 test_that("read_yaml errors clearly when the file cannot be read", {

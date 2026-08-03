@@ -10,7 +10,6 @@ use crate::r_to_yaml::yaml_body;
 use extendr_api::prelude::*;
 use extendr_ffi as ffi;
 use saphyr::{LoadableYamlNode, Yaml};
-use std::ffi::CStr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::result::Result as StdResult;
 use std::{cell::OnceCell, thread_local};
@@ -72,22 +71,11 @@ fn ffi_catch(f: impl FnOnce() -> Fallible<Robj>) -> ffi::SEXP {
     }
 }
 
-macro_rules! ffi_entrypoint {
-    (fn $name:ident($($arg:ident: $arg_type:ty),* $(,)?) $body:block) => {
-        /// # Safety
-        ///
-        /// Arguments must satisfy the corresponding C wrapper's FFI contract.
-        #[no_mangle]
-        pub unsafe extern "C" fn $name($($arg: $arg_type),*) -> ffi::SEXP {
-            ffi_catch(|| $body)
-        }
-    };
-}
-
 macro_rules! r_entrypoint {
     (fn $name:ident($($arg:ident),* $(,)?) $body:block) => {
-        ffi_entrypoint! {
-            fn $name($($arg: ffi::SEXP),*) $body
+        #[no_mangle]
+        pub extern "C" fn $name($($arg: ffi::SEXP),*) -> ffi::SEXP {
+            ffi_catch(|| $body)
         }
     };
 }
@@ -113,16 +101,10 @@ fn bool_arg(sexp: ffi::SEXP, name: &str) -> Fallible<bool> {
     bool_arg_from_robj(&value, name)
 }
 
-unsafe fn path_arg(path: *const std::os::raw::c_char, name: &str) -> Fallible<String> {
-    if path.is_null() {
-        return Err(api_other(format!(
-            "`{name}` must be a single, non-missing string"
-        )));
-    }
-    unsafe { CStr::from_ptr(path) }
-        .to_str()
-        .map(str::to_owned)
-        .map_err(|_| api_other(format!("`{name}` is not valid UTF-8")))
+fn path_arg<'a>(value: &'a Robj, name: &str) -> Fallible<&'a str> {
+    value
+        .try_into()
+        .map_err(|_| api_other(format!("`{name}` must be a single, non-missing string")))
 }
 
 /// Parse the `width` argument: a single number >= 1, or `Inf` to disable
@@ -138,6 +120,16 @@ fn width_arg(sexp: ffi::SEXP, name: &str) -> Fallible<Option<usize>> {
         Ok(None)
     } else {
         Ok(Some(width.floor() as usize))
+    }
+}
+
+fn optional_path_arg(value: &Robj) -> Fallible<Option<&str>> {
+    if value.is_null() {
+        Ok(None)
+    } else {
+        Ok(Some(value.as_str().ok_or_else(|| {
+            api_other("`path` must be NULL or a single, non-missing string")
+        })?))
     }
 }
 
@@ -319,16 +311,11 @@ fn read_yaml(path: &str, multi: bool, simplify: bool, handlers: Robj) -> Fallibl
     yaml_to_r::read_yaml_impl(path, multi, simplify, handlers)
 }
 
-ffi_entrypoint! {
-    fn yaml12_read_yaml_ffi(
-        path: *const std::os::raw::c_char,
-        multi: ffi::SEXP,
-        simplify: ffi::SEXP,
-        handlers: ffi::SEXP,
-    ) {
-        let path = unsafe { path_arg(path, "path")? };
+r_entrypoint! {
+    fn yaml12_read_yaml_ffi(path, multi, simplify, handlers) {
+        let path = robj_arg(path);
         read_yaml(
-            &path,
+            path_arg(&path, "path")?,
             bool_arg(multi, "multi")?,
             bool_arg(simplify, "simplify")?,
             robj_arg(handlers),
@@ -359,22 +346,13 @@ fn write_yaml(
     Ok(value)
 }
 
-ffi_entrypoint! {
-    fn yaml12_write_yaml_ffi(
-        value: ffi::SEXP,
-        path: *const std::os::raw::c_char,
-        multi: ffi::SEXP,
-        width: ffi::SEXP,
-    ) {
-        let path = if path.is_null() {
-            None
-        } else {
-            Some(unsafe { path_arg(path, "path")? })
-        };
+r_entrypoint! {
+    fn yaml12_write_yaml_ffi(value, path, multi, width) {
         let value = robj_arg(value);
+        let path = robj_arg(path);
         write_yaml(
             value,
-            path.as_deref(),
+            optional_path_arg(&path)?,
             bool_arg(multi, "multi")?,
             width_arg(width, "width")?,
         )

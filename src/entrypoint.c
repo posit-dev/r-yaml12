@@ -3,7 +3,6 @@
 
 #include <Rinternals.h>
 #include <R_ext/Rdynload.h>
-#include <R_ext/Utils.h>
 #include <setjmp.h>
 #include <stdint.h>
 
@@ -13,37 +12,25 @@ void not_so_long_jump(void *jmpbuf, Rboolean jump);
 SEXP yaml12_dbg_yaml_ffi(SEXP text);
 SEXP yaml12_format_yaml_ffi(SEXP value, SEXP multi, SEXP width);
 SEXP yaml12_parse_yaml_ffi(SEXP text, SEXP multi, SEXP simplify, SEXP handlers);
-SEXP yaml12_read_yaml_ffi(const char *path, SEXP multi, SEXP simplify, SEXP handlers);
-SEXP yaml12_write_yaml_ffi(SEXP value, const char *path, SEXP multi, SEXP width);
+SEXP yaml12_read_yaml_ffi(SEXP path, SEXP multi, SEXP simplify, SEXP handlers);
+SEXP yaml12_write_yaml_ffi(SEXP value, SEXP path, SEXP multi, SEXP width);
 
 static uintptr_t TAGGED_POINTER_MASK = (uintptr_t)1;
 static SEXP path_expand_sym;
 
-static inline SEXP path_string(SEXP path) {
+static inline Rboolean has_tilde_prefix(SEXP path) {
     if (TYPEOF(path) != STRSXP || XLENGTH(path) != 1) {
-        Rf_error("`path` must be a single, non-missing string");
+        return FALSE;
     }
 
     SEXP string = STRING_ELT(path, 0);
-    if (string == NA_STRING) {
-        Rf_error("`path` must be a single, non-missing string");
-    }
-    return string;
+    return string != NA_STRING && CHAR(string)[0] == '~';
 }
 
-static inline SEXP expand_marked_path(SEXP path) {
+static inline SEXP expand_tilde_path(SEXP path) {
     SEXP call = PROTECT(Rf_lang2(path_expand_sym, path));
     SEXP expanded = Rf_eval(call, R_BaseEnv);
     UNPROTECT(1);
-    return expanded;
-}
-
-static inline const char *expand_native_path(const char *path) {
-    /* Borrowed static storage; Rust copies it immediately. */
-    const char *expanded = R_ExpandFileName(path);
-    if (expanded[0] == '~') {
-        Rf_error("`path` could not be expanded");
-    }
     return expanded;
 }
 
@@ -76,67 +63,23 @@ SEXP wrap__parse_yaml(SEXP text, SEXP multi, SEXP simplify, SEXP handlers) {
 }
 
 SEXP wrap__read_yaml(SEXP path, SEXP multi, SEXP simplify, SEXP handlers) {
-    SEXP string = path_string(path);
-    const char *path_data = CHAR(string);
-    if (path_data[0] != '~') {
-        return handle_result(
-            yaml12_read_yaml_ffi(path_data, multi, simplify, handlers),
-            "read_yaml"
-        );
+    if (!has_tilde_prefix(path)) {
+        return handle_result(yaml12_read_yaml_ffi(path, multi, simplify, handlers), "read_yaml");
     }
 
-    if (Rf_getCharCE(string) == CE_NATIVE) {
-        path_data = expand_native_path(path_data);
-        return handle_result(
-            yaml12_read_yaml_ffi(path_data, multi, simplify, handlers),
-            "read_yaml"
-        );
-    }
-
-    path = PROTECT(expand_marked_path(path));
-    path_data = CHAR(STRING_ELT(path, 0));
-    if (path_data[0] == '~') {
-        Rf_error("`path` could not be expanded");
-    }
-    SEXP result = handle_result(
-        yaml12_read_yaml_ffi(path_data, multi, simplify, handlers),
-        "read_yaml"
-    );
+    path = PROTECT(expand_tilde_path(path));
+    SEXP result = handle_result(yaml12_read_yaml_ffi(path, multi, simplify, handlers), "read_yaml");
     UNPROTECT(1);
     return result;
 }
 
 SEXP wrap__write_yaml(SEXP value, SEXP path, SEXP multi, SEXP width) {
-    if (path == R_NilValue) {
-        return handle_result(yaml12_write_yaml_ffi(value, NULL, multi, width), "write_yaml");
+    if (!has_tilde_prefix(path)) {
+        return handle_result(yaml12_write_yaml_ffi(value, path, multi, width), "write_yaml");
     }
 
-    SEXP string = path_string(path);
-    const char *path_data = CHAR(string);
-    if (path_data[0] != '~') {
-        return handle_result(
-            yaml12_write_yaml_ffi(value, path_data, multi, width),
-            "write_yaml"
-        );
-    }
-
-    if (Rf_getCharCE(string) == CE_NATIVE) {
-        path_data = expand_native_path(path_data);
-        return handle_result(
-            yaml12_write_yaml_ffi(value, path_data, multi, width),
-            "write_yaml"
-        );
-    }
-
-    path = PROTECT(expand_marked_path(path));
-    path_data = CHAR(STRING_ELT(path, 0));
-    if (path_data[0] == '~') {
-        Rf_error("`path` could not be expanded");
-    }
-    SEXP result = handle_result(
-        yaml12_write_yaml_ffi(value, path_data, multi, width),
-        "write_yaml"
-    );
+    path = PROTECT(expand_tilde_path(path));
+    SEXP result = handle_result(yaml12_write_yaml_ffi(value, path, multi, width), "write_yaml");
     UNPROTECT(1);
     return result;
 }
