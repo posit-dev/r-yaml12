@@ -11,10 +11,10 @@
   fallback. Mapping keys longer than YAML's implicit-key limit use explicit
   mapping syntax.
 
-* Multiline literal blocks now keep physical blank lines empty and preserve
-  later-indented lines when the first nonempty line establishes the base
-  indentation. Root literal content is indented so document markers inside a
-  string cannot end the scalar.
+* Multiline literal blocks now use explicit indentation indicators to preserve
+  leading spaces or tabs. They keep physical blank lines empty and preserve
+  later-indented lines. Root literal content is indented so document markers
+  inside a string cannot end the scalar.
 
 * `format_yaml()` and `write_yaml()` now quote strings only when YAML 1.2
   requires it. Strings such as `"yes"`, `"don't"`, `"a,b"`, `"f[0]"`, or

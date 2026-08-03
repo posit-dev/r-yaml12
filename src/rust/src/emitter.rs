@@ -256,11 +256,13 @@ impl<'a> YamlEmitter<'a> {
     }
 
     fn emit_literal_block(&mut self, v: &str) -> EmitResult {
-        let ends_with_newline = v.ends_with('\n');
-        if ends_with_newline {
-            self.writer.write_str("|")?;
-        } else {
-            self.writer.write_str("|-")?;
+        self.writer.write_str("|")?;
+        if needs_explicit_block_indent(v) {
+            let indent_indicator = self.best_indent;
+            write!(self.writer, "{indent_indicator}")?;
+        }
+        if !v.ends_with('\n') {
+            self.writer.write_str("-")?;
         }
 
         let indent = self.block_indent();
@@ -448,19 +450,23 @@ fn is_valid_literal_block_scalar(string: &str) -> bool {
     })
 }
 
-/// Check that the emitter's implicit indentation and clip chomping preserve
-/// the scalar exactly. The first nonempty line establishes the base
-/// indentation; later lines may be more indented. Multiple trailing newlines
-/// need an explicit block scalar indicator, which this emitter does not
-/// produce. An all-empty multiline value has no base indentation and may be
-/// consumed as separation before the following node, so it is quoted.
+/// Check that block indentation and clip chomping preserve the scalar exactly.
+/// Multiple trailing newlines require keep chomping, which this emitter does
+/// not produce. An all-empty multiline value may be consumed as separation
+/// before the following node, so it is quoted.
 fn is_safe_literal_block_scalar(string: &str) -> bool {
     is_valid_literal_block_scalar(string)
         && !string.ends_with("\n\n")
-        && string
-            .split('\n')
-            .find(|line| !line.is_empty())
-            .is_some_and(|line| !line.starts_with([' ', '\t']))
+        && string.split('\n').any(|line| !line.is_empty())
+}
+
+/// An explicit indentation indicator prevents leading spaces or a tab on the
+/// first nonempty line from being mistaken for the block's indentation.
+fn needs_explicit_block_indent(string: &str) -> bool {
+    string
+        .split('\n')
+        .find(|line| !line.is_empty())
+        .is_some_and(|line| line.starts_with([' ', '\t']))
 }
 
 fn has_edge_whitespace(string: &str) -> bool {

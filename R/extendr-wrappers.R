@@ -73,8 +73,9 @@ dbg_yaml <- function(text) invisible(.Call(wrap__dbg_yaml, text))
 #' unchanged. Strings that cannot be folded losslessly use a literal or quoted
 #' representation, and mapping keys are never wrapped.
 #'
-#' Literal blocks keep physical blank lines empty and preserve later-indented
-#' lines when the first nonempty line establishes the base indentation.
+#' Literal blocks use explicit indentation indicators when needed to preserve
+#' leading spaces or tabs. They keep physical blank lines empty and preserve
+#' later-indented lines.
 #'
 #' @param value Any R object composed of lists, atomic vectors, and scalars.
 #' @param path Scalar string file path to write YAML to when using `write_yaml()`.
