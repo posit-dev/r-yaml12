@@ -193,6 +193,47 @@ test_that("write_yaml snapshot aids emitter regressions", {
   expect_snapshot(readChar(path, file.info(path)$size))
 })
 
+test_that("read_yaml and write_yaml expand `~` in paths", {
+  name <- basename(tempfile("yaml12-missing-", fileext = ".yaml"))
+  tilde_path <- file.path("~", name)
+
+  err <- expect_error(read_yaml(tilde_path), "Failed to read")
+  expect_match(conditionMessage(err), path.expand(tilde_path), fixed = TRUE)
+
+  tilde_write_path <- file.path("~", name, "nested.yaml")
+  err <- expect_error(
+    write_yaml(list(a = 1L), tilde_write_path),
+    "Failed to write"
+  )
+  expect_match(
+    conditionMessage(err),
+    path.expand(tilde_write_path),
+    fixed = TRUE
+  )
+})
+
+test_that("tilde paths round-trip through a redirected HOME", {
+  skip_on_os("windows")
+  home <- withr::local_tempdir("yaml12-home-")
+  withr::local_envvar(HOME = home)
+
+  value <- list(alpha = 1L, beta = "two")
+  write_yaml(value, "~/test.yaml")
+  expect_true(file.exists(file.path(home, "test.yaml")))
+  expect_identical(read_yaml("~/test.yaml"), value)
+})
+
+test_that("tilde expansion handles marked path encodings", {
+  skip_if(!l10n_info()[["UTF-8"]])
+  missing <- paste0("yaml12-missing-caf\u00e9-", basename(tempfile()))
+  latin1_path <- iconv(file.path("~", missing), from = "UTF-8", to = "latin1")
+  skip_if(is.na(latin1_path))
+  expect_identical(Encoding(latin1_path), "latin1")
+
+  err <- expect_error(read_yaml(latin1_path), "Failed to read")
+  expect_match(conditionMessage(err), path.expand(latin1_path), fixed = TRUE)
+})
+
 test_that("read_yaml errors clearly when the file cannot be read", {
   path <- tempfile("yaml12-missing-", fileext = ".yaml")
   expect_error(read_yaml(path), "Failed to read")

@@ -15,7 +15,8 @@ NULL
 #' Mappings with keys that are not all simple scalar strings are returned as a named list with a `yaml_keys` attribute.
 #'
 #' @param text Character vector; elements are concatenated with `"\n"`.
-#' @param path Scalar string path to a YAML file`.
+#' @param path Scalar string path to a YAML file. Tilde prefixes (`~`) are
+#'   expanded as by [base::path.expand()].
 #' @param multi When `TRUE`, return a list containing all documents in the stream.
 #' @param simplify When `FALSE`, keep YAML sequences as R lists instead of simplifying to atomic vectors.
 #' @param handlers Named list of R functions with names corresponding to YAML tags; matching handlers transform tagged values.
@@ -79,6 +80,7 @@ dbg_yaml <- function(text) invisible(.Call(wrap__dbg_yaml, text))
 #'
 #' @param value Any R object composed of lists, atomic vectors, and scalars.
 #' @param path Scalar string file path to write YAML to when using `write_yaml()`.
+#'   Tilde prefixes (`~`) are expanded as by [base::path.expand()].
 #'   When `NULL` (the default), write to R's standard output connection.
 #' @param multi When `TRUE`, treat `value` as a list of YAML documents and encode a stream.
 #' @param width Target maximum line width in columns. Long single-line strings

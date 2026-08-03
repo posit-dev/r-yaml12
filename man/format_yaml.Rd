@@ -21,6 +21,7 @@ point (e.g. a single long word) or under deep indentation. Use \code{Inf} to
 disable wrapping.}
 
 \item{path}{Scalar string file path to write YAML to when using \code{write_yaml()}.
+Tilde prefixes (\code{~}) are expanded as by \code{\link[base:path.expand]{base::path.expand()}}.
 When \code{NULL} (the default), write to R's standard output connection.}
 }
 \value{

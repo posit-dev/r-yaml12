@@ -16,6 +16,23 @@ SEXP yaml12_read_yaml_ffi(SEXP path, SEXP multi, SEXP simplify, SEXP handlers);
 SEXP yaml12_write_yaml_ffi(SEXP value, SEXP path, SEXP multi, SEXP width);
 
 static uintptr_t TAGGED_POINTER_MASK = (uintptr_t)1;
+static SEXP path_expand_sym;
+
+static inline Rboolean has_tilde_prefix(SEXP path) {
+    if (TYPEOF(path) != STRSXP || XLENGTH(path) != 1) {
+        return FALSE;
+    }
+
+    SEXP string = STRING_ELT(path, 0);
+    return string != NA_STRING && CHAR(string)[0] == '~';
+}
+
+static inline SEXP expand_tilde_path(SEXP path) {
+    SEXP call = PROTECT(Rf_lang2(path_expand_sym, path));
+    SEXP expanded = Rf_eval(call, R_BaseEnv);
+    UNPROTECT(1);
+    return expanded;
+}
 
 static SEXP handle_result(SEXP res_, const char *call_name) {
     uintptr_t res = (uintptr_t)res_;
@@ -46,11 +63,25 @@ SEXP wrap__parse_yaml(SEXP text, SEXP multi, SEXP simplify, SEXP handlers) {
 }
 
 SEXP wrap__read_yaml(SEXP path, SEXP multi, SEXP simplify, SEXP handlers) {
-    return handle_result(yaml12_read_yaml_ffi(path, multi, simplify, handlers), "read_yaml");
+    if (!has_tilde_prefix(path)) {
+        return handle_result(yaml12_read_yaml_ffi(path, multi, simplify, handlers), "read_yaml");
+    }
+
+    path = PROTECT(expand_tilde_path(path));
+    SEXP result = handle_result(yaml12_read_yaml_ffi(path, multi, simplify, handlers), "read_yaml");
+    UNPROTECT(1);
+    return result;
 }
 
 SEXP wrap__write_yaml(SEXP value, SEXP path, SEXP multi, SEXP width) {
-    return handle_result(yaml12_write_yaml_ffi(value, path, multi, width), "write_yaml");
+    if (!has_tilde_prefix(path)) {
+        return handle_result(yaml12_write_yaml_ffi(value, path, multi, width), "write_yaml");
+    }
+
+    path = PROTECT(expand_tilde_path(path));
+    SEXP result = handle_result(yaml12_write_yaml_ffi(value, path, multi, width), "write_yaml");
+    UNPROTECT(1);
+    return result;
 }
 
 static const R_CallMethodDef CallEntries[] = {
@@ -63,6 +94,7 @@ static const R_CallMethodDef CallEntries[] = {
 };
 
 void R_init_yaml12(void *dll) {
+    path_expand_sym = Rf_install("path.expand");
     R_registerRoutines((DllInfo *)dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols((DllInfo *)dll, FALSE);
     R_forceSymbols((DllInfo *)dll, TRUE);
