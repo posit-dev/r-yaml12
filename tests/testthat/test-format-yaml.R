@@ -353,16 +353,61 @@ test_that("format_yaml indents root literal content", {
   }
 })
 
+test_that("format_yaml explicitly indents literal blocks with leading whitespace", {
+  value <- "  indented\nnext"
+  cases <- list(
+    root = list(
+      object = value,
+      expected = "|2-\n    indented\n  next"
+    ),
+    sequence = list(
+      object = list(value),
+      expected = "- |2-\n    indented\n  next"
+    ),
+    mapping = list(
+      object = list(body = value),
+      expected = "body: |2-\n    indented\n  next"
+    ),
+    nested = list(
+      object = list(outer = list(body = value)),
+      expected = "outer:\n  body: |2-\n      indented\n    next"
+    )
+  )
+
+  for (context in names(cases)) {
+    expect_yaml_emission(
+      cases[[context]]$object,
+      cases[[context]]$expected,
+      info = context
+    )
+  }
+
+  values <- list(
+    leading_tab = list(
+      value = "\tindented\nnext",
+      expected = "body: |2-\n  \tindented\n  next"
+    ),
+    leading_empty_line = list(
+      value = "\n  indented\nnext",
+      expected = "body: |2-\n\n    indented\n  next"
+    ),
+    clip = list(
+      value = "  indented\nnext\n",
+      expected = "body: |2\n    indented\n  next"
+    )
+  )
+
+  for (case_name in names(values)) {
+    expect_yaml_emission(
+      list(body = values[[case_name]]$value),
+      values[[case_name]]$expected,
+      info = case_name
+    )
+  }
+})
+
 test_that("format_yaml retains conservative multiline fallbacks", {
   quoted <- list(
-    leading_spaces = c(
-      value = "  indented\nnext",
-      expected = "body: \"  indented\\nnext\""
-    ),
-    leading_tab = c(
-      value = "\tindented\nnext",
-      expected = "body: \"\\tindented\\nnext\""
-    ),
     trailing_newlines = c(
       value = "alpha\nbeta\n\n",
       expected = "body: \"alpha\\nbeta\\n\\n\""
