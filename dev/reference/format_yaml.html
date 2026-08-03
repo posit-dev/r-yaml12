@@ -11,8 +11,9 @@ has a safe word boundary. Wrapped strings use a YAML folded block scalar:
 breaks and all other string content round-trip through parse_yaml()
 unchanged. Strings that cannot be folded losslessly use a literal or quoted
 representation, and mapping keys are never wrapped.
-Literal blocks keep physical blank lines empty and preserve later-indented
-lines when the first nonempty line establishes the base indentation."><meta property="og:description" content="format_yaml() returns YAML as a character string. write_yaml() writes a
+Literal blocks use explicit indentation indicators when needed to preserve
+leading spaces or tabs. They keep physical blank lines empty and preserve
+later-indented lines."><meta property="og:description" content="format_yaml() returns YAML as a character string. write_yaml() writes a
 YAML stream to a file or stdout and always emits document start (---)
 markers and a final end (...) marker. Both functions honor a yaml_tag
 attribute on values (see examples).
@@ -24,8 +25,9 @@ has a safe word boundary. Wrapped strings use a YAML folded block scalar:
 breaks and all other string content round-trip through parse_yaml()
 unchanged. Strings that cannot be folded losslessly use a literal or quoted
 representation, and mapping keys are never wrapped.
-Literal blocks keep physical blank lines empty and preserve later-indented
-lines when the first nonempty line establishes the base indentation."><meta property="og:image" content="https://posit-dev.github.io/r-yaml12/logo.png"><meta name="robots" content="noindex"><script src="https://cdn.jsdelivr.net/gh/posit-dev/supported-by-posit/js/badge.min.js" data-max-height="43" data-light-bg="#666f76" data-light-fg="#f9f9f9"></script></head><body>
+Literal blocks use explicit indentation indicators when needed to preserve
+leading spaces or tabs. They keep physical blank lines empty and preserve
+later-indented lines."><meta property="og:image" content="https://posit-dev.github.io/r-yaml12/logo.png"><meta name="robots" content="noindex"><script src="https://cdn.jsdelivr.net/gh/posit-dev/supported-by-posit/js/badge.min.js" data-max-height="43" data-light-bg="#666f76" data-light-fg="#f9f9f9"></script></head><body>
     <a href="#container" class="visually-hidden-focusable">Skip to content</a>
 
 
@@ -77,8 +79,9 @@ has a safe word boundary. Wrapped strings use a YAML folded block scalar:
 breaks and all other string content round-trip through <code><a href="parse_yaml.html">parse_yaml()</a></code>
 unchanged. Strings that cannot be folded losslessly use a literal or quoted
 representation, and mapping keys are never wrapped.</p>
-<p>Literal blocks keep physical blank lines empty and preserve later-indented
-lines when the first nonempty line establishes the base indentation.</p>
+<p>Literal blocks use explicit indentation indicators when needed to preserve
+leading spaces or tabs. They keep physical blank lines empty and preserve
+later-indented lines.</p>
     </div>
 
     <div class="section level2">
