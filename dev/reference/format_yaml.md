@@ -49,7 +49,9 @@ write_yaml(value, path = NULL, multi = FALSE, width = 80)
 - path:
 
   Scalar string file path to write YAML to when using `write_yaml()`.
-  When `NULL` (the default), write to R's standard output connection.
+  Tilde prefixes (`~`) are expanded as by
+  [`base::path.expand()`](https://rdrr.io/r/base/path.expand.html). When
+  `NULL` (the default), write to R's standard output connection.
 
 ## Value
 

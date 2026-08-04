@@ -35,6 +35,13 @@
   indicators, `": "`, `" #"`, leading/trailing white space, or
   document-marker prefixes).
 
+- [`read_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/parse_yaml.md)
+  and
+  [`write_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
+  now expand tilde prefixes (`~`) in `path`, as by
+  [`path.expand()`](https://rdrr.io/r/base/path.expand.html)
+  ([\#7](https://github.com/posit-dev/r-yaml12/issues/7)).
+
 - Updated the Rust integration to `rextendr` 0.5.0 and `extendr` 0.9.0,
   resolving `extendr` crates from crates.io. Source installs now require
   rustc 1.71 or newer. Vendored Rust crate attribution now points to

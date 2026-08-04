@@ -33,7 +33,9 @@ read_yaml(path, multi = FALSE, simplify = TRUE, handlers = NULL)
 
 - path:
 
-  Scalar string path to a YAML file\`.
+  Scalar string path to a YAML file. Tilde prefixes (`~`) are expanded
+  as by
+  [`base::path.expand()`](https://rdrr.io/r/base/path.expand.html).
 
 ## Value
 
