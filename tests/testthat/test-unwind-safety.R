@@ -150,6 +150,59 @@ test_that("handler longjmps do not poison later handler calls", {
   )
 })
 
+test_that("encoding errors do not poison later string conversions", {
+  bytes <- rawToChar(as.raw(c(0xc3, 0xa9)))
+  Encoding(bytes) <- "bytes"
+  latin1 <- bytes
+  Encoding(latin1) <- "latin1"
+
+  for (i in seq_len(25)) {
+    expect_error(
+      format_yaml(bytes),
+      'translating strings with "bytes" encoding is not allowed',
+      fixed = TRUE
+    )
+    expect_error(
+      parse_yaml(bytes),
+      'translating strings with "bytes" encoding is not allowed',
+      fixed = TRUE
+    )
+  }
+
+  expect_identical(parse_yaml(format_yaml(latin1)), "\u00c3\u00a9")
+  expect_identical(parse_yaml(latin1), "\u00c3\u00a9")
+})
+
+test_that("encoded handler results remain rooted under GC pressure", {
+  latin1 <- rawToChar(as.raw(c(0xc3, 0xa9)))
+  Encoding(latin1) <- "latin1"
+  handlers <- list(
+    "!wrap" = function(value) {
+      structure(setNames(list(value), latin1), yaml_tag = "!wrapped")
+    }
+  )
+  expected <- list(
+    value = structure(
+      setNames(list("ok"), "\u00c3\u00a9"),
+      yaml_tag = "!wrapped"
+    )
+  )
+
+  gctorture(TRUE)
+  on.exit(gctorture(FALSE), add = TRUE)
+
+  parsed <- parse_yaml(
+    "value: !wrap ok",
+    handlers = handlers,
+    simplify = FALSE
+  )
+  reparsed <- parse_yaml(format_yaml(parsed, width = Inf), simplify = FALSE)
+
+  gctorture(FALSE)
+  expect_identical(parsed, expected)
+  expect_identical(reparsed, expected)
+})
+
 test_that("warnings promoted to errors do not poison later parsing", {
   handlers <- list(
     "!warn" = function(x) {

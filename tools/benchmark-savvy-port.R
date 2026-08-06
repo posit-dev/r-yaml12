@@ -86,6 +86,14 @@ run_benchmarks <- function() {
   failing_handlers <- list("!fail" = function(value) stop(value, call. = FALSE))
   handler_yaml_1 <- handler_yaml(1L)
   handler_yaml_1000 <- handler_yaml(1000L)
+  marked_utf8 <- rawToChar(as.raw(c(0xc3, 0xa9)))
+  Encoding(marked_utf8) <- "UTF-8"
+  latin1 <- marked_utf8
+  Encoding(latin1) <- "latin1"
+  marked_utf8_line <- rawToChar(as.raw(c(0x2d, 0x20, 0xc3, 0xa9)))
+  Encoding(marked_utf8_line) <- "UTF-8"
+  latin1_line <- marked_utf8_line
+  Encoding(latin1_line) <- "latin1"
   empty_text <- character()
   write_value <- list(value = 1L)
 
@@ -161,6 +169,26 @@ run_benchmarks <- function() {
       }
       cases[[paste0("parse_string_lines_", suffix)]] <<- function() {
         parse_yaml(string_lines, simplify = FALSE)
+      }
+
+      if (size == 4096L) {
+        marked_utf8_strings <- rep(marked_utf8, size)
+        latin1_strings <- rep(latin1, size)
+        marked_utf8_lines <- rep(marked_utf8_line, size)
+        latin1_lines <- rep(latin1_line, size)
+
+        cases$format_strings_utf8_4096 <<- function() {
+          format_yaml(marked_utf8_strings, width = Inf)
+        }
+        cases$format_strings_latin1_4096 <<- function() {
+          format_yaml(latin1_strings, width = Inf)
+        }
+        cases$parse_string_lines_utf8_4096 <<- function() {
+          parse_yaml(marked_utf8_lines, simplify = FALSE)
+        }
+        cases$parse_string_lines_latin1_4096 <<- function() {
+          parse_yaml(latin1_lines, simplify = FALSE)
+        }
       }
     })
   }

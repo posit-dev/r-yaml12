@@ -171,6 +171,20 @@ test_that("parse_yaml accepts latin1 encoded input strings", {
   expect_identical(parse_yaml(latin1), "\u00e9")
 })
 
+test_that("parse_yaml honors latin1 marks on valid UTF-8 bytes", {
+  latin1 <- rawToChar(as.raw(c(0xc3, 0xa9)))
+  Encoding(latin1) <- "latin1"
+
+  expect_identical(parse_yaml(latin1), "\u00c3\u00a9")
+
+  latin1_line <- rawToChar(as.raw(c(0x2d, 0x20, 0xc3, 0xa9)))
+  Encoding(latin1_line) <- "latin1"
+  expect_identical(
+    parse_yaml(c(latin1_line, latin1_line)),
+    c("\u00c3\u00a9", "\u00c3\u00a9")
+  )
+})
+
 test_that("parse_yaml simplifies mixed numeric sequences", {
   yaml <- "[1, 2.5, 0x10, .inf, null]"
 
