@@ -4,10 +4,9 @@ use savvy::{
     OwnedRealSexp, OwnedStringSexp, Sexp, StringSexp,
 };
 use savvy_ffi as ffi;
-use std::cell::Cell;
-use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::ptr;
+use std::{slice, str};
 
 // Prefer savvy's public wrappers when they cover the operation. This module
 // holds the remaining symbol-based attribute and raw preservation helpers.
@@ -19,7 +18,24 @@ static mut TZONE_SYMBOL: ffi::SEXP = ptr::null_mut();
 
 #[allow(improper_ctypes)]
 extern "C" {
-    fn Rf_translateCharUTF8(x: ffi::SEXP) -> *const c_char;
+    fn yaml12_charsxp_encoding(x: ffi::SEXP) -> i32;
+    fn yaml12_translate_char_utf8(
+        x: ffi::SEXP,
+        out: *mut *const c_char,
+        out_len: *mut usize,
+    ) -> ffi::SEXP;
+}
+
+const CHARSXP_MUST_TRANSLATE: i32 = 0;
+const CHARSXP_UTF8: i32 = 1;
+const CHARSXP_NATIVE: i32 = 2;
+
+fn check_unwind(result: ffi::SEXP) -> Fallible<ffi::SEXP> {
+    if result as usize & 1 == 1 {
+        Err(savvy::Error::Aborted(result))
+    } else {
+        Ok(result)
+    }
 }
 
 pub(crate) fn null() -> Sexp {
@@ -195,14 +211,33 @@ pub(crate) fn has_attributes(value: &Sexp) -> bool {
 }
 
 fn charsxp_to_str(charsxp: ffi::SEXP) -> Fallible<&'static str> {
-    let ptr = Cell::new(ptr::null());
     unsafe {
-        savvy::unwind_protect(|| {
-            ptr.set(Rf_translateCharUTF8(charsxp));
-            ffi::R_NilValue
-        })?;
-        CStr::from_ptr(ptr.get())
-            .to_str()
-            .map_err(|_| api_other("Rf_translateCharUTF8 returned invalid UTF-8"))
+        let len = usize::try_from(ffi::Rf_xlength(charsxp))
+            .map_err(|_| api_other("R string has an invalid length"))?;
+        let bytes = slice::from_raw_parts(ffi::R_CHAR(charsxp).cast::<u8>(), len);
+
+        match yaml12_charsxp_encoding(charsxp) {
+            CHARSXP_UTF8 => {
+                return str::from_utf8(bytes)
+                    .map_err(|_| api_other("R UTF-8 string contains invalid UTF-8"));
+            }
+            CHARSXP_NATIVE if bytes.is_ascii() => {
+                // ASCII is valid UTF-8 under every supported native encoding.
+                return Ok(str::from_utf8_unchecked(bytes));
+            }
+            CHARSXP_MUST_TRANSLATE | CHARSXP_NATIVE => {}
+            _ => return Err(api_other("R string has an unknown encoding")),
+        }
+
+        let mut translated = ptr::null();
+        let mut translated_len = 0;
+        let result = yaml12_translate_char_utf8(charsxp, &mut translated, &mut translated_len);
+        check_unwind(result)?;
+
+        str::from_utf8(slice::from_raw_parts(
+            translated.cast::<u8>(),
+            translated_len,
+        ))
+        .map_err(|_| api_other("Rf_translateCharUTF8 returned invalid UTF-8"))
     }
 }
