@@ -203,6 +203,29 @@ test_that("encoded handler results remain rooted under GC pressure", {
   expect_identical(reparsed, expected)
 })
 
+test_that("encoded handler keys remain rooted under GC pressure", {
+  handlers <- list(
+    "!key" = function(value) {
+      key <- rawToChar(as.raw(c(0xc3, 0xa9)))
+      Encoding(key) <- "latin1"
+      key
+    }
+  )
+
+  gctorture(TRUE)
+  on.exit(gctorture(FALSE), add = TRUE)
+
+  parsed <- parse_yaml(
+    "!key foo: value",
+    handlers = handlers,
+    simplify = FALSE
+  )
+
+  gctorture(FALSE)
+  expect_identical(parsed, setNames(list("value"), "\u00c3\u00a9"))
+  expect_null(attr(parsed, "yaml_keys", exact = TRUE))
+})
+
 test_that("warnings promoted to errors do not poison later parsing", {
   handlers <- list(
     "!warn" = function(x) {

@@ -1,7 +1,5 @@
 use crate::{api_other, Fallible};
-use savvy::{
-    FunctionArgs, FunctionSexp, NotAvailableValue, OwnedListSexp, OwnedStringSexp, Sexp, StringSexp,
-};
+use savvy::{FunctionSexp, NotAvailableValue, OwnedListSexp, OwnedStringSexp, Sexp, StringSexp};
 use savvy_ffi as ffi;
 use std::os::raw::c_char;
 use std::ptr;
@@ -41,6 +39,7 @@ extern "C" {
         value_len: i32,
         is_na: i32,
     ) -> ffi::SEXP;
+    fn yaml12_call1(function: ffi::SEXP, argument: ffi::SEXP) -> ffi::SEXP;
 }
 
 const CHARSXP_MUST_TRANSLATE: i32 = 0;
@@ -209,10 +208,7 @@ pub(crate) fn set_name(list: &mut OwnedListSexp, i: usize, value: &str) -> Falli
 }
 
 pub(crate) fn call1(handler: &FunctionSexp, arg: Sexp) -> Fallible<Sexp> {
-    let arg_guard = PreservedSexp::new(arg);
-    let mut args = FunctionArgs::new();
-    args.add("", arg_guard.value())?;
-    handler.call(args).map(Into::into)
+    unsafe { check_unwind(yaml12_call1(handler.inner(), arg.0)).map(Sexp) }
 }
 
 pub(crate) fn as_string_scalar(value: &Sexp) -> Fallible<Option<&'static str>> {

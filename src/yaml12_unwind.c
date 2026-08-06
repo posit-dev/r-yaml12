@@ -49,6 +49,7 @@ SEXP yaml12_set_string_elt(SEXP strings, R_xlen_t index, const char *value,
                            int value_len, int is_na);
 SEXP yaml12_set_name(SEXP list, R_xlen_t index, const char *value,
                      int value_len, int is_na);
+SEXP yaml12_call1(SEXP function, SEXP argument);
 
 static SEXP yaml12_unwind_protect(SEXP (*fun)(void *data), void *data) {
     SEXP token = R_MakeUnwindCont();
@@ -210,4 +211,31 @@ SEXP yaml12_set_string_elt(SEXP strings, R_xlen_t index, const char *value,
 SEXP yaml12_set_name(SEXP list, R_xlen_t index, const char *value,
                      int value_len, int is_na) {
     return yaml12_set_string(list, index, value, value_len, is_na, 1);
+}
+
+struct yaml12_call1_data {
+    SEXP function;
+    SEXP argument;
+};
+
+static SEXP yaml12_call1_impl(void *data) {
+    struct yaml12_call1_data *call_data = data;
+    SEXP call = PROTECT(Rf_lang2(call_data->function, call_data->argument));
+    SEXP result = Rf_eval(call, R_GlobalEnv);
+    UNPROTECT(1);
+    return result;
+}
+
+SEXP yaml12_call1(SEXP function, SEXP argument) {
+    /* Protect a fresh argument before the unwind runner allocates its token. */
+    PROTECT(argument);
+    struct yaml12_call1_data data = {function, argument};
+    SEXP result = yaml12_unwind_protect(yaml12_call1_impl, &data);
+
+    if (((uintptr_t)result & 1) == 1) {
+        /* R_ContinueUnwind() will restore the protection stack. */
+        return result;
+    }
+    UNPROTECT(1);
+    return result;
 }

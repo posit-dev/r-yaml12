@@ -299,7 +299,10 @@ fn simplified_double_sequence_to_robj(seq: &[Yaml]) -> Fallible<Sexp> {
 }
 
 enum KeyHandlerResult {
-    BareString(&'static str),
+    BareString {
+        name: &'static str,
+        _guard: PreservedSexp,
+    },
     Preserved(PreservedSexp),
 }
 
@@ -345,11 +348,14 @@ fn mapping_to_robj(
         let key_handler_result = if let (Some(registry), Yaml::Tagged(tag, _)) = (handlers, &key) {
             if let Some(handler) = registry.get_for_tag(tag.as_ref()) {
                 let key_obj = yaml_to_robj(&mut key, simplify, handlers)?;
-                let handled = registry.apply(handler, key_obj)?;
-                Some(if let Some(name) = name_if_bare_string(&handled)? {
-                    KeyHandlerResult::BareString(name)
+                let handled = PreservedSexp::new(registry.apply(handler, key_obj)?);
+                Some(if let Some(name) = name_if_bare_string(&handled.value())? {
+                    KeyHandlerResult::BareString {
+                        name,
+                        _guard: handled,
+                    }
                 } else {
-                    KeyHandlerResult::Preserved(PreservedSexp::new(handled))
+                    KeyHandlerResult::Preserved(handled)
                 })
             } else {
                 None
@@ -374,7 +380,7 @@ fn mapping_to_robj(
     for (i, (key, key_handler_result)) in keys.iter().zip(key_handler_results.iter()).enumerate() {
         if let Some(handled) = key_handler_result {
             match handled {
-                KeyHandlerResult::BareString(name) => r_ext::set_name(&mut list, i, name)?,
+                KeyHandlerResult::BareString { name, .. } => r_ext::set_name(&mut list, i, name)?,
                 KeyHandlerResult::Preserved(_) => {
                     needs_yaml_keys_attr = true;
                 }
@@ -399,7 +405,7 @@ fn mapping_to_robj(
         let mut yaml_keys = OwnedListSexp::new(keys.len(), false)?;
         for (i, (mut key, handled_value)) in keys.into_iter().zip(key_handler_results).enumerate() {
             match handled_value {
-                Some(KeyHandlerResult::BareString(name)) => {
+                Some(KeyHandlerResult::BareString { name, .. }) => {
                     let key = r_ext::string_scalar(name)?;
                     yaml_keys.set_value(i, key)?;
                 }
