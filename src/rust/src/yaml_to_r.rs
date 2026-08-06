@@ -677,7 +677,7 @@ mod tests {
             ("!<str> true", ParsedValueKind::Boolean),
             ("!<!str> true", ParsedValueKind::Boolean),
             ("!<!!str> true", ParsedValueKind::Boolean),
-            ("!<tag:yaml.org,2002:str> true", ParsedValueKind::Boolean),
+            ("!<tag:yaml.org,2002:str> true", ParsedValueKind::String),
         ];
 
         for (input, expected_value) in cases {
