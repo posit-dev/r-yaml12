@@ -11,7 +11,8 @@ NULL
 #' returned as a named list with a `yaml_keys` attribute.
 #'
 #' @param text Character vector; elements are concatenated with `"\n"`.
-#' @param path Scalar string path to a YAML file`.
+#' @param path Scalar string path to a YAML file. Tilde prefixes (`~`) are
+#'   expanded as by [base::path.expand()].
 #' @param multi When `TRUE`, return a list containing all documents in the
 #'   stream.
 #' @param simplify When `FALSE`, keep YAML sequences as R lists instead of
@@ -61,17 +62,37 @@ dbg_yaml <- function(text) {
 
 #' Format or write R objects as YAML 1.2.
 #'
+#' @description
 #' `format_yaml()` returns YAML as a character string. `write_yaml()` writes a
 #' YAML stream to a file or stdout and always emits document start (`---`)
 #' markers and a final end (`...`) marker. Both functions honor a `yaml_tag`
 #' attribute on values (see examples).
 #'
+#' Long single-line strings and multiline strings containing unindented,
+#' single-line paragraphs separated by exactly one blank line are
+#' automatically wrapped when a line would be wider than `width` columns and
+#' has a safe word boundary. Wrapped strings use a YAML folded block scalar:
+#' `>-` preserves no final newline, while `>` preserves exactly one. Paragraph
+#' breaks and all other string content round-trip through `parse_yaml()`
+#' unchanged. Strings that cannot be folded losslessly use a literal or quoted
+#' representation, and mapping keys are never wrapped.
+#'
+#' Literal blocks use explicit indentation indicators when needed to preserve
+#' leading spaces or tabs. They keep physical blank lines empty and preserve
+#' later-indented lines.
+#'
 #' @param value Any R object composed of lists, atomic vectors, and scalars.
 #' @param path Scalar string file path to write YAML to when using
-#'   `write_yaml()`. When `NULL` (the default), write to R's standard output
-#'   connection.
+#'   `write_yaml()`. Tilde prefixes (`~`) are expanded as by
+#'   [base::path.expand()]. When `NULL` (the default), write to R's standard
+#'   output connection.
 #' @param multi When `TRUE`, treat `value` as a list of YAML documents and
 #'   encode a stream.
+#' @param width Target maximum line width in columns. Long single-line strings
+#'   and unindented paragraphs with safe word boundaries are wrapped.
+#'   Individual lines may still exceed `width` when there is no safe break
+#'   point (e.g. a single long word) or under deep indentation. Use `Inf` to
+#'   disable wrapping.
 #' @return `format_yaml()` returns a scalar character string containing YAML.
 #'   `write_yaml()` invisibly returns `value`.
 #' @rdname format_yaml
@@ -86,8 +107,8 @@ dbg_yaml <- function(text) {
 #' cat(tagged_yaml <- format_yaml(tagged), "\n")
 #'
 #' dput(parse_yaml(tagged_yaml))
-format_yaml <- function(value, multi = FALSE) {
-  .Call(savvy_format_yaml_native__impl, value, multi)
+format_yaml <- function(value, multi = FALSE, width = 80) {
+  .Call(savvy_format_yaml_native__impl, value, multi, width)
 }
 
 #' Read YAML 1.2 document(s) from a file path.
@@ -111,6 +132,6 @@ read_yaml <- function(path, multi = FALSE, simplify = TRUE, handlers = NULL) {
 #' tagged <- structure("1 + 1", yaml_tag = "!expr")
 #' write_yaml(tagged)
 #' @export
-write_yaml <- function(value, path = NULL, multi = FALSE) {
-  invisible(.Call(savvy_write_yaml_native__impl, value, multi, path))
+write_yaml <- function(value, path = NULL, multi = FALSE, width = 80) {
+  invisible(.Call(savvy_write_yaml_native__impl, value, path, multi, width))
 }

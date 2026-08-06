@@ -1,3 +1,4 @@
+mod emitter;
 mod handlers;
 mod r_ext;
 mod r_to_yaml;
@@ -8,7 +9,9 @@ mod yaml_to_r;
 use crate::r_ext::null;
 use crate::r_to_yaml::yaml_body;
 use saphyr::{LoadableYamlNode, Yaml};
-use savvy::{savvy, savvy_init, NotAvailableValue, OwnedStringSexp, Sexp, StringSexp};
+use savvy::{
+    savvy, savvy_init, NotAvailableValue, NumericScalar, OwnedStringSexp, Sexp, StringSexp,
+};
 use savvy_ffi::DllInfo;
 
 pub(crate) type Fallible<T> = savvy::Result<T>;
@@ -26,9 +29,24 @@ fn init_yaml12(_dll_info: *mut DllInfo) -> savvy::Result<()> {
     r_ext::init_symbols()
 }
 
+fn width_arg(width: Sexp, name: &str) -> savvy::Result<Option<usize>> {
+    let invalid = || api_other(format!("`{name}` must be a single number >= 1, or Inf"));
+    let width = NumericScalar::try_from(width)
+        .map_err(|_| invalid())?
+        .as_f64();
+    if width.is_nan() || width < 1.0 {
+        return Err(invalid());
+    }
+    if width.is_infinite() {
+        Ok(None)
+    } else {
+        Ok(Some(width.floor() as usize))
+    }
+}
+
 #[savvy]
-fn format_yaml_native(value: Sexp, multi: bool) -> savvy::Result<Sexp> {
-    let yaml = r_to_yaml::format_yaml_impl(&value, multi)?;
+fn format_yaml_native(value: Sexp, multi: bool, width: Sexp) -> savvy::Result<Sexp> {
+    let yaml = r_to_yaml::format_yaml_impl(&value, multi, width_arg(width, "width")?)?;
     let body = yaml_body(&yaml, multi);
     if body.len() > R_STRING_MAX_BYTES {
         return Err(api_other(
@@ -109,8 +127,8 @@ fn read_yaml_native(
 }
 
 #[savvy]
-fn write_yaml_native(value: Sexp, multi: bool, path: Sexp) -> savvy::Result<Sexp> {
+fn write_yaml_native(value: Sexp, path: Sexp, multi: bool, width: Sexp) -> savvy::Result<Sexp> {
     let path = optional_path_arg(path)?;
-    r_to_yaml::write_yaml_impl(&value, path.as_deref(), multi)?;
+    r_to_yaml::write_yaml_impl(&value, path.as_deref(), multi, width_arg(width, "width")?)?;
     Ok(value)
 }

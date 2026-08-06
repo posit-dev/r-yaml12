@@ -21,7 +21,8 @@ simplifying to atomic vectors.}
 \item{handlers}{Named list of R functions with names corresponding to YAML
 tags; matching handlers transform tagged values.}
 
-\item{path}{Scalar string path to a YAML file`.}
+\item{path}{Scalar string path to a YAML file. Tilde prefixes (\code{~}) are
+expanded as by \code{\link[base:path.expand]{base::path.expand()}}.}
 }
 \value{
 When \code{multi = FALSE}, returns a parsed R object for the first
