@@ -188,6 +188,8 @@ test_that("parse_yaml honors latin1 marks on valid UTF-8 bytes", {
 test_that("parse_yaml rejects malformed strings marked as UTF-8", {
   invalid <- rawToChar(as.raw(0xff))
   Encoding(invalid) <- "UTF-8"
+  expect_identical(Encoding(invalid), "UTF-8")
+  expect_false(validUTF8(invalid))
 
   expect_error(
     parse_yaml(invalid),

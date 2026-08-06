@@ -94,6 +94,7 @@ run_benchmarks <- function() {
   Encoding(marked_utf8_line) <- "UTF-8"
   latin1_line <- marked_utf8_line
   Encoding(latin1_line) <- "latin1"
+  ascii_65536 <- strrep("a", 65536L)
   empty_text <- character()
   write_value <- list(value = 1L)
 
@@ -116,7 +117,9 @@ run_benchmarks <- function() {
   cases <- list(
     parse_empty = function() parse_yaml(empty_text),
     parse_scalar = function() parse_yaml("value"),
+    parse_ascii_65536 = function() parse_yaml(ascii_65536),
     format_null = function() format_yaml(NULL, width = Inf),
+    format_ascii_65536 = function() format_yaml(ascii_65536, width = Inf),
     parse_error = function() {
       tryCatch(parse_yaml(NA_character_), error = identity)
     },
