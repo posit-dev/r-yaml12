@@ -57,6 +57,17 @@ test_that("format_yaml honors latin1 marks on valid UTF-8 bytes", {
   expect_identical(format_yaml(tagged, width = Inf), "!\u00c3\u00a9 value")
 })
 
+test_that("format_yaml rejects malformed strings marked as UTF-8", {
+  invalid <- rawToChar(as.raw(0xff))
+  Encoding(invalid) <- "UTF-8"
+
+  expect_error(
+    format_yaml(invalid),
+    "R UTF-8 string contains invalid UTF-8",
+    fixed = TRUE
+  )
+})
+
 test_that("format_yaml rejects bytes-encoded strings", {
   bytes <- rawToChar(as.raw(0xff))
   Encoding(bytes) <- "bytes"
