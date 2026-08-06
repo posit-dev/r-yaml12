@@ -36,7 +36,8 @@ static void yaml12_long_jump(void *buf, Rboolean jump) {
 enum yaml12_charsxp_encoding {
     YAML12_CHARSXP_MUST_TRANSLATE = 0,
     YAML12_CHARSXP_UTF8 = 1,
-    YAML12_CHARSXP_NATIVE = 2
+    YAML12_CHARSXP_NATIVE = 2,
+    YAML12_CHARSXP_ASCII = 3
 };
 
 int yaml12_charsxp_encoding(SEXP value);
@@ -67,6 +68,12 @@ static SEXP yaml12_unwind_protect(SEXP (*fun)(void *data), void *data) {
 }
 
 int yaml12_charsxp_encoding(SEXP value) {
+#if R_VERSION >= R_Version(4, 5, 0)
+    if (Rf_charIsASCII(value) == TRUE) {
+        return YAML12_CHARSXP_ASCII;
+    }
+#endif
+
     cetype_t encoding = Rf_getCharCE(value);
 
     if (encoding == CE_LATIN1 || encoding == CE_BYTES) {

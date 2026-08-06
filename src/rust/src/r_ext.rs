@@ -45,6 +45,7 @@ extern "C" {
 const CHARSXP_MUST_TRANSLATE: i32 = 0;
 const CHARSXP_UTF8: i32 = 1;
 const CHARSXP_NATIVE: i32 = 2;
+const CHARSXP_ASCII: i32 = 3;
 
 fn check_unwind(result: ffi::SEXP) -> Fallible<ffi::SEXP> {
     if result as usize & 1 == 1 {
@@ -277,7 +278,12 @@ fn charsxp_to_str(charsxp: ffi::SEXP) -> Fallible<&'static str> {
         let bytes = slice::from_raw_parts(ffi::R_CHAR(charsxp).cast::<u8>(), len);
 
         match yaml12_charsxp_encoding(charsxp) {
+            CHARSXP_ASCII => {
+                // R records this flag only after checking every byte.
+                return Ok(str::from_utf8_unchecked(bytes));
+            }
             CHARSXP_UTF8 => {
+                // R encoding marks are declarations, not validity guarantees.
                 return str::from_utf8(bytes)
                     .map_err(|_| api_other("R UTF-8 string contains invalid UTF-8"));
             }
