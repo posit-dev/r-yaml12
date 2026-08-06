@@ -1,115 +1,250 @@
-library(devtools)
-
-load_all(".", quiet = TRUE)
-
-iterations <- as.integer(Sys.getenv("YAML12_BENCH_ITERATIONS", "15"))
-stopifnot(length(iterations) == 1L, !is.na(iterations), iterations > 0L)
-
-repetitions <- as.integer(Sys.getenv("YAML12_BENCH_REPETITIONS", "20"))
-stopifnot(length(repetitions) == 1L, !is.na(repetitions), repetitions > 0L)
-
-time_expr <- function(expr, env, iterations, repetitions) {
-  timings <- numeric(iterations)
-  for (i in seq_len(iterations)) {
-    gc(FALSE)
-    elapsed <- system.time({
-      for (j in seq_len(repetitions)) {
-        eval(expr, env)
-      }
-    })[["elapsed"]]
-    timings[[i]] <- elapsed / repetitions
-  }
-  timings
+if (!requireNamespace("bench", quietly = TRUE)) {
+  stop("Install the `bench` package to run this benchmark.", call. = FALSE)
 }
 
-bench_case <- function(name, expr) {
-  timings <- time_expr(
-    substitute(expr),
-    parent.frame(),
-    iterations,
-    repetitions
-  )
-  data.frame(
-    case = name,
-    iterations = iterations,
-    repetitions = repetitions,
-    min = min(timings),
-    median = median(timings),
-    mean = mean(timings),
-    max = max(timings),
-    stringsAsFactors = FALSE
-  )
-}
-
-flat_mapping_yaml <- paste0(
-  sprintf("key_%05d: %d", seq_len(5000), seq_len(5000)),
-  collapse = "\n"
-)
-
-deep_yaml <- local({
-  depth <- 400L
-  lines <- character(depth + 1L)
-  for (i in seq_len(depth)) {
-    indent <- paste(rep("  ", i - 1L), collapse = "")
-    lines[[i]] <- sprintf("%slevel_%03d:", indent, i)
+run_benchmarks <- function() {
+  library_path <- Sys.getenv("YAML12_BENCH_LIB", "")
+  if (nzchar(library_path)) {
+    .libPaths(c(library_path, .libPaths()))
   }
-  lines[[depth + 1L]] <- paste0(
-    paste(rep("  ", depth), collapse = ""),
-    "- leaf"
+  suppressPackageStartupMessages(library(yaml12))
+
+  package_path <- find.package("yaml12")
+  dll_path <- getLoadedDLLs()[["yaml12"]][["path"]]
+  if (nzchar(library_path)) {
+    library_path <- normalizePath(library_path, winslash = "/", mustWork = TRUE)
+    package_path <- normalizePath(package_path, winslash = "/", mustWork = TRUE)
+    stopifnot(startsWith(package_path, paste0(library_path, "/")))
+  }
+
+  implementation <- Sys.getenv("YAML12_BENCH_IMPLEMENTATION", "unknown")
+  revision <- Sys.getenv("YAML12_BENCH_REVISION", "unknown")
+  run <- as.integer(Sys.getenv("YAML12_BENCH_RUN", "1"))
+  min_time <- as.numeric(Sys.getenv("YAML12_BENCH_MIN_TIME", "0.2"))
+  max_iterations <- as.integer(
+    Sys.getenv("YAML12_BENCH_MAX_ITERATIONS", "100000")
   )
-  paste(lines, collapse = "\n")
-})
 
-scalar_yaml <- paste0(
-  "- ",
-  rep(c("plain string", "12345", "123.456", "true", "false", "null"), 2500),
-  collapse = "\n"
-)
+  stopifnot(
+    length(run) == 1L,
+    !is.na(run),
+    run > 0L,
+    length(min_time) == 1L,
+    is.finite(min_time),
+    min_time > 0,
+    length(max_iterations) == 1L,
+    !is.na(max_iterations),
+    max_iterations > 0L
+  )
 
-named_list <- stats::setNames(
-  as.list(seq_len(5000)),
-  sprintf("key_%05d", seq_len(5000))
-)
+  integer_yaml <- function(n) {
+    paste0("[", paste(seq_len(n), collapse = ", "), "]")
+  }
 
-handler_yaml <- paste0(
-  "values:\n",
-  paste0("  - !upper value_", seq_len(2500), collapse = "\n")
-)
-handlers <- list("!upper" = function(x) toupper(x))
+  mixed_node <- list(
+    str = c(
+      "Lorem ipsum dolor sit amet, vel accumsan vitae faucibus ultrices leo",
+      "neque? Et cursus lacinia, ut, sit donec facilisi eu interdum. Dui",
+      "ipsum, vitae ligula commodo convallis ac sed nunc. Ipsum at nec lacus",
+      "eros suscipit vitae."
+    ),
+    block_str = "lorem \n ipsum \n dolor\n",
+    bools = c(TRUE, FALSE),
+    ints = c(123L, -123L),
+    floats = c(123.456, -123.456),
+    null = NULL
+  )
 
-nested_handler_parse <- function() {
-  handlers <- NULL
-  handlers <- list(
-    "!nest" = function(x) {
-      level <- as.integer(x)
-      if (identical(level, 20L)) {
-        return(list(level = level, value = "leaf"))
-      }
-      child <- parse_yaml(
-        sprintf("value: !nest %d", level + 1L),
-        handlers = handlers
-      )$value
-      list(level = level, child = child)
+  mixed_yaml_node <- paste(
+    "- str:",
+    "  - Lorem ipsum dolor sit amet",
+    "  - neque et cursus lacinia",
+    "  block_str: |-",
+    "    lorem",
+    "     ipsum",
+    "     dolor",
+    "  bools: [true, false]",
+    "  ints: [123, -123]",
+    "  floats: [123.456, -123.456]",
+    "  null: null",
+    sep = "\n"
+  )
+
+  mixed_yaml <- function(n) {
+    paste(rep(mixed_yaml_node, n), collapse = "\n")
+  }
+
+  handler_yaml <- function(n) {
+    paste(
+      "values:",
+      paste0("  - !identity value_", seq_len(n), collapse = "\n"),
+      sep = "\n"
+    )
+  }
+
+  handlers <- list("!identity" = identity)
+  failing_handlers <- list("!fail" = function(value) stop(value, call. = FALSE))
+  handler_yaml_1 <- handler_yaml(1L)
+  handler_yaml_1000 <- handler_yaml(1000L)
+  empty_text <- character()
+  write_value <- list(value = 1L)
+
+  home <- normalizePath(path.expand("~"), winslash = "/", mustWork = TRUE)
+  read_path <- tempfile(
+    pattern = ".yaml12-benchmark-read-",
+    fileext = ".yaml",
+    tmpdir = home
+  )
+  write_path <- tempfile(
+    pattern = ".yaml12-benchmark-write-",
+    fileext = ".yaml",
+    tmpdir = home
+  )
+  read_tilde_path <- paste0("~", substring(read_path, nchar(home) + 1L))
+  write_tilde_path <- paste0("~", substring(write_path, nchar(home) + 1L))
+  writeLines("value: 1", read_path)
+  on.exit(unlink(c(read_path, write_path)), add = TRUE)
+
+  cases <- list(
+    parse_empty = function() parse_yaml(empty_text),
+    parse_scalar = function() parse_yaml("value"),
+    format_null = function() format_yaml(NULL, width = Inf),
+    parse_error = function() {
+      tryCatch(parse_yaml(NA_character_), error = identity)
+    },
+    handler_error = function() {
+      tryCatch(
+        parse_yaml("!fail value", handlers = failing_handlers),
+        error = identity
+      )
+    },
+    handler_1 = function() {
+      parse_yaml(handler_yaml_1, handlers = handlers)
+    },
+    handler_1000 = function() {
+      parse_yaml(handler_yaml_1000, handlers = handlers)
+    },
+    read_absolute_path = function() read_yaml(read_path),
+    read_tilde_path = function() read_yaml(read_tilde_path),
+    write_absolute_path = function() {
+      write_yaml(write_value, write_path, width = Inf)
+    },
+    write_tilde_path = function() {
+      write_yaml(write_value, write_tilde_path, width = Inf)
     }
   )
-  parse_yaml("value: !nest 1", handlers = handlers)
+
+  for (n in c(64L, 4096L)) {
+    local({
+      size <- n
+      suffix <- as.character(size)
+      unnamed <- rep(list(1L), size)
+      named <- stats::setNames(unnamed, sprintf("key_%05d", seq_len(size)))
+      strings <- rep(c("alpha", "beta"), length.out = size)
+      integers <- integer_yaml(size)
+      string_lines <- rep("- value", size)
+
+      cases[[paste0("format_list_", suffix)]] <<- function() {
+        format_yaml(unnamed, width = Inf)
+      }
+      cases[[paste0("format_named_list_", suffix)]] <<- function() {
+        format_yaml(named, width = Inf)
+      }
+      cases[[paste0("format_strings_", suffix)]] <<- function() {
+        format_yaml(strings, width = Inf)
+      }
+      cases[[paste0("parse_integer_vector_", suffix)]] <<- function() {
+        parse_yaml(integers)
+      }
+      cases[[paste0("parse_integer_list_", suffix)]] <<- function() {
+        parse_yaml(integers, simplify = FALSE)
+      }
+      cases[[paste0("parse_string_lines_", suffix)]] <<- function() {
+        parse_yaml(string_lines, simplify = FALSE)
+      }
+    })
+  }
+
+  for (n in c(32L, 1024L)) {
+    local({
+      size <- n
+      suffix <- as.character(size)
+      object <- rep(list(mixed_node), size)
+      yaml <- mixed_yaml(size)
+
+      cases[[paste0("format_mixed_", suffix)]] <<- function() {
+        format_yaml(object, width = Inf)
+      }
+      cases[[paste0("parse_mixed_", suffix)]] <<- function() {
+        parse_yaml(yaml, simplify = FALSE)
+      }
+    })
+  }
+
+  case_pattern <- Sys.getenv("YAML12_BENCH_CASE_PATTERN", "")
+  if (nzchar(case_pattern)) {
+    cases <- cases[grepl(case_pattern, names(cases))]
+  }
+  if (length(cases) == 0L) {
+    stop(
+      "No benchmark cases matched `YAML12_BENCH_CASE_PATTERN`.",
+      call. = FALSE
+    )
+  }
+
+  stopifnot(
+    is.null(parse_yaml(empty_text)),
+    identical(parse_yaml("value"), "value"),
+    identical(format_yaml(NULL, width = Inf), "~"),
+    length(parse_yaml(mixed_yaml(1L), simplify = FALSE)) == 1L
+  )
+
+  set.seed(run)
+  case_order <- sample(names(cases))
+  results <- vector("list", length(case_order))
+
+  for (i in seq_along(case_order)) {
+    case <- case_order[[i]]
+    fn <- cases[[case]]
+    invisible(fn())
+    gc(FALSE)
+
+    mark <- bench::mark(
+      fn(),
+      check = FALSE,
+      memory = FALSE,
+      filter_gc = FALSE,
+      min_time = min_time,
+      max_iterations = max_iterations
+    )
+
+    results[[i]] <- data.frame(
+      implementation = implementation,
+      revision = revision,
+      run = run,
+      order = i,
+      case = case,
+      median_seconds = as.numeric(mark$median),
+      iterations_per_second = as.numeric(mark$`itr/sec`),
+      iterations = mark$n_itr,
+      garbage_collections = mark$n_gc,
+      package_version = as.character(utils::packageVersion("yaml12")),
+      package_path = package_path,
+      dll_path = dll_path,
+      r_version = R.version.string,
+      platform = R.version$platform,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  results <- do.call(rbind, results)
+  results <- results[order(results$case), ]
+  print(results, digits = 4, row.names = FALSE)
+
+  out <- Sys.getenv("YAML12_BENCH_OUT", "")
+  if (nzchar(out)) {
+    utils::write.csv(results, out, row.names = FALSE)
+  }
 }
 
-results <- rbind(
-  bench_case("parse_large_flat_mapping", parse_yaml(flat_mapping_yaml)),
-  bench_case("parse_deep_nested_mapping", parse_yaml(deep_yaml)),
-  bench_case("parse_many_scalars", parse_yaml(scalar_yaml)),
-  bench_case("format_named_list", format_yaml(named_list)),
-  bench_case(
-    "parse_handler_heavy",
-    parse_yaml(handler_yaml, handlers = handlers)
-  ),
-  bench_case("nested_handler_callbacks", nested_handler_parse())
-)
-
-print(results, digits = 4, row.names = FALSE)
-
-out <- Sys.getenv("YAML12_BENCH_OUT", "")
-if (nzchar(out)) {
-  write.csv(results, out, row.names = FALSE)
-}
+run_benchmarks()
