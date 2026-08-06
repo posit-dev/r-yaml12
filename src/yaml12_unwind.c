@@ -41,6 +41,14 @@ enum yaml12_charsxp_encoding {
 
 int yaml12_charsxp_encoding(SEXP value);
 SEXP yaml12_translate_char_utf8(SEXP value, const char **out, size_t *out_len);
+SEXP yaml12_scalar_logical(int value);
+SEXP yaml12_scalar_integer(int value);
+SEXP yaml12_scalar_real(double value);
+SEXP yaml12_scalar_string(const char *value, int value_len, int is_na);
+SEXP yaml12_set_string_elt(SEXP strings, R_xlen_t index, const char *value,
+                           int value_len, int is_na);
+SEXP yaml12_set_name(SEXP list, R_xlen_t index, const char *value,
+                     int value_len, int is_na);
 
 static SEXP yaml12_unwind_protect(SEXP (*fun)(void *data), void *data) {
     SEXP token = R_MakeUnwindCont();
@@ -97,4 +105,109 @@ SEXP yaml12_translate_char_utf8(SEXP value, const char **out, size_t *out_len) {
         *out_len = data.out_len;
     }
     return result;
+}
+
+struct yaml12_logical_data {
+    int value;
+};
+
+static SEXP yaml12_scalar_logical_impl(void *data) {
+    struct yaml12_logical_data *scalar = data;
+    return Rf_ScalarLogical(scalar->value);
+}
+
+SEXP yaml12_scalar_logical(int value) {
+    struct yaml12_logical_data data = {value};
+    return yaml12_unwind_protect(yaml12_scalar_logical_impl, &data);
+}
+
+struct yaml12_integer_data {
+    int value;
+};
+
+static SEXP yaml12_scalar_integer_impl(void *data) {
+    struct yaml12_integer_data *scalar = data;
+    return Rf_ScalarInteger(scalar->value);
+}
+
+SEXP yaml12_scalar_integer(int value) {
+    struct yaml12_integer_data data = {value};
+    return yaml12_unwind_protect(yaml12_scalar_integer_impl, &data);
+}
+
+struct yaml12_real_data {
+    double value;
+};
+
+static SEXP yaml12_scalar_real_impl(void *data) {
+    struct yaml12_real_data *scalar = data;
+    return Rf_ScalarReal(scalar->value);
+}
+
+SEXP yaml12_scalar_real(double value) {
+    struct yaml12_real_data data = {value};
+    return yaml12_unwind_protect(yaml12_scalar_real_impl, &data);
+}
+
+struct yaml12_string_data {
+    const char *value;
+    int value_len;
+    int is_na;
+};
+
+static SEXP yaml12_make_char(const struct yaml12_string_data *string) {
+    if (string->is_na) {
+        return NA_STRING;
+    }
+    return Rf_mkCharLenCE(string->value, string->value_len, CE_UTF8);
+}
+
+static SEXP yaml12_scalar_string_impl(void *data) {
+    struct yaml12_string_data *string = data;
+    SEXP charsxp = PROTECT(yaml12_make_char(string));
+    SEXP result = Rf_ScalarString(charsxp);
+    UNPROTECT(1);
+    return result;
+}
+
+SEXP yaml12_scalar_string(const char *value, int value_len, int is_na) {
+    struct yaml12_string_data data = {value, value_len, is_na};
+    return yaml12_unwind_protect(yaml12_scalar_string_impl, &data);
+}
+
+struct yaml12_set_string_data {
+    SEXP target;
+    R_xlen_t index;
+    struct yaml12_string_data string;
+    int set_name;
+};
+
+static SEXP yaml12_set_string_impl(void *data) {
+    struct yaml12_set_string_data *element = data;
+    SEXP target = element->target;
+    if (element->set_name) {
+        target = Rf_getAttrib(target, R_NamesSymbol);
+    }
+
+    SEXP charsxp = PROTECT(yaml12_make_char(&element->string));
+    SET_STRING_ELT(target, element->index, charsxp);
+    UNPROTECT(1);
+    return R_NilValue;
+}
+
+static SEXP yaml12_set_string(SEXP target, R_xlen_t index, const char *value,
+                              int value_len, int is_na, int set_name) {
+    struct yaml12_set_string_data data = {
+        target, index, {value, value_len, is_na}, set_name};
+    return yaml12_unwind_protect(yaml12_set_string_impl, &data);
+}
+
+SEXP yaml12_set_string_elt(SEXP strings, R_xlen_t index, const char *value,
+                           int value_len, int is_na) {
+    return yaml12_set_string(strings, index, value, value_len, is_na, 0);
+}
+
+SEXP yaml12_set_name(SEXP list, R_xlen_t index, const char *value,
+                     int value_len, int is_na) {
+    return yaml12_set_string(list, index, value, value_len, is_na, 1);
 }

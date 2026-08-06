@@ -1,7 +1,6 @@
 use crate::{api_other, Fallible};
 use savvy::{
-    FunctionArgs, FunctionSexp, NotAvailableValue, OwnedIntegerSexp, OwnedLogicalSexp,
-    OwnedRealSexp, OwnedStringSexp, Sexp, StringSexp,
+    FunctionArgs, FunctionSexp, NotAvailableValue, OwnedListSexp, OwnedStringSexp, Sexp, StringSexp,
 };
 use savvy_ffi as ffi;
 use std::os::raw::c_char;
@@ -23,6 +22,24 @@ extern "C" {
         x: ffi::SEXP,
         out: *mut *const c_char,
         out_len: *mut usize,
+    ) -> ffi::SEXP;
+    fn yaml12_scalar_logical(value: i32) -> ffi::SEXP;
+    fn yaml12_scalar_integer(value: i32) -> ffi::SEXP;
+    fn yaml12_scalar_real(value: f64) -> ffi::SEXP;
+    fn yaml12_scalar_string(value: *const c_char, value_len: i32, is_na: i32) -> ffi::SEXP;
+    fn yaml12_set_string_elt(
+        strings: ffi::SEXP,
+        index: ffi::R_xlen_t,
+        value: *const c_char,
+        value_len: i32,
+        is_na: i32,
+    ) -> ffi::SEXP;
+    fn yaml12_set_name(
+        list: ffi::SEXP,
+        index: ffi::R_xlen_t,
+        value: *const c_char,
+        value_len: i32,
+        is_na: i32,
     ) -> ffi::SEXP;
 }
 
@@ -128,20 +145,67 @@ where
     value.set_class(classes)
 }
 
+// These scalar leaves return fresh, unprotected SEXPs. A caller must return the
+// result, insert it into an already-rooted container, or preserve it before the
+// next allocation-capable R operation.
 pub(crate) fn string_scalar(value: &str) -> Fallible<Sexp> {
-    OwnedStringSexp::try_from_scalar(value).map(Into::into)
+    let (value, value_len, is_na) = string_parts(value)?;
+    unsafe { check_unwind(yaml12_scalar_string(value, value_len, is_na)).map(Sexp) }
 }
 
 pub(crate) fn logical_scalar(value: bool) -> Fallible<Sexp> {
-    OwnedLogicalSexp::try_from_scalar(value).map(Into::into)
+    unsafe { check_unwind(yaml12_scalar_logical(value.into())).map(Sexp) }
 }
 
 pub(crate) fn integer_scalar(value: i32) -> Fallible<Sexp> {
-    OwnedIntegerSexp::try_from_scalar(value).map(Into::into)
+    unsafe { check_unwind(yaml12_scalar_integer(value)).map(Sexp) }
 }
 
 pub(crate) fn real_scalar(value: f64) -> Fallible<Sexp> {
-    OwnedRealSexp::try_from_scalar(value).map(Into::into)
+    unsafe { check_unwind(yaml12_scalar_real(value)).map(Sexp) }
+}
+
+fn string_parts(value: &str) -> Fallible<(*const c_char, i32, i32)> {
+    if value.is_na() {
+        return Ok((ptr::null(), 0, 1));
+    }
+    let value_len = i32::try_from(value.len())
+        .map_err(|_| api_other("R strings cannot exceed i32::MAX bytes"))?;
+    Ok((value.as_ptr().cast::<c_char>(), value_len, 0))
+}
+
+pub(crate) fn set_string_elt(strings: &mut OwnedStringSexp, i: usize, value: &str) -> Fallible<()> {
+    if i >= strings.len() {
+        return Err(api_other("string index out of bounds"));
+    }
+    let (value, value_len, is_na) = string_parts(value)?;
+    unsafe {
+        check_unwind(yaml12_set_string_elt(
+            strings.inner(),
+            i as ffi::R_xlen_t,
+            value,
+            value_len,
+            is_na,
+        ))?;
+    }
+    Ok(())
+}
+
+pub(crate) fn set_name(list: &mut OwnedListSexp, i: usize, value: &str) -> Fallible<()> {
+    if i >= list.len() {
+        return Err(api_other("list index out of bounds"));
+    }
+    let (value, value_len, is_na) = string_parts(value)?;
+    unsafe {
+        check_unwind(yaml12_set_name(
+            list.inner(),
+            i as ffi::R_xlen_t,
+            value,
+            value_len,
+            is_na,
+        ))?;
+    }
+    Ok(())
 }
 
 pub(crate) fn call1(handler: &FunctionSexp, arg: Sexp) -> Fallible<Sexp> {

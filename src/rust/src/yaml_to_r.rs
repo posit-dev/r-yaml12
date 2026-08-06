@@ -196,7 +196,9 @@ fn sequence_to_robj(
                 let mut strings = OwnedStringSexp::new(seq.len())?;
                 for (i, node) in seq.iter().enumerate() {
                     match node {
-                        Yaml::Value(Scalar::String(value)) => strings.set_elt(i, value.as_ref())?,
+                        Yaml::Value(Scalar::String(value)) => {
+                            r_ext::set_string_elt(&mut strings, i, value.as_ref())?
+                        }
                         Yaml::Value(Scalar::Null) => strings.set_na(i)?,
                         _ => unreachable!("expected only strings or nulls"),
                     }
@@ -322,7 +324,7 @@ fn mapping_to_robj(
                 };
                 let value = yaml_to_robj(&mut value, simplify, handlers)?;
                 list.set_value(i, value)?;
-                list.set_name(i, name.as_ref())?;
+                r_ext::set_name(&mut list, i, name.as_ref())?;
             }
 
             return Ok(list.into());
@@ -372,7 +374,7 @@ fn mapping_to_robj(
     for (i, (key, key_handler_result)) in keys.iter().zip(key_handler_results.iter()).enumerate() {
         if let Some(handled) = key_handler_result {
             match handled {
-                KeyHandlerResult::BareString(name) => list.set_name(i, name)?,
+                KeyHandlerResult::BareString(name) => r_ext::set_name(&mut list, i, name)?,
                 KeyHandlerResult::Preserved(_) => {
                     needs_yaml_keys_attr = true;
                 }
@@ -381,7 +383,7 @@ fn mapping_to_robj(
             match key {
                 Yaml::Value(Scalar::String(string_key)) => {
                     // Plain string key: representable as an R name with no extra metadata.
-                    list.set_name(i, string_key.as_ref())?;
+                    r_ext::set_name(&mut list, i, string_key.as_ref())?;
                 }
                 _ => {
                     // Tagged or non-string keys get tracked in `yaml_keys`. Core string tags are
@@ -490,9 +492,9 @@ fn set_yaml_tag_attr(value: Sexp, tag: &Tag) -> Fallible<Sexp> {
     }
 
     let value_guard = PreservedSexp::new(value);
-    let tag_value = OwnedStringSexp::try_from_scalar(rendered_tag.as_str())?;
+    let tag_value = PreservedSexp::new(r_ext::string_scalar(rendered_tag.as_str())?);
     let mut value = value_guard.value();
-    r_ext::set_attrib_sym(&mut value, r_ext::sym_yaml_tag(), Sexp(tag_value.inner()))?;
+    r_ext::set_attrib_sym(&mut value, r_ext::sym_yaml_tag(), tag_value.value())?;
     Ok(value)
 }
 

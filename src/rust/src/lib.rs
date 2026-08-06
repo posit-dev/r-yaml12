@@ -9,9 +9,7 @@ mod yaml_to_r;
 use crate::r_ext::null;
 use crate::r_to_yaml::yaml_body;
 use saphyr::{LoadableYamlNode, Yaml};
-use savvy::{
-    savvy, savvy_init, NotAvailableValue, NumericScalar, OwnedStringSexp, Sexp, StringSexp,
-};
+use savvy::{savvy, savvy_init, NotAvailableValue, NumericScalar, Sexp, StringSexp};
 use savvy_ffi::DllInfo;
 
 pub(crate) type Fallible<T> = savvy::Result<T>;
@@ -53,7 +51,7 @@ fn format_yaml_native(value: Sexp, multi: bool, width: Sexp) -> savvy::Result<Se
             "Formatted YAML exceeds R's 2^31-1 byte string limit",
         ));
     }
-    OwnedStringSexp::try_from_scalar(body).map(Into::into)
+    r_ext::string_scalar(body)
 }
 
 #[savvy]
