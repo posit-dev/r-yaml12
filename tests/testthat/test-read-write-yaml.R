@@ -22,6 +22,28 @@ test_that("write_yaml writes and read_yaml reads single documents", {
   expect_identical(parse_yaml(encoded), value)
 })
 
+test_that("write_yaml appends YAML documents", {
+  path <- tempfile("yaml12-", fileext = ".yaml")
+  on.exit(unlink(path), add = TRUE)
+
+  first <- list(first = 1L)
+  second <- list(second = 2L)
+  docs <- list(list(third = 3L), list(fourth = 4L))
+
+  expect_identical(write_yaml(first, path, append = TRUE), first)
+  write_yaml(second, path, append = TRUE)
+  write_yaml(docs, path, multi = TRUE)
+
+  expect_identical(
+    read_yaml(path, multi = TRUE),
+    c(list(first, second), docs)
+  )
+
+  replacement <- list(list(replacement = 5L))
+  write_yaml(replacement, path, multi = TRUE, append = FALSE)
+  expect_identical(read_yaml(path, multi = TRUE), replacement)
+})
+
 test_that("read_yaml and write_yaml translate marked path strings", {
   path <- rawToChar(c(
     charToRaw(withr::local_tempdir()),

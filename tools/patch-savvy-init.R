@@ -116,19 +116,19 @@ contents <- patch_once(
   contents,
   "write path expansion",
   paste0(
-    "SEXP savvy_write_yaml_native__impl(SEXP c_arg__value, SEXP c_arg__path, SEXP c_arg__multi, SEXP c_arg__width) {\n",
-    "    SEXP res = savvy_write_yaml_native__ffi(c_arg__value, c_arg__path, c_arg__multi, c_arg__width);\n",
+    "SEXP savvy_write_yaml_native__impl(SEXP c_arg__value, SEXP c_arg__path, SEXP c_arg__multi, SEXP c_arg__width, SEXP c_arg__append) {\n",
+    "    SEXP res = savvy_write_yaml_native__ffi(c_arg__value, c_arg__path, c_arg__multi, c_arg__width, c_arg__append);\n",
     "    return handle_result(res);\n",
     "}"
   ),
   paste0(
-    "SEXP savvy_write_yaml_native__impl(SEXP c_arg__value, SEXP c_arg__path, SEXP c_arg__multi, SEXP c_arg__width) {\n",
+    "SEXP savvy_write_yaml_native__impl(SEXP c_arg__value, SEXP c_arg__path, SEXP c_arg__multi, SEXP c_arg__width, SEXP c_arg__append) {\n",
     "    if (!has_tilde_prefix(c_arg__path)) {\n",
-    "        SEXP res = savvy_write_yaml_native__ffi(c_arg__value, c_arg__path, c_arg__multi, c_arg__width);\n",
+    "        SEXP res = savvy_write_yaml_native__ffi(c_arg__value, c_arg__path, c_arg__multi, c_arg__width, c_arg__append);\n",
     "        return handle_result(res);\n",
     "    }\n\n",
     "    c_arg__path = PROTECT(expand_tilde_path(c_arg__path));\n",
-    "    SEXP result = handle_result(savvy_write_yaml_native__ffi(c_arg__value, c_arg__path, c_arg__multi, c_arg__width));\n",
+    "    SEXP result = handle_result(savvy_write_yaml_native__ffi(c_arg__value, c_arg__path, c_arg__multi, c_arg__width, c_arg__append));\n",
     "    UNPROTECT(1);\n",
     "    return result;\n",
     "}"

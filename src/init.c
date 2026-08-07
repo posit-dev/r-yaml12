@@ -84,14 +84,14 @@ SEXP savvy_read_yaml_native__impl(SEXP c_arg__path, SEXP c_arg__multi, SEXP c_ar
     return result;
 }
 
-SEXP savvy_write_yaml_native__impl(SEXP c_arg__value, SEXP c_arg__path, SEXP c_arg__multi, SEXP c_arg__width) {
+SEXP savvy_write_yaml_native__impl(SEXP c_arg__value, SEXP c_arg__path, SEXP c_arg__multi, SEXP c_arg__width, SEXP c_arg__append) {
     if (!has_tilde_prefix(c_arg__path)) {
-        SEXP res = savvy_write_yaml_native__ffi(c_arg__value, c_arg__path, c_arg__multi, c_arg__width);
+        SEXP res = savvy_write_yaml_native__ffi(c_arg__value, c_arg__path, c_arg__multi, c_arg__width, c_arg__append);
         return handle_result(res);
     }
 
     c_arg__path = PROTECT(expand_tilde_path(c_arg__path));
-    SEXP result = handle_result(savvy_write_yaml_native__ffi(c_arg__value, c_arg__path, c_arg__multi, c_arg__width));
+    SEXP result = handle_result(savvy_write_yaml_native__ffi(c_arg__value, c_arg__path, c_arg__multi, c_arg__width, c_arg__append));
     UNPROTECT(1);
     return result;
 }
@@ -102,7 +102,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"savvy_format_yaml_native__impl", (DL_FUNC) &savvy_format_yaml_native__impl, 3},
     {"savvy_parse_yaml_native__impl", (DL_FUNC) &savvy_parse_yaml_native__impl, 4},
     {"savvy_read_yaml_native__impl", (DL_FUNC) &savvy_read_yaml_native__impl, 4},
-    {"savvy_write_yaml_native__impl", (DL_FUNC) &savvy_write_yaml_native__impl, 4},
+    {"savvy_write_yaml_native__impl", (DL_FUNC) &savvy_write_yaml_native__impl, 5},
     {NULL, NULL, 0}
 };
 
