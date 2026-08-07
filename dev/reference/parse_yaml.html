@@ -34,7 +34,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Parse YAML 1.2 document(s) into base R structures.</h1>
-      <small class="dont-index">Source: <a href="https://github.com/posit-dev/r-yaml12/blob/main/R/extendr-wrappers.R" class="external-link"><code>R/extendr-wrappers.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/posit-dev/r-yaml12/blob/main/R/wrappers.R" class="external-link"><code>R/wrappers.R</code></a></small>
       <div class="d-none name"><code>parse_yaml.Rd</code></div>
     </div>
 
@@ -58,15 +58,18 @@
 
 
 <dt id="arg-multi">multi<a class="anchor" aria-label="anchor" href="#arg-multi"></a></dt>
-<dd><p>When <code>TRUE</code>, return a list containing all documents in the stream.</p></dd>
+<dd><p>When <code>TRUE</code>, return a list containing all documents in the
+stream.</p></dd>
 
 
 <dt id="arg-simplify">simplify<a class="anchor" aria-label="anchor" href="#arg-simplify"></a></dt>
-<dd><p>When <code>FALSE</code>, keep YAML sequences as R lists instead of simplifying to atomic vectors.</p></dd>
+<dd><p>When <code>FALSE</code>, keep YAML sequences as R lists instead of
+simplifying to atomic vectors.</p></dd>
 
 
 <dt id="arg-handlers">handlers<a class="anchor" aria-label="anchor" href="#arg-handlers"></a></dt>
-<dd><p>Named list of R functions with names corresponding to YAML tags; matching handlers transform tagged values.</p></dd>
+<dd><p>Named list of R functions with names corresponding to YAML
+tags; matching handlers transform tagged values.</p></dd>
 
 
 <dt id="arg-path">path<a class="anchor" aria-label="anchor" href="#arg-path"></a></dt>
@@ -76,13 +79,14 @@ expanded as by <code><a href="https://rdrr.io/r/base/path.expand.html" class="ex
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>When <code>multi = FALSE</code>, returns a parsed R object for the first document.
-When <code>multi = TRUE</code>, returns a list of parsed documents.</p>
+    <p>When <code>multi = FALSE</code>, returns a parsed R object for the first
+document. When <code>multi = TRUE</code>, returns a list of parsed documents.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>YAML tags without a corresponding <code>handler</code> are preserved in a <code>yaml_tag</code> attribute.
-Mappings with keys that are not all simple scalar strings are returned as a named list with a <code>yaml_keys</code> attribute.</p>
+    <p>YAML tags without a corresponding <code>handler</code> are preserved in a <code>yaml_tag</code>
+attribute. Mappings with keys that are not all simple scalar strings are
+returned as a named list with a <code>yaml_keys</code> attribute.</p>
     </div>
 
     <div class="section level2">
