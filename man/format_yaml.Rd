@@ -7,7 +7,7 @@
 \usage{
 format_yaml(value, multi = FALSE, width = 80)
 
-write_yaml(value, path = NULL, multi = FALSE, width = 80, append = FALSE)
+write_yaml(value, path = NULL, multi = FALSE, append = FALSE, width = 80)
 }
 \arguments{
 \item{value}{Any R object composed of lists, atomic vectors, and scalars.}
