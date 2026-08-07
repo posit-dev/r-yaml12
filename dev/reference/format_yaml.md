@@ -62,7 +62,7 @@ write_yaml(value, path = NULL, multi = FALSE, width = 80)
 
 ``` r
 cat(format_yaml(list(foo = 1, bar = list(TRUE, NA))))
-#> foo: 1
+#> foo: 1.0
 #> bar:
 #>   - true
 #>   - ~
@@ -84,9 +84,9 @@ dput(parse_yaml(tagged_yaml))
 
 write_yaml(list(foo = 1, bar = list(2, "baz")))
 #> ---
-#> foo: 1
+#> foo: 1.0
 #> bar:
-#>   - 2
+#>   - 2.0
 #>   - baz
 #> ...
 

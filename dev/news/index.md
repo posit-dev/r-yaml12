@@ -10,6 +10,13 @@
 - [`format_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
   and
   [`write_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
+  now emit whole-valued doubles with a decimal suffix (for example,
+  `100.0` instead of `100`), so parsing the result preserves their R
+  double type.
+
+- [`format_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
+  and
+  [`write_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
   now automatically wrap long single-line strings and multiline strings
   containing unindented, single-line paragraphs separated by exactly one
   blank line. Strings with a safe word boundary are emitted as folded

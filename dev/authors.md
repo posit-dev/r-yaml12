@@ -37,24 +37,25 @@ package version 0.1.0.9000, <https://posit-dev.github.io/r-yaml12/>.
      - cfg-if 1.0.4: Alex Crichton
      - encoding_rs 0.8.35: Henri Sivonen
      - find-msvc-tools 0.1.9: see https://github.com/rust-lang/cc-rs
-     - foldhash 0.1.5: Orson Peters
-     - hashbrown 0.15.5: Amanieu d'Antras
-     - hashlink 0.10.0: kyren
+     - foldhash 0.2.0: Orson Peters
+     - hashbrown 0.16.1: Amanieu d'Antras
+     - hashlink 0.11.1: see https://github.com/djc/hashlink
      - num-traits 0.2.19: The Rust Project Developers
-     - ordered-float 5.1.0: Jonathan Reem, Matt Brubeck
+     - ordered-float 5.3.0: Jonathan Reem, Matt Brubeck
      - proc-macro2 1.0.103: David Tolnay, Alex Crichton
      - quote 1.0.42: David Tolnay
      - rustversion 1.0.22: David Tolnay
-     - saphyr 0.0.6: Ethiraric, David Aguilar, Yuheng Chen
-     - saphyr-parser 0.0.6: Ethiraric, David Aguilar, Yuheng Chen
+     - saphyr 0.0.11: Ethiraric, David Aguilar, Yuheng Chen
+     - saphyr-parser 0.0.11: Ethiraric, David Aguilar, Yuheng Chen
      - savvy 0.8.13: Hiroaki Yutani
      - savvy-bindgen 0.8.13: Hiroaki Yutani
      - savvy-ffi 0.8.14: Hiroaki Yutani
      - savvy-macro 0.8.13: Hiroaki Yutani
      - shlex 2.0.1: comex, Fenhl, Adrian Taylor, Alex Touchet, Daniel Parks, Garrett Berg
      - syn 2.0.111: David Tolnay
-     - thiserror 2.0.17: David Tolnay
-     - thiserror-impl 2.0.17: David Tolnay
+     - syn 3.0.3: David Tolnay
+     - thiserror 2.0.19: David Tolnay
+     - thiserror-impl 2.0.19: David Tolnay
      - unicode-ident 1.0.22: David Tolnay
 
-    (This file was auto-generated from 'cargo metadata' on 2026-06-17)
+    (This file was auto-generated from 'cargo metadata' on 2026-08-07)

@@ -128,7 +128,7 @@ output connection.</p></dd>
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu">format_yaml</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>foo <span class="op">=</span> <span class="fl">1</span>, bar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="cn">TRUE</span>, <span class="cn">NA</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> foo: 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> foo: 1.0</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> bar:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   - true</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   - ~</span>
@@ -150,9 +150,9 @@ output connection.</p></dd>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu">write_yaml</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>foo <span class="op">=</span> <span class="fl">1</span>, bar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fl">2</span>, <span class="st">"baz"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ---</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> foo: 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> foo: 1.0</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> bar:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   - 2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   - 2.0</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   - baz</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ...</span>
 <span class="r-in"><span></span></span>
