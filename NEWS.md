@@ -1,5 +1,8 @@
 # yaml12 (development version)
 
+* `format_yaml()` and `write_yaml()` now emit `Inf`, `-Inf`, and `NaN` as
+  `.Inf`, `-.Inf`, and `.NaN` so they round-trip as doubles (#9).
+
 * `write_yaml()` gains an `append` argument for adding YAML documents to
   existing files (#4).
 

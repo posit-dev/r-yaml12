@@ -57,6 +57,18 @@ pub struct YamlEmitter<'a> {
 /// A convenience alias for emitter functions that may fail without returning a value.
 pub type EmitResult = Result<(), EmitError>;
 
+fn special_floating_point(value: f64) -> Option<&'static str> {
+    if value.is_nan() {
+        Some(".NaN")
+    } else if value == f64::INFINITY {
+        Some(".Inf")
+    } else if value == f64::NEG_INFINITY {
+        Some("-.Inf")
+    } else {
+        None
+    }
+}
+
 fn escape_sequence(byte: u8) -> Option<&'static str> {
     Some(match byte {
         b'"' => "\\\"",
@@ -221,11 +233,18 @@ impl<'a> YamlEmitter<'a> {
                 Ok(())
             }
             Yaml::Value(Scalar::Integer(v)) => Ok(write!(self.writer, "{v}")?),
-            Yaml::Value(Scalar::FloatingPoint(ref v)) => Ok(write!(
-                self.writer,
-                "{v}{}",
-                if v.fract() == 0.0 { ".0" } else { "" }
-            )?),
+            Yaml::Value(Scalar::FloatingPoint(ref v)) => {
+                if let Some(rendered) = special_floating_point(v.0) {
+                    self.writer.write_str(rendered)?;
+                } else {
+                    write!(
+                        self.writer,
+                        "{v}{}",
+                        if v.fract() == 0.0 { ".0" } else { "" }
+                    )?;
+                }
+                Ok(())
+            }
             Yaml::Value(Scalar::Null) | Yaml::BadValue => Ok(write!(self.writer, "~")?),
             Yaml::Representation(ref v, style, ref tag) => {
                 if let Some(tag) = tag {
@@ -696,7 +715,10 @@ fn implicit_key_length(key: &Yaml<'_>) -> Option<usize> {
         Yaml::Value(Scalar::Boolean(value)) => Some(if *value { 4 } else { 5 }),
         Yaml::Value(Scalar::Integer(value)) => Some(value.to_string().len()),
         Yaml::Value(Scalar::FloatingPoint(value)) => {
-            Some(value.to_string().len() + if value.fract() == 0.0 { 2 } else { 0 })
+            Some(special_floating_point(value.0).map_or_else(
+                || value.to_string().len() + if value.fract() == 0.0 { 2 } else { 0 },
+                str::len,
+            ))
         }
         Yaml::Value(Scalar::Null) | Yaml::BadValue => Some(1),
         Yaml::Representation(value, style, tag) => {

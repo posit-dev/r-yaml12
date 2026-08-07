@@ -19,6 +19,20 @@ test_that("format_yaml round-trips basic R lists", {
   expect_identical(parse_yaml(encoded, simplify = FALSE), obj)
 })
 
+test_that("format_yaml round-trips non-finite doubles", {
+  values <- c(Inf, -Inf, NaN)
+  expected <- c(".Inf", "-.Inf", ".NaN")
+
+  for (i in seq_along(values)) {
+    encoded <- format_yaml(values[[i]])
+    expect_identical(encoded, expected[[i]])
+    expect_identical(parse_yaml(encoded), values[[i]])
+  }
+
+  values <- c(values, NA_real_)
+  expect_identical(parse_yaml(format_yaml(values)), values)
+})
+
 test_that("format_yaml preserves whole-valued doubles", {
   expect_identical(format_yaml(100, width = Inf), "100.0")
   expect_identical(parse_yaml(format_yaml(100)), 100)
@@ -800,6 +814,21 @@ test_that("format_yaml counts tags toward the simple-key limit", {
   )
   encoded <- expect_yaml_roundtrip(object, width = 20)
 
+  expect_true(startsWith(encoded, "? !"))
+})
+
+test_that("format_yaml counts non-finite spellings in tagged keys", {
+  key <- structure(
+    Inf,
+    yaml_tag = paste0("!", strrep("x", 1019))
+  )
+  object <- structure(
+    list("payload"),
+    names = "",
+    yaml_keys = list(key)
+  )
+
+  encoded <- format_yaml(object, width = 20)
   expect_true(startsWith(encoded, "? !"))
 })
 
