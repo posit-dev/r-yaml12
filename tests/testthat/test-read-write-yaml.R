@@ -31,7 +31,7 @@ test_that("write_yaml appends YAML documents", {
   docs <- list(list(third = 3L), list(fourth = 4L))
 
   expect_identical(write_yaml(first, path, append = TRUE), first)
-  write_yaml(second, path, append = TRUE)
+  write_yaml(second, path, FALSE, TRUE)
   write_yaml(docs, path, multi = TRUE, append = TRUE)
 
   expect_identical(

@@ -88,13 +88,13 @@ dbg_yaml <- function(text) {
 #'   output connection.
 #' @param multi When `TRUE`, treat `value` as a list of YAML documents and
 #'   encode a stream.
+#' @param append When `TRUE`, append to `path` instead of replacing it. Defaults
+#'   to `FALSE`.
 #' @param width Target maximum line width in columns. Long single-line strings
 #'   and unindented paragraphs with safe word boundaries are wrapped.
 #'   Individual lines may still exceed `width` when there is no safe break
 #'   point (e.g. a single long word) or under deep indentation. Use `Inf` to
 #'   disable wrapping.
-#' @param append When `TRUE`, append to `path` instead of replacing it. Defaults
-#'   to `FALSE`.
 #' @return `format_yaml()` returns a scalar character string containing YAML.
 #'   `write_yaml()` invisibly returns `value`.
 #' @rdname format_yaml
@@ -109,7 +109,7 @@ dbg_yaml <- function(text) {
 #' cat(tagged_yaml <- format_yaml(tagged), "\n")
 #'
 #' dput(parse_yaml(tagged_yaml))
-format_yaml <- function(value, multi = FALSE, width = 80) {
+format_yaml <- function(value, multi = FALSE, width = 80L) {
   .Call(savvy_format_yaml_native__impl, value, multi, width)
 }
 
@@ -138,8 +138,8 @@ write_yaml <- function(
   value,
   path = NULL,
   multi = FALSE,
-  width = 80,
-  append = FALSE
+  append = FALSE,
+  width = 80L
 ) {
   invisible(
     .Call(savvy_write_yaml_native__impl, value, path, multi, width, append)
