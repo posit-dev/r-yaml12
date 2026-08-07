@@ -1,5 +1,6 @@
 ^yaml12\.Rproj$
 ^\.Rproj\.user$
+^\.git$
 ^src/\.cargo$
 ^src/rust/vendor$
 ^src/rust/target$
