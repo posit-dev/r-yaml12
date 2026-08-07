@@ -33,6 +33,14 @@ test_that("format_yaml round-trips non-finite doubles", {
   expect_identical(parse_yaml(format_yaml(values)), values)
 })
 
+test_that("format_yaml preserves whole-valued doubles", {
+  expect_identical(format_yaml(100, width = Inf), "100.0")
+  expect_identical(parse_yaml(format_yaml(100)), 100)
+
+  values <- c(100, -2, 1.5)
+  expect_identical(parse_yaml(format_yaml(values)), values)
+})
+
 test_that("format_yaml accepts latin1 encoded strings", {
   latin1 <- rawToChar(as.raw(0xe9))
   Encoding(latin1) <- "latin1"
@@ -655,7 +663,8 @@ test_that("write_yaml `width` argument controls wrapping", {
   expect_true(all(nchar(lines) <= 40))
   expect_identical(read_yaml(path), list(key = long))
 
-  write_yaml(list(key = long), path, width = Inf)
+  # Keep `width` in its existing positional slot as new arguments are added.
+  write_yaml(list(key = long), path, FALSE, Inf)
   expect_false(any(grepl(">-", readLines(path), fixed = TRUE)))
   expect_identical(read_yaml(path), list(key = long))
 })
@@ -1511,10 +1520,10 @@ test_that("format_yaml errors clearly on invalid yaml_tag", {
 test_that("format_yaml round-trips bare local tag handle", {
   tagged <- structure(1, yaml_tag = "!")
   encoded <- format_yaml(tagged)
-  expect_identical(encoded, "! 1")
+  expect_identical(encoded, "! 1.0")
 
   reparsed <- parse_yaml(encoded)
-  expect_identical(reparsed, structure("1", yaml_tag = "!"))
+  expect_identical(reparsed, structure("1.0", yaml_tag = "!"))
 })
 
 if (FALSE) {

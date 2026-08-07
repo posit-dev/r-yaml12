@@ -125,8 +125,20 @@ fn read_yaml_native(
 }
 
 #[savvy]
-fn write_yaml_native(value: Sexp, path: Sexp, multi: bool, width: Sexp) -> savvy::Result<Sexp> {
+fn write_yaml_native(
+    value: Sexp,
+    path: Sexp,
+    multi: bool,
+    width: Sexp,
+    append: bool,
+) -> savvy::Result<Sexp> {
     let path = optional_path_arg(path)?;
-    r_to_yaml::write_yaml_impl(&value, path.as_deref(), multi, width_arg(width, "width")?)?;
+    r_to_yaml::write_yaml_impl(
+        &value,
+        path.as_deref(),
+        multi,
+        width_arg(width, "width")?,
+        append,
+    )?;
     Ok(value)
 }

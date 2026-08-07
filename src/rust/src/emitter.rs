@@ -237,7 +237,11 @@ impl<'a> YamlEmitter<'a> {
                 if let Some(rendered) = special_floating_point(v.0) {
                     self.writer.write_str(rendered)?;
                 } else {
-                    write!(self.writer, "{v}")?;
+                    write!(
+                        self.writer,
+                        "{v}{}",
+                        if v.fract() == 0.0 { ".0" } else { "" }
+                    )?;
                 }
                 Ok(())
             }
@@ -711,7 +715,10 @@ fn implicit_key_length(key: &Yaml<'_>) -> Option<usize> {
         Yaml::Value(Scalar::Boolean(value)) => Some(if *value { 4 } else { 5 }),
         Yaml::Value(Scalar::Integer(value)) => Some(value.to_string().len()),
         Yaml::Value(Scalar::FloatingPoint(value)) => {
-            Some(special_floating_point(value.0).map_or_else(|| value.to_string().len(), str::len))
+            Some(special_floating_point(value.0).map_or_else(
+                || value.to_string().len() + if value.fract() == 0.0 { 2 } else { 0 },
+                str::len,
+            ))
         }
         Yaml::Value(Scalar::Null) | Yaml::BadValue => Some(1),
         Yaml::Representation(value, style, tag) => {

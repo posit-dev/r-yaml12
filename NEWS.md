@@ -3,10 +3,17 @@
 * `format_yaml()` and `write_yaml()` now emit `Inf`, `-Inf`, and `NaN` as
   `.Inf`, `-.Inf`, and `.NaN` so they round-trip as doubles (#9).
 
+* `write_yaml()` gains an `append` argument for adding YAML documents to
+  existing files (#4).
+
 * Replaced the Rust-side R API layer with `savvy`/`savvy-ffi` bindings.
   Source installs now require rustc 1.71 or newer. Vendored Rust crate
   attribution now points to crate repository metadata when Cargo does not
   provide crate authors.
+
+* `format_yaml()` and `write_yaml()` now emit whole-valued doubles with a
+  decimal suffix (for example, `100.0` instead of `100`), so parsing the result
+  preserves their R double type.
 
 * `format_yaml()` and `write_yaml()` now automatically wrap long single-line
   strings and multiline strings containing unindented, single-line paragraphs

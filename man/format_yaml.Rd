@@ -7,7 +7,7 @@
 \usage{
 format_yaml(value, multi = FALSE, width = 80)
 
-write_yaml(value, path = NULL, multi = FALSE, width = 80)
+write_yaml(value, path = NULL, multi = FALSE, width = 80, append = FALSE)
 }
 \arguments{
 \item{value}{Any R object composed of lists, atomic vectors, and scalars.}
@@ -25,6 +25,9 @@ disable wrapping.}
 \code{write_yaml()}. Tilde prefixes (\code{~}) are expanded as by
 \code{\link[base:path.expand]{base::path.expand()}}. When \code{NULL} (the default), write to R's standard
 output connection.}
+
+\item{append}{When \code{TRUE}, append to \code{path} instead of replacing it. Defaults
+to \code{FALSE}.}
 }
 \value{
 \code{format_yaml()} returns a scalar character string containing YAML.

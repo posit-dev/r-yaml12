@@ -93,6 +93,8 @@ dbg_yaml <- function(text) {
 #'   Individual lines may still exceed `width` when there is no safe break
 #'   point (e.g. a single long word) or under deep indentation. Use `Inf` to
 #'   disable wrapping.
+#' @param append When `TRUE`, append to `path` instead of replacing it. Defaults
+#'   to `FALSE`.
 #' @return `format_yaml()` returns a scalar character string containing YAML.
 #'   `write_yaml()` invisibly returns `value`.
 #' @rdname format_yaml
@@ -132,6 +134,14 @@ read_yaml <- function(path, multi = FALSE, simplify = TRUE, handlers = NULL) {
 #' tagged <- structure("1 + 1", yaml_tag = "!expr")
 #' write_yaml(tagged)
 #' @export
-write_yaml <- function(value, path = NULL, multi = FALSE, width = 80) {
-  invisible(.Call(savvy_write_yaml_native__impl, value, path, multi, width))
+write_yaml <- function(
+  value,
+  path = NULL,
+  multi = FALSE,
+  width = 80,
+  append = FALSE
+) {
+  invisible(
+    .Call(savvy_write_yaml_native__impl, value, path, multi, width, append)
+  )
 }
