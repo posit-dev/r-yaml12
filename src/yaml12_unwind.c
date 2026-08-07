@@ -40,6 +40,30 @@ enum yaml12_charsxp_encoding {
     YAML12_CHARSXP_ASCII = 3
 };
 
+enum yaml12_list_element_kind {
+    YAML12_LIST_NULL = 0,
+    YAML12_LIST_LOGICAL = 1,
+    YAML12_LIST_INTEGER = 2,
+    YAML12_LIST_REAL = 3,
+    YAML12_LIST_STRING = 4,
+    YAML12_LIST_SKIP = 5
+};
+
+struct yaml12_string_data {
+    const char *value;
+    int value_len;
+    int is_na;
+};
+
+struct yaml12_list_element {
+    int kind;
+    int int_value;
+    double real_value;
+    const char *string_value;
+    int string_len;
+    int string_is_na;
+};
+
 int yaml12_charsxp_encoding(SEXP value);
 int yaml12_has_attributes(SEXP value);
 SEXP yaml12_translate_char_utf8(SEXP value, const char **out, size_t *out_len);
@@ -47,8 +71,12 @@ SEXP yaml12_scalar_logical(int value);
 SEXP yaml12_scalar_integer(int value);
 SEXP yaml12_scalar_real(double value);
 SEXP yaml12_scalar_string(const char *value, int value_len, int is_na);
-SEXP yaml12_set_string_elt(SEXP strings, R_xlen_t index, const char *value,
-                           int value_len, int is_na);
+SEXP yaml12_materialize_string_vector(
+    const struct yaml12_string_data *values, R_xlen_t length);
+SEXP yaml12_materialize_list(SEXP target,
+                             const struct yaml12_list_element *elements,
+                             const struct yaml12_string_data *names,
+                             R_xlen_t length);
 SEXP yaml12_call1(SEXP function, SEXP argument);
 
 static SEXP yaml12_unwind_protect(SEXP (*fun)(void *data), void *data) {
@@ -164,12 +192,6 @@ SEXP yaml12_scalar_real(double value) {
     return yaml12_unwind_protect(yaml12_scalar_real_impl, &data);
 }
 
-struct yaml12_string_data {
-    const char *value;
-    int value_len;
-    int is_na;
-};
-
 static SEXP yaml12_make_char(const struct yaml12_string_data *string) {
     if (string->is_na) {
         return NA_STRING;
@@ -190,25 +212,127 @@ SEXP yaml12_scalar_string(const char *value, int value_len, int is_na) {
     return yaml12_unwind_protect(yaml12_scalar_string_impl, &data);
 }
 
-struct yaml12_set_string_data {
-    SEXP target;
-    R_xlen_t index;
-    struct yaml12_string_data string;
-};
+/*
+ * Writing R Extensions and R's own construction loops attach fresh values
+ * directly with SET_*_ELT. That is safe here because the targets are ordinary
+ * protected vectors with types and indices guaranteed by construction; their
+ * successful setter paths perform the write barrier and store without
+ * allocating. Rf_ScalarString() protects its CHARSXP argument across its own
+ * allocation.
+ */
 
-static SEXP yaml12_set_string_impl(void *data) {
-    struct yaml12_set_string_data *element = data;
-    SEXP charsxp = PROTECT(yaml12_make_char(&element->string));
-    SET_STRING_ELT(element->target, element->index, charsxp);
-    UNPROTECT(1);
-    return R_NilValue;
+static void yaml12_fill_string_vector(
+    SEXP target, const struct yaml12_string_data *values, R_xlen_t length) {
+    for (R_xlen_t i = 0; i < length; i++) {
+        SET_STRING_ELT(target, i, yaml12_make_char(&values[i]));
+    }
 }
 
-SEXP yaml12_set_string_elt(SEXP strings, R_xlen_t index, const char *value,
-                           int value_len, int is_na) {
-    struct yaml12_set_string_data data = {strings, index,
-                                          {value, value_len, is_na}};
-    return yaml12_unwind_protect(yaml12_set_string_impl, &data);
+struct yaml12_materialize_string_vector_data {
+    const struct yaml12_string_data *values;
+    R_xlen_t length;
+};
+
+static SEXP yaml12_materialize_string_vector_impl(void *data) {
+    struct yaml12_materialize_string_vector_data *batch = data;
+    SEXP strings = PROTECT(Rf_allocVector(STRSXP, batch->length));
+    yaml12_fill_string_vector(strings, batch->values, batch->length);
+    UNPROTECT(1);
+    return strings;
+}
+
+SEXP yaml12_materialize_string_vector(
+    const struct yaml12_string_data *values, R_xlen_t length) {
+    struct yaml12_materialize_string_vector_data data = {values, length};
+    return yaml12_unwind_protect(yaml12_materialize_string_vector_impl, &data);
+}
+
+struct yaml12_materialize_list_data {
+    SEXP target;
+    const struct yaml12_list_element *elements;
+    const struct yaml12_string_data *names;
+    R_xlen_t length;
+};
+
+static SEXP yaml12_materialize_list_impl(void *data) {
+    struct yaml12_materialize_list_data *batch = data;
+    SEXP list = batch->target;
+    int protect_count = 0;
+
+    if (list == R_NilValue) {
+        list = PROTECT(Rf_allocVector(VECSXP, batch->length));
+        protect_count++;
+    }
+
+    SEXP names = R_NilValue;
+    if (batch->names != NULL) {
+        names = PROTECT(Rf_allocVector(STRSXP, batch->length));
+        protect_count++;
+    }
+
+    for (R_xlen_t i = 0; i < batch->length; i++) {
+        const struct yaml12_list_element *element = &batch->elements[i];
+
+        switch (element->kind) {
+        case YAML12_LIST_NULL:
+            SET_VECTOR_ELT(list, i, R_NilValue);
+            break;
+        case YAML12_LIST_LOGICAL:
+            SET_VECTOR_ELT(list, i, Rf_ScalarLogical(element->int_value));
+            break;
+        case YAML12_LIST_INTEGER:
+            SET_VECTOR_ELT(list, i, Rf_ScalarInteger(element->int_value));
+            break;
+        case YAML12_LIST_REAL:
+            SET_VECTOR_ELT(list, i, Rf_ScalarReal(element->real_value));
+            break;
+        case YAML12_LIST_STRING: {
+            struct yaml12_string_data string = {
+                element->string_value,
+                element->string_len,
+                element->string_is_na,
+            };
+            SET_VECTOR_ELT(list, i, Rf_ScalarString(yaml12_make_char(&string)));
+            break;
+        }
+        case YAML12_LIST_SKIP:
+            /* Rust already attached this value to the rooted target. */
+            break;
+        default:
+            Rf_error("Internal error: unknown YAML list element kind");
+        }
+    }
+
+    if (batch->names != NULL) {
+        yaml12_fill_string_vector(names, batch->names, batch->length);
+        Rf_setAttrib(list, R_NamesSymbol, names);
+    }
+
+    UNPROTECT(protect_count);
+    return list;
+}
+
+SEXP yaml12_materialize_list(SEXP target,
+                             const struct yaml12_list_element *elements,
+                             const struct yaml12_string_data *names,
+                             R_xlen_t length) {
+    int protect_target = target != R_NilValue;
+    if (protect_target) {
+        /* Root an existing target before the unwind runner allocates its token. */
+        PROTECT(target);
+    }
+
+    struct yaml12_materialize_list_data data = {target, elements, names, length};
+    SEXP result = yaml12_unwind_protect(yaml12_materialize_list_impl, &data);
+
+    if (((uintptr_t)result & 1) == 1) {
+        /* R_ContinueUnwind() will restore the protection stack. */
+        return result;
+    }
+    if (protect_target) {
+        UNPROTECT(1);
+    }
+    return result;
 }
 
 struct yaml12_call1_data {
