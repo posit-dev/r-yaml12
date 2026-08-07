@@ -221,7 +221,11 @@ impl<'a> YamlEmitter<'a> {
                 Ok(())
             }
             Yaml::Value(Scalar::Integer(v)) => Ok(write!(self.writer, "{v}")?),
-            Yaml::Value(Scalar::FloatingPoint(ref v)) => Ok(write!(self.writer, "{v}")?),
+            Yaml::Value(Scalar::FloatingPoint(ref v)) => Ok(write!(
+                self.writer,
+                "{v}{}",
+                if v.fract() == 0.0 { ".0" } else { "" }
+            )?),
             Yaml::Value(Scalar::Null) | Yaml::BadValue => Ok(write!(self.writer, "~")?),
             Yaml::Representation(ref v, style, ref tag) => {
                 if let Some(tag) = tag {
@@ -691,7 +695,9 @@ fn implicit_key_length(key: &Yaml<'_>) -> Option<usize> {
         Yaml::Value(Scalar::String(string)) => Some(rendered_string_length(string)),
         Yaml::Value(Scalar::Boolean(value)) => Some(if *value { 4 } else { 5 }),
         Yaml::Value(Scalar::Integer(value)) => Some(value.to_string().len()),
-        Yaml::Value(Scalar::FloatingPoint(value)) => Some(value.to_string().len()),
+        Yaml::Value(Scalar::FloatingPoint(value)) => {
+            Some(value.to_string().len() + if value.fract() == 0.0 { 2 } else { 0 })
+        }
         Yaml::Value(Scalar::Null) | Yaml::BadValue => Some(1),
         Yaml::Representation(value, style, tag) => {
             let value_length = match style {
