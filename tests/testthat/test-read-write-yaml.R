@@ -32,7 +32,7 @@ test_that("write_yaml appends YAML documents", {
 
   expect_identical(write_yaml(first, path, append = TRUE), first)
   write_yaml(second, path, append = TRUE)
-  write_yaml(docs, path, multi = TRUE)
+  write_yaml(docs, path, multi = TRUE, append = TRUE)
 
   expect_identical(
     read_yaml(path, multi = TRUE),
@@ -40,7 +40,7 @@ test_that("write_yaml appends YAML documents", {
   )
 
   replacement <- list(list(replacement = 5L))
-  write_yaml(replacement, path, multi = TRUE, append = FALSE)
+  write_yaml(replacement, path, multi = TRUE)
   expect_identical(read_yaml(path, multi = TRUE), replacement)
 })
 

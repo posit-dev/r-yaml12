@@ -1,8 +1,8 @@
 # yaml12 (development version)
 
-* `write_yaml()` gains an `append` argument, which defaults to `multi`.
-  Single-document writes continue to replace existing files by default, while
-  multi-document writes append by default (#4).
+* `write_yaml()` gains an `append` argument. It defaults to `FALSE`, so writes
+  continue to replace existing files unless appending is explicitly requested
+  (#4).
 
 * Replaced the Rust-side R API layer with `savvy`/`savvy-ffi` bindings.
   Source installs now require rustc 1.71 or newer. Vendored Rust crate

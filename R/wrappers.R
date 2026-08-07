@@ -94,7 +94,7 @@ dbg_yaml <- function(text) {
 #'   point (e.g. a single long word) or under deep indentation. Use `Inf` to
 #'   disable wrapping.
 #' @param append When `TRUE`, append to `path` instead of replacing it. Defaults
-#'   to `multi`.
+#'   to `FALSE`.
 #' @return `format_yaml()` returns a scalar character string containing YAML.
 #'   `write_yaml()` invisibly returns `value`.
 #' @rdname format_yaml
@@ -139,7 +139,7 @@ write_yaml <- function(
   path = NULL,
   multi = FALSE,
   width = 80,
-  append = multi
+  append = FALSE
 ) {
   invisible(
     .Call(savvy_write_yaml_native__impl, value, path, multi, width, append)
