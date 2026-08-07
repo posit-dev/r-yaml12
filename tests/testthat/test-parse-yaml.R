@@ -274,6 +274,44 @@ test_that("parse_yaml preserves YAML tags under GC pressure", {
   expect_true(ok)
 })
 
+test_that("parse_yaml preserves mixed unsimplified containers under GC pressure", {
+  yaml <- r"--(
+integer: 1
+logical: true
+nothing: null
+text: value
+sequence: [false, 2, 3.5, null, item]
+nested:
+  tagged: !custom tagged
+  handled: !wrap handled
+)--"
+  handlers <- list(
+    "!wrap" = function(value) {
+      structure(list(value = value), class = "wrapped")
+    }
+  )
+  expected <- list(
+    integer = 1L,
+    logical = TRUE,
+    nothing = NULL,
+    text = "value",
+    sequence = list(FALSE, 2L, 3.5, NULL, "item"),
+    nested = list(
+      tagged = structure("tagged", yaml_tag = "!custom"),
+      handled = structure(list(value = "handled"), class = "wrapped")
+    )
+  )
+
+  gctorture(TRUE)
+  on.exit(gctorture(FALSE), add = TRUE)
+
+  parsed <- parse_yaml(yaml, simplify = FALSE, handlers = handlers)
+  strings <- parse_yaml("[alpha, beta, null]")
+
+  gctorture(FALSE)
+  expect_identical(parsed, expected)
+  expect_identical(strings, c("alpha", "beta", NA_character_))
+})
 
 if (FALSE) {
   test_that("parse_yaml parses YAML 1.1 timestamp forms", {

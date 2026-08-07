@@ -1,6 +1,7 @@
 use crate::{api_other, Fallible};
-use savvy::{FunctionSexp, NotAvailableValue, OwnedListSexp, OwnedStringSexp, Sexp, StringSexp};
+use savvy::{FunctionSexp, NotAvailableValue, OwnedListSexp, Sexp, StringSexp};
 use savvy_ffi as ffi;
+use std::marker::PhantomData;
 use std::os::raw::c_char;
 use std::ptr;
 use std::{slice, str};
@@ -26,12 +27,15 @@ extern "C" {
     fn yaml12_scalar_integer(value: i32) -> ffi::SEXP;
     fn yaml12_scalar_real(value: f64) -> ffi::SEXP;
     fn yaml12_scalar_string(value: *const c_char, value_len: i32, is_na: i32) -> ffi::SEXP;
-    fn yaml12_set_string_elt(
-        strings: ffi::SEXP,
-        index: ffi::R_xlen_t,
-        value: *const c_char,
-        value_len: i32,
-        is_na: i32,
+    fn yaml12_materialize_list(
+        target: ffi::SEXP,
+        elements: *const ListElement<'_>,
+        names: *const StringData<'_>,
+        length: ffi::R_xlen_t,
+    ) -> ffi::SEXP;
+    fn yaml12_materialize_string_vector(
+        values: *const StringData<'_>,
+        length: ffi::R_xlen_t,
     ) -> ffi::SEXP;
     fn yaml12_call1(function: ffi::SEXP, argument: ffi::SEXP) -> ffi::SEXP;
 }
@@ -159,6 +163,128 @@ pub(crate) fn real_scalar(value: f64) -> Fallible<Sexp> {
     unsafe { check_unwind(yaml12_scalar_real(value)).map(Sexp) }
 }
 
+// String pointers borrow storage kept alive by the synchronous Rust caller.
+#[repr(C)]
+pub(crate) struct ListElement<'a> {
+    kind: i32,
+    int_value: i32,
+    real_value: f64,
+    string_value: *const c_char,
+    string_len: i32,
+    string_is_na: i32,
+    string_borrow: PhantomData<&'a str>,
+}
+
+#[repr(C)]
+pub(crate) struct StringData<'a> {
+    value: *const c_char,
+    value_len: i32,
+    is_na: i32,
+    borrow: PhantomData<&'a str>,
+}
+
+impl<'a> ListElement<'a> {
+    fn new(kind: i32) -> Self {
+        Self {
+            kind,
+            int_value: 0,
+            real_value: 0.0,
+            string_value: ptr::null(),
+            string_len: 0,
+            string_is_na: 0,
+            string_borrow: PhantomData,
+        }
+    }
+
+    pub(crate) fn null() -> Self {
+        Self::new(0)
+    }
+
+    pub(crate) fn logical(value: bool) -> Self {
+        let mut element = Self::new(1);
+        element.int_value = value.into();
+        element
+    }
+
+    pub(crate) fn integer(value: i32) -> Self {
+        let mut element = Self::new(2);
+        element.int_value = value;
+        element
+    }
+
+    pub(crate) fn real(value: f64) -> Self {
+        let mut element = Self::new(3);
+        element.real_value = value;
+        element
+    }
+
+    pub(crate) fn string(value: &'a str) -> Fallible<Self> {
+        let string = string_data(value)?;
+        let mut element = Self::new(4);
+        element.string_value = string.value;
+        element.string_len = string.value_len;
+        element.string_is_na = string.is_na;
+        Ok(element)
+    }
+
+    pub(crate) fn skip() -> Self {
+        Self::new(5)
+    }
+
+    fn is_skip(&self) -> bool {
+        self.kind == 5
+    }
+}
+
+pub(crate) fn string_data(value: &str) -> Fallible<StringData<'_>> {
+    let (value, value_len, is_na) = string_parts(value)?;
+    Ok(StringData {
+        value,
+        value_len,
+        is_na,
+        borrow: PhantomData,
+    })
+}
+
+pub(crate) fn materialize_list(
+    target: Option<&OwnedListSexp>,
+    elements: &[ListElement<'_>],
+    names: Option<&[StringData<'_>]>,
+) -> Fallible<Sexp> {
+    if let Some(target) = target {
+        debug_assert_eq!(target.len(), elements.len());
+    }
+    debug_assert!(target.is_some() || elements.iter().all(|element| !element.is_skip()));
+    if let Some(names) = names {
+        debug_assert_eq!(names.len(), elements.len());
+    }
+    if let Some(target) = target {
+        if names.is_none() && elements.iter().all(ListElement::is_skip) {
+            return Ok(Sexp(target.inner()));
+        }
+    }
+
+    let length = ffi::R_xlen_t::try_from(elements.len())
+        .map_err(|_| api_other("R list length exceeds R_xlen_t::MAX"))?;
+    let names_ptr = names.map_or(ptr::null(), <[StringData<'_>]>::as_ptr);
+
+    unsafe {
+        check_unwind(yaml12_materialize_list(
+            target.map_or(ffi::R_NilValue, OwnedListSexp::inner),
+            elements.as_ptr(),
+            names_ptr,
+            length,
+        ))
+        .map(Sexp)
+    }
+}
+
+pub(crate) fn materialize_string_vector(values: &[StringData<'_>]) -> Fallible<Sexp> {
+    let length = ffi::R_xlen_t::try_from(values.len())
+        .map_err(|_| api_other("R vector length exceeds R_xlen_t::MAX"))?;
+    unsafe { check_unwind(yaml12_materialize_string_vector(values.as_ptr(), length)).map(Sexp) }
+}
+
 fn string_parts(value: &str) -> Fallible<(*const c_char, i32, i32)> {
     if value.is_na() {
         return Ok((ptr::null(), 0, 1));
@@ -166,33 +292,6 @@ fn string_parts(value: &str) -> Fallible<(*const c_char, i32, i32)> {
     let value_len = i32::try_from(value.len())
         .map_err(|_| api_other("R strings cannot exceed i32::MAX bytes"))?;
     Ok((value.as_ptr().cast::<c_char>(), value_len, 0))
-}
-
-pub(crate) fn set_string_elt(strings: &mut OwnedStringSexp, i: usize, value: &str) -> Fallible<()> {
-    if i >= strings.len() {
-        return Err(api_other("string index out of bounds"));
-    }
-    let (value, value_len, is_na) = string_parts(value)?;
-    unsafe {
-        check_unwind(yaml12_set_string_elt(
-            strings.inner(),
-            i as ffi::R_xlen_t,
-            value,
-            value_len,
-            is_na,
-        ))?;
-    }
-    Ok(())
-}
-
-pub(crate) fn set_names(list: &mut OwnedListSexp, names: OwnedStringSexp) -> Fallible<()> {
-    debug_assert_eq!(list.len(), names.len());
-    let mut list_sexp = Sexp(list.inner());
-    set_attrib_sym(
-        &mut list_sexp,
-        unsafe { ffi::R_NamesSymbol },
-        Sexp(names.inner()),
-    )
 }
 
 pub(crate) fn call1(handler: &FunctionSexp, arg: Sexp) -> Fallible<Sexp> {
