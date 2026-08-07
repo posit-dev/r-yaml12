@@ -2,6 +2,13 @@
 
 ## yaml12 (development version)
 
+- [`format_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
+  and
+  [`write_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
+  now emit `Inf`, `-Inf`, and `NaN` as `.Inf`, `-.Inf`, and `.NaN` so
+  they round-trip as doubles
+  ([\#9](https://github.com/posit-dev/r-yaml12/issues/9)).
+
 - [`write_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
   gains an `append` argument for adding YAML documents to existing files
   ([\#4](https://github.com/posit-dev/r-yaml12/issues/4)).
