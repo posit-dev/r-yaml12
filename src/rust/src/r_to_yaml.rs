@@ -154,7 +154,7 @@ fn integer_to_yaml(robj: IntegerSexp) -> Fallible<Yaml<'static>> {
 fn real_to_yaml(robj: RealSexp) -> Fallible<Yaml<'static>> {
     let slice = robj.as_slice();
     if let [value] = slice {
-        return Ok(if value.is_nan() {
+        return Ok(if value.is_na() {
             Yaml::Value(Scalar::Null)
         } else {
             Yaml::Value(Scalar::FloatingPoint((*value).into()))
@@ -162,7 +162,7 @@ fn real_to_yaml(robj: RealSexp) -> Fallible<Yaml<'static>> {
     }
     let mut values = Vec::with_capacity(slice.len());
     for value in slice {
-        if value.is_nan() {
+        if value.is_na() {
             values.push(Yaml::Value(Scalar::Null));
         } else {
             values.push(Yaml::Value(Scalar::FloatingPoint((*value).into())));
