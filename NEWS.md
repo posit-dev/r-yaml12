@@ -5,6 +5,10 @@
   attribution now points to crate repository metadata when Cargo does not
   provide crate authors.
 
+* `format_yaml()` and `write_yaml()` now emit whole-valued doubles with a
+  decimal suffix (for example, `100.0` instead of `100`), so parsing the result
+  preserves their R double type.
+
 * `format_yaml()` and `write_yaml()` now automatically wrap long single-line
   strings and multiline strings containing unindented, single-line paragraphs
   separated by exactly one blank line. Strings with a safe word boundary are
