@@ -13,7 +13,7 @@ use savvy::{
     IntegerSexp, ListSexp, LogicalSexp, NotAvailableValue, RealSexp, Sexp, StringSexp, TypedSexp,
 };
 use savvy_ffi as ffi;
-use std::{borrow::Cow, fs, os::raw::c_char};
+use std::{borrow::Cow, fs, io::Write, os::raw::c_char};
 
 const PRINTF_NO_FMT_CSTRING: &[c_char] = &[37, 115, 0]; // "%s\0"
 
@@ -412,6 +412,7 @@ pub(crate) fn write_yaml_impl(
     path: Option<&str>,
     multi: bool,
     width: Option<usize>,
+    append: bool,
 ) -> Fallible<()> {
     let mut output = format_yaml_impl(value, multi, width)?;
     // `dump_docs()` ends multi-doc streams with a trailing newline; `dump()` does not.
@@ -422,8 +423,16 @@ pub(crate) fn write_yaml_impl(
         output.push_str("\n...\n");
     }
     if let Some(path) = path {
-        fs::write(path, &output)
-            .map_err(|err| api_other(format!("Failed to write `{path}`: {err}")))?;
+        let result = if append {
+            fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+                .and_then(|mut file| file.write_all(output.as_bytes()))
+        } else {
+            fs::write(path, &output)
+        };
+        result.map_err(|err| api_other(format!("Failed to write `{path}`: {err}")))?;
     } else {
         write_to_r_stdout(output)?;
     }

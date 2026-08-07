@@ -649,7 +649,8 @@ test_that("write_yaml `width` argument controls wrapping", {
   expect_true(all(nchar(lines) <= 40))
   expect_identical(read_yaml(path), list(key = long))
 
-  write_yaml(list(key = long), path, width = Inf)
+  # Keep `width` in its existing positional slot as new arguments are added.
+  write_yaml(list(key = long), path, FALSE, Inf)
   expect_false(any(grepl(">-", readLines(path), fixed = TRUE)))
   expect_identical(read_yaml(path), list(key = long))
 })
