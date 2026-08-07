@@ -171,7 +171,7 @@ identical(obj, roundtripped)
 
 ## Documentation
 
--   YAML quick primer:
-    <https://posit-dev.github.io/r-yaml12/articles/yaml-2-minute-intro.html>.
--   Tags, handlers, anchors, and advanced YAML features:
-    <https://posit-dev.github.io/r-yaml12/articles/yaml-tags-and-advanced-features.html>.
+- YAML quick primer:
+  <https://posit-dev.github.io/r-yaml12/articles/yaml-2-minute-intro.html>.
+- Tags, handlers, anchors, and advanced YAML features:
+  <https://posit-dev.github.io/r-yaml12/articles/yaml-tags-and-advanced-features.html>.
