@@ -143,9 +143,10 @@ where
     value.set_class(classes)
 }
 
-// These scalar leaves return fresh, unprotected SEXPs. A caller must return the
-// result, insert it into an already-rooted container, or preserve it before the
-// next allocation-capable R operation.
+// These scalar leaves return raw SEXPs without a Rust ownership guard. A caller
+// must return the result, insert it into an already-rooted container, or
+// preserve any allocation-backed result before the next allocation-capable R
+// operation.
 pub(crate) fn string_scalar(value: &str) -> Fallible<Sexp> {
     let (value, value_len, is_na) = string_parts(value)?;
     unsafe { check_unwind(yaml12_scalar_string(value, value_len, is_na)).map(Sexp) }
