@@ -16,6 +16,7 @@ static mut TZONE_SYMBOL: ffi::SEXP = ptr::null_mut();
 #[allow(improper_ctypes)]
 extern "C" {
     fn yaml12_charsxp_encoding(x: ffi::SEXP) -> i32;
+    fn yaml12_has_attributes(x: ffi::SEXP) -> i32;
     fn yaml12_translate_char_utf8(
         x: ffi::SEXP,
         out: *mut *const c_char,
@@ -268,7 +269,7 @@ pub(crate) fn inherits(value: &Sexp, class_name: &str) -> Fallible<bool> {
 }
 
 pub(crate) fn has_attributes(value: &Sexp) -> bool {
-    unsafe { ffi::ATTRIB(value.0) != ffi::R_NilValue }
+    unsafe { yaml12_has_attributes(value.0) != 0 }
 }
 
 fn charsxp_to_str(charsxp: ffi::SEXP) -> Fallible<&'static str> {

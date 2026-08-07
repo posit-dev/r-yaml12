@@ -41,6 +41,7 @@ enum yaml12_charsxp_encoding {
 };
 
 int yaml12_charsxp_encoding(SEXP value);
+int yaml12_has_attributes(SEXP value);
 SEXP yaml12_translate_char_utf8(SEXP value, const char **out, size_t *out_len);
 SEXP yaml12_scalar_logical(int value);
 SEXP yaml12_scalar_integer(int value);
@@ -89,6 +90,14 @@ int yaml12_charsxp_encoding(SEXP value) {
 #endif
     return encoding == CE_NATIVE ? YAML12_CHARSXP_NATIVE
                                  : YAML12_CHARSXP_MUST_TRANSLATE;
+}
+
+int yaml12_has_attributes(SEXP value) {
+#if R_VERSION >= R_Version(4, 5, 0)
+    return ANY_ATTRIB(value);
+#else
+    return ATTRIB(value) != R_NilValue;
+#endif
 }
 
 struct yaml12_translate_data {
