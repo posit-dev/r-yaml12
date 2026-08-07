@@ -36,10 +36,14 @@ Repository:  https://github.com/hsivonen/encoding_rs
 Authors:     Henri Sivonen
 License:     (Apache-2.0 OR MIT) AND BSD-3-Clause
 
+-------------------------------------------------------------
+
 Name:        find-msvc-tools
 Repository:  https://github.com/rust-lang/cc-rs
 Authors:     see https://github.com/rust-lang/cc-rs
 License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
 
 Name:        foldhash
 Repository:  https://github.com/orlp/foldhash
@@ -56,9 +60,11 @@ License:     MIT OR Apache-2.0
 -------------------------------------------------------------
 
 Name:        hashlink
-Repository:  https://github.com/kyren/hashlink
-Authors:     kyren
+Repository:  https://github.com/djc/hashlink
+Authors:     see https://github.com/djc/hashlink
 License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
 
 Name:        num-traits
 Repository:  https://github.com/rust-num/num-traits
@@ -86,10 +92,14 @@ Repository:  https://github.com/dtolnay/quote
 Authors:     David Tolnay
 License:     MIT OR Apache-2.0
 
+-------------------------------------------------------------
+
 Name:        rustversion
 Repository:  https://github.com/dtolnay/rustversion
 Authors:     David Tolnay
 License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
 
 Name:        saphyr
 Repository:  https://github.com/saphyr-rs/saphyr
@@ -110,15 +120,21 @@ Repository:  https://github.com/yutannihilation/savvy/
 Authors:     Hiroaki Yutani
 License:     MIT
 
+-------------------------------------------------------------
+
 Name:        savvy-bindgen
 Repository:  https://github.com/yutannihilation/savvy/
 Authors:     Hiroaki Yutani
 License:     MIT
 
+-------------------------------------------------------------
+
 Name:        savvy-ffi
 Repository:  https://github.com/yutannihilation/savvy/
 Authors:     Hiroaki Yutani
 License:     MIT
+
+-------------------------------------------------------------
 
 Name:        savvy-macro
 Repository:  https://github.com/yutannihilation/savvy/
@@ -130,6 +146,13 @@ License:     MIT
 Name:        shlex
 Repository:  https://github.com/comex/rust-shlex
 Authors:     comex, Fenhl, Adrian Taylor, Alex Touchet, Daniel Parks, Garrett Berg
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        syn
+Repository:  https://github.com/dtolnay/syn
+Authors:     David Tolnay
 License:     MIT OR Apache-2.0
 
 -------------------------------------------------------------
