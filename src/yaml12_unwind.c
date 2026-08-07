@@ -212,12 +212,19 @@ SEXP yaml12_scalar_string(const char *value, int value_len, int is_na) {
     return yaml12_unwind_protect(yaml12_scalar_string_impl, &data);
 }
 
+/*
+ * Writing R Extensions and R's own construction loops attach fresh values
+ * directly with SET_*_ELT. That is safe here because the targets are ordinary
+ * protected vectors with types and indices guaranteed by construction; their
+ * successful setter paths perform the write barrier and store without
+ * allocating. Rf_ScalarString() protects its CHARSXP argument across its own
+ * allocation.
+ */
+
 static void yaml12_fill_string_vector(
     SEXP target, const struct yaml12_string_data *values, R_xlen_t length) {
     for (R_xlen_t i = 0; i < length; i++) {
-        SEXP value = PROTECT(yaml12_make_char(&values[i]));
-        SET_STRING_ELT(target, i, value);
-        UNPROTECT(1);
+        SET_STRING_ELT(target, i, yaml12_make_char(&values[i]));
     }
 }
 
@@ -270,34 +277,22 @@ static SEXP yaml12_materialize_list_impl(void *data) {
         case YAML12_LIST_NULL:
             SET_VECTOR_ELT(list, i, R_NilValue);
             break;
-        case YAML12_LIST_LOGICAL: {
-            SEXP value = PROTECT(Rf_ScalarLogical(element->int_value));
-            SET_VECTOR_ELT(list, i, value);
-            UNPROTECT(1);
+        case YAML12_LIST_LOGICAL:
+            SET_VECTOR_ELT(list, i, Rf_ScalarLogical(element->int_value));
             break;
-        }
-        case YAML12_LIST_INTEGER: {
-            SEXP value = PROTECT(Rf_ScalarInteger(element->int_value));
-            SET_VECTOR_ELT(list, i, value);
-            UNPROTECT(1);
+        case YAML12_LIST_INTEGER:
+            SET_VECTOR_ELT(list, i, Rf_ScalarInteger(element->int_value));
             break;
-        }
-        case YAML12_LIST_REAL: {
-            SEXP value = PROTECT(Rf_ScalarReal(element->real_value));
-            SET_VECTOR_ELT(list, i, value);
-            UNPROTECT(1);
+        case YAML12_LIST_REAL:
+            SET_VECTOR_ELT(list, i, Rf_ScalarReal(element->real_value));
             break;
-        }
         case YAML12_LIST_STRING: {
             struct yaml12_string_data string = {
                 element->string_value,
                 element->string_len,
                 element->string_is_na,
             };
-            SEXP charsxp = PROTECT(yaml12_make_char(&string));
-            SEXP value = PROTECT(Rf_ScalarString(charsxp));
-            SET_VECTOR_ELT(list, i, value);
-            UNPROTECT(2);
+            SET_VECTOR_ELT(list, i, Rf_ScalarString(yaml12_make_char(&string)));
             break;
         }
         case YAML12_LIST_SKIP:
