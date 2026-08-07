@@ -5,9 +5,9 @@
 \alias{write_yaml}
 \title{Format or write R objects as YAML 1.2.}
 \usage{
-format_yaml(value, multi = FALSE, width = 80)
+format_yaml(value, multi = FALSE, width = 80L)
 
-write_yaml(value, path = NULL, multi = FALSE, append = FALSE, width = 80)
+write_yaml(value, path = NULL, multi = FALSE, append = FALSE, width = 80L)
 }
 \arguments{
 \item{value}{Any R object composed of lists, atomic vectors, and scalars.}

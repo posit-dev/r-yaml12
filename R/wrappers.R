@@ -109,7 +109,7 @@ dbg_yaml <- function(text) {
 #' cat(tagged_yaml <- format_yaml(tagged), "\n")
 #'
 #' dput(parse_yaml(tagged_yaml))
-format_yaml <- function(value, multi = FALSE, width = 80) {
+format_yaml <- function(value, multi = FALSE, width = 80L) {
   .Call(savvy_format_yaml_native__impl, value, multi, width)
 }
 
@@ -139,7 +139,7 @@ write_yaml <- function(
   path = NULL,
   multi = FALSE,
   append = FALSE,
-  width = 80
+  width = 80L
 ) {
   invisible(
     .Call(savvy_write_yaml_native__impl, value, path, multi, width, append)

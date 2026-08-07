@@ -654,6 +654,11 @@ test_that("write_yaml `width` argument controls wrapping", {
   expect_identical(read_yaml(path), list(key = long))
 })
 
+test_that("YAML formatting defaults to an integer width", {
+  expect_identical(formals(format_yaml)$width, 80L)
+  expect_identical(formals(write_yaml)$width, 80L)
+})
+
 test_that("format_yaml validates `width`", {
   for (width in list(0, -1, -Inf, NA, NaN, "80", c(40, 80))) {
     expect_error(
