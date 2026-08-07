@@ -21,7 +21,7 @@ test_that("format_yaml round-trips basic R lists", {
 
 test_that("format_yaml round-trips non-finite doubles", {
   values <- c(Inf, -Inf, NaN)
-  expected <- c(".inf", "-.inf", ".nan")
+  expected <- c(".Inf", "-.Inf", ".NaN")
 
   for (i in seq_along(values)) {
     encoded <- format_yaml(values[[i]])

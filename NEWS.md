@@ -1,7 +1,7 @@
 # yaml12 (development version)
 
-* `format_yaml()` and `write_yaml()` now emit `Inf`, `-Inf`, and `NaN` using
-  YAML 1.2 numeric spellings so they round-trip as doubles (#9).
+* `format_yaml()` and `write_yaml()` now emit `Inf`, `-Inf`, and `NaN` as
+  `.Inf`, `-.Inf`, and `.NaN` so they round-trip as doubles (#9).
 
 * Replaced the Rust-side R API layer with `savvy`/`savvy-ffi` bindings.
   Source installs now require rustc 1.71 or newer. Vendored Rust crate

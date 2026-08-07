@@ -59,11 +59,11 @@ pub type EmitResult = Result<(), EmitError>;
 
 fn special_floating_point(value: f64) -> Option<&'static str> {
     if value.is_nan() {
-        Some(".nan")
+        Some(".NaN")
     } else if value == f64::INFINITY {
-        Some(".inf")
+        Some(".Inf")
     } else if value == f64::NEG_INFINITY {
-        Some("-.inf")
+        Some("-.Inf")
     } else {
         None
     }
