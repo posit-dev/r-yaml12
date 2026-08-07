@@ -86,6 +86,8 @@ read_results <- lapply(docs, function(doc) {
 #> disabled.
 #> Warning: Some expressions had a GC in every iteration; so filtering is
 #> disabled.
+#> Warning: Some expressions had a GC in every iteration; so filtering is
+#> disabled.
 ```
 
 ### Read results summary
@@ -127,30 +129,30 @@ invisible(lapply(read_results, \(result) {
 ![](benchmarks_files/figure-html/unnamed-chunk-8-1.png)
 
     #> # A tibble: 2 × 14
-    #>   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`
-    #>   <bch:expr>         <dbl> <bch:t> <bch:t>     <dbl> <bch:byt>    <dbl>
-    #> 1 yaml12::read_…       844  32.2µs  33.5µs    28478.    2.75KB     0   
-    #> 2 yaml::read_ya…       844 105.1µs 121.4µs     7949.    34.8KB     4.00
-    #> # ℹ 7 more variables: n_itr <int>, n_gc <dbl>, total_time <bch:tm>,
-    #> #   result <list>, memory <list>, time <list>, gc <list>
+    #>   expression file_size    min median `itr/sec` mem_alloc `gc/sec` n_itr
+    #>   <bch:expr>     <dbl> <bch:> <bch:>     <dbl> <bch:byt>    <dbl> <int>
+    #> 1 yaml12::r…       844 31.3µs 32.8µs    29459.    2.75KB     0    10000
+    #> 2 yaml::rea…       844 87.3µs 97.5µs     9637.    34.8KB     4.00  4817
+    #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
+    #> #   memory <list>, time <list>, gc <list>
 
 ![](benchmarks_files/figure-html/unnamed-chunk-8-2.png)
 
     #> # A tibble: 2 × 14
-    #>   expression file_size   min  median `itr/sec` mem_alloc `gc/sec` n_itr
-    #>   <bch:expr>     <dbl> <bch> <bch:t>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::r…      1680  57µs  60.1µs    16162.        0B     0     8076
-    #> 2 yaml::rea…      1680 151µs 157.3µs     6083.    10.9KB     4.00  3041
-    #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
-    #> #   memory <list>, time <list>, gc <list>
+    #>   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`
+    #>   <bch:expr>         <dbl> <bch:t> <bch:t>     <dbl> <bch:byt>    <dbl>
+    #> 1 yaml12::read_…      1680  56.3µs  59.5µs    16382.        0B     2.00
+    #> 2 yaml::read_ya…      1680 127.6µs 134.2µs     7132.    10.9KB     4.00
+    #> # ℹ 7 more variables: n_itr <int>, n_gc <dbl>, total_time <bch:tm>,
+    #> #   result <list>, memory <list>, time <list>, gc <list>
 
 ![](benchmarks_files/figure-html/unnamed-chunk-8-3.png)
 
     #> # A tibble: 2 × 14
     #>   expression  file_size   min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>      <dbl> <bch> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::re…      3352 111µs  114µs     8422.        0B     2.00  4210
-    #> 2 yaml::read…      3352 240µs  249µs     3876.    13.7KB     4.00  1938
+    #> 1 yaml12::re…      3352 104µs  111µs     8841.        0B     2.00  4419
+    #> 2 yaml::read…      3352 209µs  221µs     4336.    13.7KB     4.00  2168
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -159,8 +161,8 @@ invisible(lapply(read_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression  file_size   min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>      <dbl> <bch> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::re…      6696 214µs  227µs     4273.        0B     2.00  2137
-    #> 2 yaml::read…      6696 420µs  444µs     2223.    19.3KB     2.00  1112
+    #> 1 yaml12::re…      6696 204µs  216µs     4368.        0B     0     2184
+    #> 2 yaml::read…      6696 378µs  400µs     2419.    19.3KB     4.00  1210
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -169,8 +171,8 @@ invisible(lapply(read_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression  file_size   min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>      <dbl> <bch> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::re…     13384 434µs  459µs     2150.      304B     2.00  1075
-    #> 2 yaml::read…     13384 784µs  819µs     1191.    30.9KB     4.00   596
+    #> 1 yaml12::re…     13384 415µs  436µs     2249.      304B     2.00  1125
+    #> 2 yaml::read…     13384 717µs  753µs     1287.    30.9KB     4.00   644
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -179,8 +181,8 @@ invisible(lapply(read_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression   file_size      min   median `itr/sec` mem_alloc `gc/sec`
     #>   <bch:expr>       <dbl> <bch:tm> <bch:tm>     <dbl> <bch:byt>    <dbl>
-    #> 1 yaml12::rea…     26760 879.38µs 907.84µs     1088.      560B     2.00
-    #> 2 yaml::read_…     26760   1.55ms   1.59ms      619.    69.4KB     2.00
+    #> 1 yaml12::rea…     26760 858.24µs 892.92µs     1100.      560B     2.00
+    #> 2 yaml::read_…     26760   1.42ms   1.48ms      656.    69.4KB     4.00
     #> # ℹ 7 more variables: n_itr <int>, n_gc <dbl>, total_time <bch:tm>,
     #> #   result <list>, memory <list>, time <list>, gc <list>
 
@@ -189,8 +191,8 @@ invisible(lapply(read_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression file_size    min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>     <dbl> <bch:> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::r…     53512 1.77ms 1.82ms      542.    1.05KB     1.99   272
-    #> 2 yaml::rea…     53512 3.15ms 3.22ms      303.  146.31KB     3.99   152
+    #> 1 yaml12::r…     53512 1.76ms  1.8ms      545.    1.05KB     1.99   273
+    #> 2 yaml::rea…     53512 2.88ms 2.98ms      329.  146.31KB     1.99   165
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -199,8 +201,8 @@ invisible(lapply(read_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression file_size    min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>     <dbl> <bch:> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::r…    107016 3.52ms 3.57ms      276.    2.05KB     1.99   139
-    #> 2 yaml::rea…    107016 6.76ms 6.88ms      143.   300.1KB     1.99    72
+    #> 1 yaml12::r…    107016 3.56ms 3.63ms      269.    2.05KB     1.99   135
+    #> 2 yaml::rea…    107016 6.41ms 6.55ms      149.   300.1KB     3.96    75
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -209,8 +211,8 @@ invisible(lapply(read_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`
     #>   <bch:expr>         <dbl> <bch:t> <bch:t>     <dbl> <bch:byt>    <dbl>
-    #> 1 yaml12::read_…    214024  6.86ms  7.01ms     139.     4.05KB     1.99
-    #> 2 yaml::read_ya…    214024 16.15ms  16.4ms      60.4  607.65KB     1.95
+    #> 1 yaml12::read_…    214024  7.03ms  7.11ms     139.     4.05KB     1.98
+    #> 2 yaml::read_ya…    214024 15.79ms 16.02ms      61.6  607.65KB     1.99
     #> # ℹ 7 more variables: n_itr <int>, n_gc <dbl>, total_time <bch:tm>,
     #> #   result <list>, memory <list>, time <list>, gc <list>
 
@@ -219,58 +221,58 @@ invisible(lapply(read_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression file_size    min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>     <dbl> <bch:> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::r…    428040 13.4ms 14.1ms      71.0    8.05KB     0       36
-    #> 2 yaml::rea…    428040 42.8ms 43.2ms      22.9    1.19MB     1.91    12
+    #> 1 yaml12::r…    428040 13.9ms 14.3ms      68.7    8.05KB     1.96    35
+    #> 2 yaml::rea…    428040 43.4ms 43.8ms      22.6    1.19MB     1.88    12
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
 ![](benchmarks_files/figure-html/unnamed-chunk-8-11.png)
 
     #> # A tibble: 2 × 14
-    #>   expression      file_size     min median `itr/sec` mem_alloc `gc/sec`
-    #>   <bch:expr>          <dbl> <bch:t> <bch:>     <dbl> <bch:byt>    <dbl>
-    #> 1 yaml12::read_y…    856072  27.6ms   29ms     34.6       16KB     0   
-    #> 2 yaml::read_yam…    856072 144.3ms  152ms      6.61     2.4MB     1.65
+    #>   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`
+    #>   <bch:expr>         <dbl> <bch:t> <bch:t>     <dbl> <bch:byt>    <dbl>
+    #> 1 yaml12::read_…    856072  28.5ms  29.3ms     33.7       16KB     1.98
+    #> 2 yaml::read_ya…    856072 133.8ms   135ms      7.35     2.4MB     1.84
     #> # ℹ 7 more variables: n_itr <int>, n_gc <dbl>, total_time <bch:tm>,
     #> #   result <list>, memory <list>, time <list>, gc <list>
 
 ![](benchmarks_files/figure-html/unnamed-chunk-8-12.png)
 
     #> # A tibble: 2 × 14
-    #>   expression      file_size     min median `itr/sec` mem_alloc `gc/sec`
-    #>   <bch:expr>          <dbl> <bch:t> <bch:>     <dbl> <bch:byt>    <dbl>
-    #> 1 yaml12::read_y…   1712136  55.2ms   56ms     17.7       32KB     1.97
-    #> 2 yaml::read_yam…   1712136 873.7ms  874ms      1.14     4.8MB     0   
+    #>   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`
+    #>   <bch:expr>         <dbl> <bch:t> <bch:t>     <dbl> <bch:byt>    <dbl>
+    #> 1 yaml12::read_…   1712136  55.8ms  57.5ms     17.1       32KB     1.90
+    #> 2 yaml::read_ya…   1712136   616ms   616ms      1.62     4.8MB     1.62
     #> # ℹ 7 more variables: n_itr <int>, n_gc <dbl>, total_time <bch:tm>,
     #> #   result <list>, memory <list>, time <list>, gc <list>
 
 ![](benchmarks_files/figure-html/unnamed-chunk-8-13.png)
 
     #> # A tibble: 2 × 14
-    #>   expression   file_size      min   median `itr/sec` mem_alloc `gc/sec`
-    #>   <bch:expr>       <dbl> <bch:tm> <bch:tm>     <dbl> <bch:byt>    <dbl>
-    #> 1 yaml12::rea…   3424264 108.72ms 110.61ms     8.48       64KB    1.70 
-    #> 2 yaml::read_…   3424264    4.37s    4.37s     0.229     9.6MB    0.229
+    #>   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`
+    #>   <bch:expr>         <dbl> <bch:t> <bch:t>     <dbl> <bch:byt>    <dbl>
+    #> 1 yaml12::read_…   3424264 110.9ms 113.7ms     8.70       64KB    1.74 
+    #> 2 yaml::read_ya…   3424264    3.5s    3.5s     0.286     9.6MB    0.286
     #> # ℹ 7 more variables: n_itr <int>, n_gc <dbl>, total_time <bch:tm>,
     #> #   result <list>, memory <list>, time <list>, gc <list>
 
 ![](benchmarks_files/figure-html/unnamed-chunk-8-14.png)
 
     #> # A tibble: 2 × 14
-    #>   expression      file_size    min  median `itr/sec` mem_alloc `gc/sec`
-    #>   <bch:expr>          <dbl> <bch:> <bch:t>     <dbl> <bch:byt>    <dbl>
-    #> 1 yaml12::read_y…   6848520  216ms 229.2ms    4.40       128KB    2.93 
-    #> 2 yaml::read_yam…   6848520  18.7s   18.7s    0.0535    19.2MB    0.107
+    #>   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`
+    #>   <bch:expr>         <dbl> <bch:t> <bch:t>     <dbl> <bch:byt>    <dbl>
+    #> 1 yaml12::read_…   6848520 227.8ms 232.8ms    4.26       128KB    2.84 
+    #> 2 yaml::read_ya…   6848520   19.5s   19.5s    0.0512    19.2MB    0.102
     #> # ℹ 7 more variables: n_itr <int>, n_gc <dbl>, total_time <bch:tm>,
     #> #   result <list>, memory <list>, time <list>, gc <list>
 
 ![](benchmarks_files/figure-html/unnamed-chunk-8-15.png)
 
     #> # A tibble: 2 × 14
-    #>   expression   file_size      min   median `itr/sec` mem_alloc `gc/sec`
-    #>   <bch:expr>       <dbl> <bch:tm> <bch:tm>     <dbl> <bch:byt>    <dbl>
-    #> 1 yaml12::rea…  13697032 429.21ms 465.95ms    2.15       256KB   3.22  
-    #> 2 yaml::read_…  13697032    1.01m    1.01m    0.0165    38.4MB   0.0827
+    #>   expression     file_size     min  median `itr/sec` mem_alloc `gc/sec`
+    #>   <bch:expr>         <dbl> <bch:t> <bch:t>     <dbl> <bch:byt>    <dbl>
+    #> 1 yaml12::read_…  13697032 439.1ms 482.4ms    2.07       256KB   3.11  
+    #> 2 yaml::read_ya…  13697032    1.1m    1.1m    0.0152    38.4MB   0.0760
     #> # ℹ 7 more variables: n_itr <int>, n_gc <dbl>, total_time <bch:tm>,
     #> #   result <list>, memory <list>, time <list>, gc <list>
 
@@ -334,18 +336,18 @@ invisible(lapply(write_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression  obj_size    min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>  <objct_> <bch:> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::wr… 3360 by… 20.7µs 21.3µs    45678.    3.02KB     0    10000
-    #> 2 yaml::writ… 3360 by…   70µs 73.9µs    12673.   33.68KB     4.00  6334
+    #> 1 yaml12::wr… 3360 by… 20.2µs 20.6µs    46713.    3.02KB     0    10000
+    #> 2 yaml::writ… 3360 by…   54µs 58.8µs    15892.   33.68KB     6.00  7941
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
 ![](benchmarks_files/figure-html/unnamed-chunk-12-2.png)
 
     #> # A tibble: 2 × 14
-    #>   expression  obj_size    min median `itr/sec` mem_alloc `gc/sec` n_itr
-    #>   <bch:expr>  <objct_> <bch:> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::wr… 6672 by… 35.4µs 36.1µs    26904.        0B     0    10000
-    #> 2 yaml::writ… 6672 by… 91.2µs 96.2µs     6873.    1.56KB     4.30  4800
+    #>   expression   obj_size   min median `itr/sec` mem_alloc `gc/sec` n_itr
+    #>   <bch:expr>   <objct_> <bch> <bch:>     <dbl> <bch:byt>    <dbl> <int>
+    #> 1 yaml12::wri… 6672 by…  34µs   35µs    28270.        0B     0    10000
+    #> 2 yaml::write… 6672 by…  73µs 79.3µs     5681.    1.56KB     4.00  2840
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -354,8 +356,8 @@ invisible(lapply(write_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression      obj_size     min  median `itr/sec` mem_alloc `gc/sec`
     #>   <bch:expr>      <objct_> <bch:t> <bch:t>     <dbl> <bch:byt>    <dbl>
-    #> 1 yaml12::write_… 13296 b…  64.5µs  65.5µs    14819.        0B     0   
-    #> 2 yaml::write_ya… 13296 b… 133.7µs 138.5µs     6866.    3.07KB     4.00
+    #> 1 yaml12::write_… 13296 b…  61.6µs  62.6µs    15699.        0B     0   
+    #> 2 yaml::write_ya… 13296 b… 112.8µs 119.3µs     7978.    3.07KB     4.00
     #> # ℹ 7 more variables: n_itr <int>, n_gc <dbl>, total_time <bch:tm>,
     #> #   result <list>, memory <list>, time <list>, gc <list>
 
@@ -364,8 +366,8 @@ invisible(lapply(write_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression   obj_size   min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>   <objct_> <bch> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::wri… 26544 b… 123µs  124µs     7808.        0B     0     3903
-    #> 2 yaml::write… 26544 b… 220µs  229µs     4175.    6.09KB     4.00  2088
+    #> 1 yaml12::wri… 26544 b… 117µs  119µs     8270.        0B     0     4134
+    #> 2 yaml::write… 26544 b… 193µs  206µs     4547.    6.09KB     6.00  2274
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -374,8 +376,8 @@ invisible(lapply(write_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression   obj_size   min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>   <objct_> <bch> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::wri… 53040 b… 241µs  248µs     3975.        0B     0     1988
-    #> 2 yaml::write… 53040 b… 408µs  430µs     2262.    12.1KB     6.00  1131
+    #> 1 yaml12::wri… 53040 b… 230µs  233µs     4231.        0B     0     2116
+    #> 2 yaml::write… 53040 b… 356µs  384µs     2527.    12.1KB     4.00  1264
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -384,8 +386,8 @@ invisible(lapply(write_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression   obj_size   min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>   <objct_> <bch> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::wri… 106032 … 491µs  505µs     1972.        0B     0      986
-    #> 2 yaml::write… 106032 … 774µs  804µs     1216.    24.2KB     4.00   608
+    #> 1 yaml12::wri… 106032 … 453µs  464µs     2151.        0B     0     1076
+    #> 2 yaml::write… 106032 … 707µs  741µs     1314.    24.2KB     3.99   658
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -394,8 +396,8 @@ invisible(lapply(write_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression    obj_size      min   median `itr/sec` mem_alloc `gc/sec`
     #>   <bch:expr>    <objct_> <bch:tm> <bch:tm>     <dbl> <bch:byt>    <dbl>
-    #> 1 yaml12::writ… 212016 … 988.85µs 999.39µs      994.        0B     0   
-    #> 2 yaml::write_… 212016 …   1.51ms   1.55ms      631.    48.3KB     3.99
+    #> 1 yaml12::writ… 212016 … 920.63µs 939.57µs     1058.        0B     0   
+    #> 2 yaml::write_… 212016 …   1.39ms   1.46ms      633.    48.3KB     4.00
     #> # ℹ 7 more variables: n_itr <int>, n_gc <dbl>, total_time <bch:tm>,
     #> #   result <list>, memory <list>, time <list>, gc <list>
 
@@ -404,8 +406,8 @@ invisible(lapply(write_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression  obj_size    min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>  <objct_> <bch:> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::wr… 423984 … 1.96ms 1.98ms      501.        0B     0      251
-    #> 2 yaml::writ… 423984 … 2.97ms 3.04ms      319.    96.6KB     5.99   160
+    #> 1 yaml12::wr… 423984 … 1.85ms 1.88ms      532.        0B     0      266
+    #> 2 yaml::writ… 423984 … 2.69ms 2.81ms      345.    96.6KB     5.99   173
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -414,8 +416,8 @@ invisible(lapply(write_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression  obj_size    min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>  <objct_> <bch:> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::wr… 847920 … 3.87ms 3.91ms      255.        0B     0      128
-    #> 2 yaml::writ… 847920 … 5.91ms 6.01ms      163.     193KB     3.98    82
+    #> 1 yaml12::wr… 847920 …  3.7ms 3.74ms      267.        0B     0      134
+    #> 2 yaml::writ… 847920 … 5.44ms 5.62ms      175.     193KB     3.97    88
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -424,8 +426,8 @@ invisible(lapply(write_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression      obj_size     min  median `itr/sec` mem_alloc `gc/sec`
     #>   <bch:expr>      <objct_> <bch:t> <bch:t>     <dbl> <bch:byt>    <dbl>
-    #> 1 yaml12::write_… 1695792…  7.66ms  7.71ms     128.         0B     0   
-    #> 2 yaml::write_ya… 1695792… 11.86ms 12.09ms      81.4     386KB     3.97
+    #> 1 yaml12::write_… 1695792…  7.37ms  7.42ms     134.         0B     0   
+    #> 2 yaml::write_ya… 1695792… 10.87ms 11.16ms      87.8     386KB     3.99
     #> # ℹ 7 more variables: n_itr <int>, n_gc <dbl>, total_time <bch:tm>,
     #> #   result <list>, memory <list>, time <list>, gc <list>
 
@@ -434,8 +436,8 @@ invisible(lapply(write_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression  obj_size    min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>  <objct_> <bch:> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::wr… 3391536… 15.4ms 15.6ms      63.6        0B     0       32
-    #> 2 yaml::writ… 3391536… 23.8ms 24.2ms      40.2     772KB     3.83    21
+    #> 1 yaml12::wr… 3391536… 14.7ms 14.9ms      65.8        0B     0       33
+    #> 2 yaml::writ… 3391536… 21.7ms 22.3ms      43.5     772KB     3.95    22
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -444,8 +446,8 @@ invisible(lapply(write_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression  obj_size    min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>  <objct_> <bch:> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::wr… 6783024… 32.7ms 33.9ms      29.6        0B     0       15
-    #> 2 yaml::writ… 6783024… 48.3ms 49.3ms      19.9    1.51MB     5.42    11
+    #> 1 yaml12::wr… 6783024…   30ms 30.4ms      32.9        0B     0       17
+    #> 2 yaml::writ… 6783024… 43.7ms 44.6ms      21.7    1.51MB     3.95    11
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -454,8 +456,8 @@ invisible(lapply(write_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression  obj_size    min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>  <objct_> <bch:> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::wr… 1356600… 66.6ms   67ms      14.9        0B     0        8
-    #> 2 yaml::writ… 1356600… 96.5ms 99.7ms      10.0    3.02MB     5.01     6
+    #> 1 yaml12::wr… 1356600… 63.2ms 63.6ms      15.7        0B     0        8
+    #> 2 yaml::writ… 1356600… 88.3ms 89.7ms      10.9    3.02MB     3.64     6
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -464,8 +466,8 @@ invisible(lapply(write_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression   obj_size   min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>   <objct_> <bch> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::wri… 2713195… 133ms  134ms      7.48        0B     0        4
-    #> 2 yaml::write… 2713195… 195ms  199ms      5.05    6.03MB     3.37     3
+    #> 1 yaml12::wri… 2713195… 126ms  127ms      7.88        0B     0        4
+    #> 2 yaml::write… 2713195… 176ms  186ms      5.44    6.03MB     3.63     3
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 
@@ -474,8 +476,8 @@ invisible(lapply(write_results, \(result) {
     #> # A tibble: 2 × 14
     #>   expression   obj_size   min median `itr/sec` mem_alloc `gc/sec` n_itr
     #>   <bch:expr>   <objct_> <bch> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-    #> 1 yaml12::wri… 5426385… 262ms  262ms      3.82        0B     0        2
-    #> 2 yaml::write… 5426385… 395ms  480ms      2.08    12.1MB     4.17     2
+    #> 1 yaml12::wri… 5426385… 249ms  250ms      4.00        0B     0        3
+    #> 2 yaml::write… 5426385… 374ms  475ms      2.11    12.1MB     3.16     2
     #> # ℹ 6 more variables: n_gc <dbl>, total_time <bch:tm>, result <list>,
     #> #   memory <list>, time <list>, gc <list>
 

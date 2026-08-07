@@ -2,6 +2,10 @@
 
 ## yaml12 (development version)
 
+- [`write_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
+  gains an `append` argument for adding YAML documents to existing files
+  ([\#4](https://github.com/posit-dev/r-yaml12/issues/4)).
+
 - Replaced the Rust-side R API layer with `savvy`/`savvy-ffi` bindings.
   Source installs now require rustc 1.71 or newer. Vendored Rust crate
   attribution now points to crate repository metadata when Cargo does

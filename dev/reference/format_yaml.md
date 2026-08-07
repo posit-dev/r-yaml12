@@ -24,7 +24,7 @@ and preserve later-indented lines.
 ``` r
 format_yaml(value, multi = FALSE, width = 80)
 
-write_yaml(value, path = NULL, multi = FALSE, width = 80)
+write_yaml(value, path = NULL, multi = FALSE, width = 80, append = FALSE)
 ```
 
 ## Arguments
@@ -52,6 +52,11 @@ write_yaml(value, path = NULL, multi = FALSE, width = 80)
   Tilde prefixes (`~`) are expanded as by
   [`base::path.expand()`](https://rdrr.io/r/base/path.expand.html). When
   `NULL` (the default), write to R's standard output connection.
+
+- append:
+
+  When `TRUE`, append to `path` instead of replacing it. Defaults to
+  `FALSE`.
 
 ## Value
 
