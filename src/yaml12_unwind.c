@@ -85,7 +85,12 @@ static SEXP yaml12_unwind_protect(SEXP (*fun)(void *data), void *data) {
 
     yaml12_jmp_buf buf;
     if (YAML12_SETJMP(buf)) {
-        /* The generated Savvy wrapper recognizes tagged continuations. */
+        /*
+         * Match Savvy's private tagged-result ABI. Bit 0 is not an R flag:
+         * Savvy assumes it is clear on genuine SEXP pointers, uses it only
+         * while carrying the continuation through Rust, and clears it before
+         * calling R_ContinueUnwind().
+         */
         return (SEXP)((uintptr_t)token | 1);
     }
 
