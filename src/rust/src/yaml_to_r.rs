@@ -319,7 +319,8 @@ fn mapping_to_robj(
             .all(|(key, _)| matches!(key, Yaml::Value(Scalar::String(_))));
 
         if all_plain_string_keys {
-            let mut list = OwnedListSexp::new(len, true)?;
+            let mut list = OwnedListSexp::new(len, false)?;
+            let mut names = OwnedStringSexp::new(len)?;
             for (i, (key, mut value)) in mem::take(map).into_iter().enumerate() {
                 let name = match key {
                     Yaml::Value(Scalar::String(name)) => name,
@@ -327,8 +328,9 @@ fn mapping_to_robj(
                 };
                 let value = yaml_to_robj(&mut value, simplify, handlers)?;
                 list.set_value(i, value)?;
-                r_ext::set_name(&mut list, i, name.as_ref())?;
+                r_ext::set_string_elt(&mut names, i, name.as_ref())?;
             }
+            r_ext::set_names(&mut list, names)?;
 
             return Ok(list.into());
         }
@@ -336,7 +338,8 @@ fn mapping_to_robj(
 
     let mut keys: Vec<Yaml> = Vec::with_capacity(len);
     let mut key_handler_results: Vec<Option<KeyHandlerResult>> = Vec::with_capacity(len);
-    let mut list = OwnedListSexp::new(len, true)?;
+    let mut list = OwnedListSexp::new(len, false)?;
+    let mut names = OwnedStringSexp::new(len)?;
 
     // 1st pass: resolve keys/values while consuming the mapping to avoid cloning keys.
     for (i, (mut key, mut value)) in mem::take(map).into_iter().enumerate() {
@@ -380,7 +383,9 @@ fn mapping_to_robj(
     for (i, (key, key_handler_result)) in keys.iter().zip(key_handler_results.iter()).enumerate() {
         if let Some(handled) = key_handler_result {
             match handled {
-                KeyHandlerResult::BareString { name, .. } => r_ext::set_name(&mut list, i, name)?,
+                KeyHandlerResult::BareString { name, .. } => {
+                    r_ext::set_string_elt(&mut names, i, name)?
+                }
                 KeyHandlerResult::Preserved(_) => {
                     needs_yaml_keys_attr = true;
                 }
@@ -389,7 +394,7 @@ fn mapping_to_robj(
             match key {
                 Yaml::Value(Scalar::String(string_key)) => {
                     // Plain string key: representable as an R name with no extra metadata.
-                    r_ext::set_name(&mut list, i, string_key.as_ref())?;
+                    r_ext::set_string_elt(&mut names, i, string_key.as_ref())?;
                 }
                 _ => {
                     // Tagged or non-string keys get tracked in `yaml_keys`. Core string tags are
@@ -400,6 +405,7 @@ fn mapping_to_robj(
             }
         }
     }
+    r_ext::set_names(&mut list, names)?;
 
     if needs_yaml_keys_attr {
         let mut yaml_keys = OwnedListSexp::new(keys.len(), false)?;

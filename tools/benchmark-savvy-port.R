@@ -154,6 +154,10 @@ run_benchmarks <- function() {
       strings <- rep(c("alpha", "beta"), length.out = size)
       integers <- integer_yaml(size)
       string_lines <- rep("- value", size)
+      mapping <- paste(
+        sprintf("key_%05d: null", seq_len(size)),
+        collapse = "\n"
+      )
 
       cases[[paste0("format_list_", suffix)]] <<- function() {
         format_yaml(unnamed, width = Inf)
@@ -172,6 +176,9 @@ run_benchmarks <- function() {
       }
       cases[[paste0("parse_string_lines_", suffix)]] <<- function() {
         parse_yaml(string_lines, simplify = FALSE)
+      }
+      cases[[paste0("parse_mapping_", suffix)]] <<- function() {
+        parse_yaml(mapping, simplify = FALSE)
       }
 
       if (size == 4096L) {
