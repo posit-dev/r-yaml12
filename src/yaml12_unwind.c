@@ -49,8 +49,6 @@ SEXP yaml12_scalar_real(double value);
 SEXP yaml12_scalar_string(const char *value, int value_len, int is_na);
 SEXP yaml12_set_string_elt(SEXP strings, R_xlen_t index, const char *value,
                            int value_len, int is_na);
-SEXP yaml12_set_name(SEXP list, R_xlen_t index, const char *value,
-                     int value_len, int is_na);
 SEXP yaml12_call1(SEXP function, SEXP argument);
 
 static SEXP yaml12_unwind_protect(SEXP (*fun)(void *data), void *data) {
@@ -196,37 +194,21 @@ struct yaml12_set_string_data {
     SEXP target;
     R_xlen_t index;
     struct yaml12_string_data string;
-    int set_name;
 };
 
 static SEXP yaml12_set_string_impl(void *data) {
     struct yaml12_set_string_data *element = data;
-    SEXP target = element->target;
-    if (element->set_name) {
-        target = Rf_getAttrib(target, R_NamesSymbol);
-    }
-
     SEXP charsxp = PROTECT(yaml12_make_char(&element->string));
-    SET_STRING_ELT(target, element->index, charsxp);
+    SET_STRING_ELT(element->target, element->index, charsxp);
     UNPROTECT(1);
     return R_NilValue;
 }
 
-static SEXP yaml12_set_string(SEXP target, R_xlen_t index, const char *value,
-                              int value_len, int is_na, int set_name) {
-    struct yaml12_set_string_data data = {
-        target, index, {value, value_len, is_na}, set_name};
-    return yaml12_unwind_protect(yaml12_set_string_impl, &data);
-}
-
 SEXP yaml12_set_string_elt(SEXP strings, R_xlen_t index, const char *value,
                            int value_len, int is_na) {
-    return yaml12_set_string(strings, index, value, value_len, is_na, 0);
-}
-
-SEXP yaml12_set_name(SEXP list, R_xlen_t index, const char *value,
-                     int value_len, int is_na) {
-    return yaml12_set_string(list, index, value, value_len, is_na, 1);
+    struct yaml12_set_string_data data = {strings, index,
+                                          {value, value_len, is_na}};
+    return yaml12_unwind_protect(yaml12_set_string_impl, &data);
 }
 
 struct yaml12_call1_data {

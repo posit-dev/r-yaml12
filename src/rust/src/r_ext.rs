@@ -33,13 +33,6 @@ extern "C" {
         value_len: i32,
         is_na: i32,
     ) -> ffi::SEXP;
-    fn yaml12_set_name(
-        list: ffi::SEXP,
-        index: ffi::R_xlen_t,
-        value: *const c_char,
-        value_len: i32,
-        is_na: i32,
-    ) -> ffi::SEXP;
     fn yaml12_call1(function: ffi::SEXP, argument: ffi::SEXP) -> ffi::SEXP;
 }
 
@@ -192,21 +185,14 @@ pub(crate) fn set_string_elt(strings: &mut OwnedStringSexp, i: usize, value: &st
     Ok(())
 }
 
-pub(crate) fn set_name(list: &mut OwnedListSexp, i: usize, value: &str) -> Fallible<()> {
-    if i >= list.len() {
-        return Err(api_other("list index out of bounds"));
-    }
-    let (value, value_len, is_na) = string_parts(value)?;
-    unsafe {
-        check_unwind(yaml12_set_name(
-            list.inner(),
-            i as ffi::R_xlen_t,
-            value,
-            value_len,
-            is_na,
-        ))?;
-    }
-    Ok(())
+pub(crate) fn set_names(list: &mut OwnedListSexp, names: OwnedStringSexp) -> Fallible<()> {
+    debug_assert_eq!(list.len(), names.len());
+    let mut list_sexp = Sexp(list.inner());
+    set_attrib_sym(
+        &mut list_sexp,
+        unsafe { ffi::R_NamesSymbol },
+        Sexp(names.inner()),
+    )
 }
 
 pub(crate) fn call1(handler: &FunctionSexp, arg: Sexp) -> Fallible<Sexp> {
