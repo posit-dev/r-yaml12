@@ -1,8 +1,9 @@
 #![allow(dead_code)]
 
+use crate::r_ext;
 use crate::{api_other, Fallible, TIMESTAMP_SUPPORT_ENABLED};
-use extendr_api::prelude::*;
 use saphyr::{Scalar, Tag, Yaml};
+use savvy::{IntegerSexp, NotAvailableValue, OwnedRealSexp, OwnedStringSexp, RealSexp, Sexp};
 use std::borrow::Cow;
 
 #[derive(Copy, Clone, Debug)]
@@ -172,36 +173,43 @@ pub(crate) fn timestamp_to_robj(
     value: TimestampValue,
     preserve_tzone: bool,
     keep_empty_tzone: bool,
-) -> Fallible<Robj> {
+) -> Fallible<Sexp> {
     match value {
         TimestampValue::Date(days) => {
-            let mut robj = r!(days as f64);
-            robj.set_class(&["Date"])
-                .map_err(|err| api_other(err.to_string()))?;
-            Ok(robj)
+            let out = OwnedRealSexp::try_from_scalar(days as f64)?;
+            let mut robj = Sexp(out.inner());
+            r_ext::set_class(&mut robj, ["Date"])?;
+            Ok(out.into())
         }
         TimestampValue::DateTime(DateTimeValue {
             seconds,
             tz,
             space_separated,
         }) => {
-            let mut robj = r!(seconds);
-            robj.set_class(&["POSIXct", "POSIXt"])
-                .map_err(|err| api_other(err.to_string()))?;
+            let out = OwnedRealSexp::try_from_scalar(seconds)?;
+            let mut robj = Sexp(out.inner());
+            r_ext::set_class(&mut robj, ["POSIXct", "POSIXt"])?;
             if preserve_tzone {
                 match tz {
                     ParsedTz::Z => {
-                        robj.set_attrib("tzone", Strings::from_values(["UTC"]))
-                            .map_err(|err| api_other(err.to_string()))?;
+                        let tzone = OwnedStringSexp::try_from_slice(["UTC"])?;
+                        r_ext::set_attrib_sym(&mut robj, r_ext::sym_tzone(), Sexp(tzone.inner()))?;
                     }
                     ParsedTz::Offset { minutes } if !space_separated => {
                         if let Some(tzone) = tzone_from_offset_minutes(minutes) {
-                            let tzone = Strings::from_values([tzone]);
-                            robj.set_attrib("tzone", tzone)
-                                .map_err(|err| api_other(err.to_string()))?;
+                            let tzone = OwnedStringSexp::try_from_slice([tzone.as_str()])?;
+                            r_ext::set_attrib_sym(
+                                &mut robj,
+                                r_ext::sym_tzone(),
+                                Sexp(tzone.inner()),
+                            )?;
                         } else if keep_empty_tzone {
-                            robj.set_attrib("tzone", Strings::from_values([""]))
-                                .map_err(|err| api_other(err.to_string()))?;
+                            let tzone = OwnedStringSexp::try_from_slice([""])?;
+                            r_ext::set_attrib_sym(
+                                &mut robj,
+                                r_ext::sym_tzone(),
+                                Sexp(tzone.inner()),
+                            )?;
                         }
                     }
                     ParsedTz::Offset { .. } | ParsedTz::None => {
@@ -209,7 +217,7 @@ pub(crate) fn timestamp_to_robj(
                     }
                 }
             }
-            Ok(robj)
+            Ok(out.into())
         }
     }
 }
@@ -218,7 +226,7 @@ pub(crate) fn parse_timestamp_node(
     node: &mut Yaml,
     preserve_tzone: bool,
     keep_empty_tzone: bool,
-) -> Fallible<Option<Robj>> {
+) -> Fallible<Option<Sexp>> {
     if let Yaml::Value(Scalar::String(value)) = node {
         if let Some(parsed) = parse_timestamp_scalar(value.as_ref()) {
             return timestamp_to_robj(parsed, preserve_tzone, keep_empty_tzone).map(Some);
@@ -230,7 +238,7 @@ pub(crate) fn parse_timestamp_node(
 pub(crate) fn simplify_timestamp_sequence<F>(
     seq: &mut [Yaml],
     mut resolve_representation: F,
-) -> Fallible<Option<Robj>>
+) -> Fallible<Option<Sexp>>
 where
     F: FnMut(&mut Yaml),
 {
@@ -256,25 +264,35 @@ where
             return Ok(None);
         };
 
-        if val.inherits("Date") {
-            let slice = val
-                .as_real_slice()
-                .and_then(|s| s.first().copied())
+        if r_ext::inherits(&val, "Date")? {
+            let real =
+                RealSexp::try_from(Sexp(val.0)).map_err(|_| api_other("Expected Date scalar"))?;
+            let slice = real
+                .as_slice()
+                .first()
+                .copied()
                 .ok_or_else(|| api_other("Expected Date scalar"))?;
             date_vals.push(slice);
             continue;
         }
 
-        if val.inherits("POSIXct") {
-            let slice = val
-                .as_real_slice()
-                .and_then(|s| s.first().copied())
+        if r_ext::inherits(&val, "POSIXct")? {
+            let real = RealSexp::try_from(Sexp(val.0))
+                .map_err(|_| api_other("Expected POSIXct scalar"))?;
+            let slice = real
+                .as_slice()
+                .first()
+                .copied()
                 .ok_or_else(|| api_other("Expected POSIXct scalar"))?;
             posix_vals.push(slice);
 
-            if let Some(tzone_attr) = val.get_attrib("tzone") {
-                if let Some(mut iter) = tzone_attr.as_str_iter() {
-                    if let Some(tz) = iter.next() {
+            if let Some(tzone_attr) = r_ext::get_attrib_sym(&val, r_ext::sym_tzone()) {
+                if let Some(tzones) = r_ext::string_sexp(&tzone_attr) {
+                    if !tzones.is_empty() {
+                        let tz = r_ext::string_elt(&tzones, 0)?;
+                        if tz.is_na() {
+                            continue;
+                        }
                         match &posix_tzone {
                             None => posix_tzone = Some(tz.to_string()),
                             Some(existing) if existing != tz => return Ok(None),
@@ -290,21 +308,23 @@ where
     }
 
     if !date_vals.is_empty() && posix_vals.is_empty() {
-        let mut out = Doubles::from_values(date_vals).into_robj();
-        out.set_class(&["Date"])
-            .map_err(|err| api_other(err.to_string()))?;
-        return Ok(Some(out));
+        let mut out = unsafe { OwnedRealSexp::new_without_init(date_vals.len())? };
+        out.as_mut_slice().copy_from_slice(&date_vals);
+        let mut out_sexp = Sexp(out.inner());
+        r_ext::set_class(&mut out_sexp, ["Date"])?;
+        return Ok(Some(out.into()));
     }
 
     if !posix_vals.is_empty() && date_vals.is_empty() {
-        let mut out = Doubles::from_values(posix_vals).into_robj();
-        out.set_class(&["POSIXct", "POSIXt"])
-            .map_err(|err| api_other(err.to_string()))?;
+        let mut out = unsafe { OwnedRealSexp::new_without_init(posix_vals.len())? };
+        out.as_mut_slice().copy_from_slice(&posix_vals);
+        let mut out_sexp = Sexp(out.inner());
+        r_ext::set_class(&mut out_sexp, ["POSIXct", "POSIXt"])?;
         if let Some(tz) = posix_tzone {
-            out.set_attrib("tzone", Strings::from_values([tz]))
-                .map_err(|err| api_other(err.to_string()))?;
+            let tzone = OwnedStringSexp::try_from_slice([tz.as_str()])?;
+            r_ext::set_attrib_sym(&mut out_sexp, r_ext::sym_tzone(), Sexp(tzone.inner()))?;
         }
-        return Ok(Some(out));
+        return Ok(Some(out.into()));
     }
 
     Ok(None)
@@ -442,32 +462,18 @@ pub(crate) fn yaml_from_formatted_timestamp_with_tag(
 }
 
 pub(crate) fn format_r_time(
-    robj: &Robj,
+    robj: &Sexp,
     format: &str,
     tz: Option<&str>,
 ) -> Fallible<Vec<Option<String>>> {
-    with_digits_secs(9, || {
-        let call = match tz {
-            Some(tz) => lang!(
-                "format",
-                robj.clone(),
-                format = format,
-                tz = tz,
-                usetz = false
-            ),
-            None => lang!("format", robj.clone(), format = format),
-        };
-        let res = call.eval()?;
-        let strings: Strings = res.try_into()?;
-        Ok(strings
-            .iter()
-            .map(|s| if s.is_na() { None } else { Some(s.to_string()) })
-            .collect())
-    })
+    let _ = (robj, format, tz);
+    Err(api_other(
+        "Timestamp formatting is disabled; set TIMESTAMP_SUPPORT_ENABLED to true and port R formatting calls first",
+    ))
 }
 
 pub(crate) fn format_posix_precise(
-    robj: &Robj,
+    robj: &Sexp,
     offset_minutes: i32,
     space_separated: bool,
     append_z: bool,
@@ -506,53 +512,19 @@ pub(crate) fn format_posix_precise(
     Ok(out)
 }
 
-struct DigitsSecsGuard {
-    old: Robj,
-}
-
-impl Drop for DigitsSecsGuard {
-    fn drop(&mut self) {
-        // Ignore restoration errors; best-effort reset.
-        let _ = set_digits_secs_option(self.old.clone());
-    }
-}
-
-fn with_digits_secs<F, T>(digits: i32, f: F) -> Fallible<T>
-where
-    F: FnOnce() -> Fallible<T>,
-{
-    let old = call!("getOption", "digits.secs")?;
-    set_digits_secs_option(r!(digits))?;
-    let guard = DigitsSecsGuard { old };
-    let result = f();
-    drop(guard);
-    result
-}
-
-fn set_digits_secs_option(value: Robj) -> Fallible<()> {
-    let opts = List::from_names_and_values(&["digits.secs"], vec![value])
-        .map_err(|err| api_other(err.to_string()))?;
-    call!("do.call", "options", opts)?;
-    Ok(())
-}
-
-fn posix_seconds_from_robj(robj: &Robj) -> Fallible<Vec<Option<f64>>> {
-    if let Some(real) = robj.as_real_slice() {
+fn posix_seconds_from_robj(robj: &Sexp) -> Fallible<Vec<Option<f64>>> {
+    if let Ok(real) = RealSexp::try_from(Sexp(robj.0)) {
         return Ok(real
+            .as_slice()
             .iter()
             .map(|v| if v.is_nan() { None } else { Some(*v) })
             .collect());
     }
-    if let Some(ints) = robj.as_integer_slice() {
+    if let Ok(ints) = IntegerSexp::try_from(Sexp(robj.0)) {
         return Ok(ints
+            .as_slice()
             .iter()
-            .map(|v| {
-                if *v == i32::MIN {
-                    None
-                } else {
-                    Some(*v as f64)
-                }
-            })
+            .map(|v| if v.is_na() { None } else { Some(*v as f64) })
             .collect());
     }
     Err(api_other("Expected a numeric POSIXct vector"))

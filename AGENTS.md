@@ -2,7 +2,7 @@
 
 ## Map
 
-- `R/`: R API; keep `R/extendr-wrappers.R` synchronized with the Rust API.
+- `R/`: R API; `R/wrappers.R` contains public wrappers and roxygen docs.
 - `src/rust/`: nested Rust staticlib crate; run Cargo commands here.
 - `configure*`, `tools/config.R`, `src/Makevars*.in`: generate Makevars and
   invoke Cargo during R package builds.
@@ -12,14 +12,14 @@
 
 ## Notes
 
-- Do not hand-edit generated files: `man/`, `NAMESPACE`, `inst/AUTHORS`,
-  `src/Makevars`, and `src/Makevars.win`.
-- The custom Rust/C entrypoint layer does not expose rextendr's
-  `wrap__make_yaml12_wrappers` generator. Do not use `rextendr::document()`;
-  it cannot update the checked-in wrappers.
-- If Rust doc comments, exported signatures, or the Rd-facing surface change,
-  update `R/extendr-wrappers.R` and `src/entrypoint.c` as applicable, then run
-  `Rscript -e 'devtools::document()'` from the package root.
+- Do not hand-edit generated files: `man/`, `NAMESPACE`, `src/init.c`,
+  `src/rust/api.h`, `inst/AUTHORS`, `src/Makevars`, `src/Makevars.win`.
+- If Rust `#[savvy]` entrypoints change, regenerate savvy glue from the package
+  root with `savvy-cli update .`, then run `Rscript tools/patch-savvy-init.R`.
+  Keep the generated `src/init.c` and `src/rust/api.h`; do not commit
+  `R/000-wrappers.R` unless the public wrapper strategy changes.
+- If roxygen, exports, or Rd-facing surface change, regenerate from the package
+  root with `devtools::document()`.
 - Direct Cargo work happens in `src/rust`; Cargo discovery depends on the
   working directory.
 - R package builds happen from the package root and invoke Rust through

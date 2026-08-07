@@ -1,4 +1,5 @@
 .Rproj.user
+R/000-wrappers.R
 src/rust/vendor
 src/Makevars
 src/Makevars.win

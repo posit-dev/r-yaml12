@@ -17,6 +17,13 @@ License:     Apache-2.0 OR MIT
 
 -------------------------------------------------------------
 
+Name:        cc
+Repository:  https://github.com/rust-lang/cc-rs
+Authors:     Alex Crichton
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
 Name:        cfg-if
 Repository:  https://github.com/rust-lang/cfg-if
 Authors:     Alex Crichton
@@ -29,28 +36,10 @@ Repository:  https://github.com/hsivonen/encoding_rs
 Authors:     Henri Sivonen
 License:     (Apache-2.0 OR MIT) AND BSD-3-Clause
 
--------------------------------------------------------------
-
-Name:        extendr-api
-Repository:  https://github.com/extendr/extendr
-Authors:
-License:     MIT
-
--------------------------------------------------------------
-
-Name:        extendr-ffi
-Repository:  https://github.com/extendr/extendr
-Authors:
-License:     MIT
-
--------------------------------------------------------------
-
-Name:        extendr-macros
-Repository:  https://github.com/extendr/extendr
-Authors:
-License:     MIT
-
--------------------------------------------------------------
+Name:        find-msvc-tools
+Repository:  https://github.com/rust-lang/cc-rs
+Authors:     see https://github.com/rust-lang/cc-rs
+License:     MIT OR Apache-2.0
 
 Name:        foldhash
 Repository:  https://github.com/orlp/foldhash
@@ -71,25 +60,9 @@ Repository:  https://github.com/kyren/hashlink
 Authors:     kyren
 License:     MIT OR Apache-2.0
 
--------------------------------------------------------------
-
-Name:        lazy_static
-Repository:  https://github.com/rust-lang-nursery/lazy-static.rs
-Authors:     Marvin Löbel
-License:     MIT OR Apache-2.0
-
--------------------------------------------------------------
-
 Name:        num-traits
 Repository:  https://github.com/rust-num/num-traits
 Authors:     The Rust Project Developers
-License:     MIT OR Apache-2.0
-
--------------------------------------------------------------
-
-Name:        once_cell
-Repository:  https://github.com/matklad/once_cell
-Authors:     Aleksey Kladov
 License:     MIT OR Apache-2.0
 
 -------------------------------------------------------------
@@ -98,13 +71,6 @@ Name:        ordered-float
 Repository:  https://github.com/reem/rust-ordered-float
 Authors:     Jonathan Reem, Matt Brubeck
 License:     MIT
-
--------------------------------------------------------------
-
-Name:        paste
-Repository:  https://github.com/dtolnay/paste
-Authors:     David Tolnay
-License:     MIT OR Apache-2.0
 
 -------------------------------------------------------------
 
@@ -120,14 +86,10 @@ Repository:  https://github.com/dtolnay/quote
 Authors:     David Tolnay
 License:     MIT OR Apache-2.0
 
--------------------------------------------------------------
-
-Name:        readonly
-Repository:  https://github.com/dtolnay/readonly
+Name:        rustversion
+Repository:  https://github.com/dtolnay/rustversion
 Authors:     David Tolnay
 License:     MIT OR Apache-2.0
-
--------------------------------------------------------------
 
 Name:        saphyr
 Repository:  https://github.com/saphyr-rs/saphyr
@@ -139,6 +101,35 @@ License:     MIT OR Apache-2.0
 Name:        saphyr-parser
 Repository:  https://github.com/saphyr-rs/saphyr
 Authors:     Ethiraric, David Aguilar, Yuheng Chen
+License:     MIT OR Apache-2.0
+
+-------------------------------------------------------------
+
+Name:        savvy
+Repository:  https://github.com/yutannihilation/savvy/
+Authors:     Hiroaki Yutani
+License:     MIT
+
+Name:        savvy-bindgen
+Repository:  https://github.com/yutannihilation/savvy/
+Authors:     Hiroaki Yutani
+License:     MIT
+
+Name:        savvy-ffi
+Repository:  https://github.com/yutannihilation/savvy/
+Authors:     Hiroaki Yutani
+License:     MIT
+
+Name:        savvy-macro
+Repository:  https://github.com/yutannihilation/savvy/
+Authors:     Hiroaki Yutani
+License:     MIT
+
+-------------------------------------------------------------
+
+Name:        shlex
+Repository:  https://github.com/comex/rust-shlex
+Authors:     comex, Fenhl, Adrian Taylor, Alex Touchet, Daniel Parks, Garrett Berg
 License:     MIT OR Apache-2.0
 
 -------------------------------------------------------------

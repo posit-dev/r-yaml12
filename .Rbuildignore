@@ -1,5 +1,6 @@
 ^yaml12\.Rproj$
 ^\.Rproj\.user$
+^\.git$
 ^src/\.cargo$
 ^src/rust/vendor$
 ^src/rust/target$
@@ -18,3 +19,5 @@
 ^cran-comments\.md$
 ^CRAN-SUBMISSION$
 ^vignettes/articles$
+^yaml12-logo\.png$
+^yaml12-logo-cropped\.png$

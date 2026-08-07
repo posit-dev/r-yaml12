@@ -22,6 +22,23 @@ test_that("write_yaml writes and read_yaml reads single documents", {
   expect_identical(parse_yaml(encoded), value)
 })
 
+test_that("read_yaml and write_yaml translate marked path strings", {
+  path <- rawToChar(c(
+    charToRaw(withr::local_tempdir()),
+    charToRaw("/yaml12-"),
+    as.raw(0xe9),
+    charToRaw(".yaml")
+  ))
+  Encoding(path) <- "latin1"
+
+  writeLines("value: 1", path)
+  expect_true(file.exists(path))
+  expect_identical(read_yaml(path), list(value = 1L))
+
+  expect_identical(write_yaml(list(value = 2L), path), list(value = 2L))
+  expect_identical(read_yaml(path), list(value = 2L))
+})
+
 test_that("write_yaml defaults to R stdout when path is NULL", {
   value <- list(alpha = 1L, nested = c(TRUE, NA))
   encoded <- format_yaml(value)

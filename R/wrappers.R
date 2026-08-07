@@ -1,8 +1,3 @@
-# Derived from extendr output; keep synchronized with src/rust/src/lib.rs.
-# The custom entrypoint layer does not expose extendr's wrapper generator.
-
-# nolint start
-
 #' @usage NULL
 #' @useDynLib yaml12, .registration = TRUE
 NULL
@@ -11,17 +6,21 @@ NULL
 #'
 #' `parse_yaml()` takes strings of YAML; `read_yaml()` reads from a file path.
 #'
-#' YAML tags without a corresponding `handler` are preserved in a `yaml_tag` attribute.
-#' Mappings with keys that are not all simple scalar strings are returned as a named list with a `yaml_keys` attribute.
+#' YAML tags without a corresponding `handler` are preserved in a `yaml_tag`
+#' attribute. Mappings with keys that are not all simple scalar strings are
+#' returned as a named list with a `yaml_keys` attribute.
 #'
 #' @param text Character vector; elements are concatenated with `"\n"`.
 #' @param path Scalar string path to a YAML file. Tilde prefixes (`~`) are
 #'   expanded as by [base::path.expand()].
-#' @param multi When `TRUE`, return a list containing all documents in the stream.
-#' @param simplify When `FALSE`, keep YAML sequences as R lists instead of simplifying to atomic vectors.
-#' @param handlers Named list of R functions with names corresponding to YAML tags; matching handlers transform tagged values.
-#' @return When `multi = FALSE`, returns a parsed R object for the first document.
-#'   When `multi = TRUE`, returns a list of parsed documents.
+#' @param multi When `TRUE`, return a list containing all documents in the
+#'   stream.
+#' @param simplify When `FALSE`, keep YAML sequences as R lists instead of
+#'   simplifying to atomic vectors.
+#' @param handlers Named list of R functions with names corresponding to YAML
+#'   tags; matching handlers transform tagged values.
+#' @return When `multi = FALSE`, returns a parsed R object for the first
+#'   document. When `multi = TRUE`, returns a list of parsed documents.
 #' @rdname parse_yaml
 #' @examples
 #' dput(parse_yaml("foo: [1, 2, 3]"))
@@ -50,12 +49,16 @@ NULL
 #' writeLines("alpha: [true, null]\nbeta: 3.5", path)
 #' str(read_yaml(path, simplify = FALSE))
 #' @export
-parse_yaml <- function(text, multi = FALSE, simplify = TRUE, handlers = NULL) .Call(wrap__parse_yaml, text, multi, simplify, handlers)
+parse_yaml <- function(text, multi = FALSE, simplify = TRUE, handlers = NULL) {
+  .Call(savvy_parse_yaml_native__impl, text, multi, simplify, handlers)
+}
 
 #' Debug helper: print saphyr `Yaml` nodes without converting to R objects.
 #'
 #' @noRd
-dbg_yaml <- function(text) invisible(.Call(wrap__dbg_yaml, text))
+dbg_yaml <- function(text) {
+  invisible(.Call(savvy_dbg_yaml_native__impl, text))
+}
 
 #' Format or write R objects as YAML 1.2.
 #'
@@ -79,10 +82,12 @@ dbg_yaml <- function(text) invisible(.Call(wrap__dbg_yaml, text))
 #' later-indented lines.
 #'
 #' @param value Any R object composed of lists, atomic vectors, and scalars.
-#' @param path Scalar string file path to write YAML to when using `write_yaml()`.
-#'   Tilde prefixes (`~`) are expanded as by [base::path.expand()].
-#'   When `NULL` (the default), write to R's standard output connection.
-#' @param multi When `TRUE`, treat `value` as a list of YAML documents and encode a stream.
+#' @param path Scalar string file path to write YAML to when using
+#'   `write_yaml()`. Tilde prefixes (`~`) are expanded as by
+#'   [base::path.expand()]. When `NULL` (the default), write to R's standard
+#'   output connection.
+#' @param multi When `TRUE`, treat `value` as a list of YAML documents and
+#'   encode a stream.
 #' @param width Target maximum line width in columns. Long single-line strings
 #'   and unindented paragraphs with safe word boundaries are wrapped.
 #'   Individual lines may still exceed `width` when there is no safe break
@@ -102,13 +107,17 @@ dbg_yaml <- function(text) invisible(.Call(wrap__dbg_yaml, text))
 #' cat(tagged_yaml <- format_yaml(tagged), "\n")
 #'
 #' dput(parse_yaml(tagged_yaml))
-format_yaml <- function(value, multi = FALSE, width = 80) .Call(wrap__format_yaml, value, multi, width)
+format_yaml <- function(value, multi = FALSE, width = 80) {
+  .Call(savvy_format_yaml_native__impl, value, multi, width)
+}
 
 #' Read YAML 1.2 document(s) from a file path.
 #'
 #' @rdname parse_yaml
 #' @export
-read_yaml <- function(path, multi = FALSE, simplify = TRUE, handlers = NULL) .Call(wrap__read_yaml, path, multi, simplify, handlers)
+read_yaml <- function(path, multi = FALSE, simplify = TRUE, handlers = NULL) {
+  .Call(savvy_read_yaml_native__impl, path, multi, simplify, handlers)
+}
 
 #' Write an R object as YAML 1.2 to a file.
 #'
@@ -123,7 +132,6 @@ read_yaml <- function(path, multi = FALSE, simplify = TRUE, handlers = NULL) .Ca
 #' tagged <- structure("1 + 1", yaml_tag = "!expr")
 #' write_yaml(tagged)
 #' @export
-write_yaml <- function(value, path = NULL, multi = FALSE, width = 80) invisible(.Call(wrap__write_yaml, value, path, multi, width))
-
-
-# nolint end
+write_yaml <- function(value, path = NULL, multi = FALSE, width = 80) {
+  invisible(.Call(savvy_write_yaml_native__impl, value, path, multi, width))
+}

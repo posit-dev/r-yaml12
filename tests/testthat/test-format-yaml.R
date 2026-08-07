@@ -19,6 +19,97 @@ test_that("format_yaml round-trips basic R lists", {
   expect_identical(parse_yaml(encoded, simplify = FALSE), obj)
 })
 
+test_that("format_yaml accepts latin1 encoded strings", {
+  latin1 <- rawToChar(as.raw(0xe9))
+  Encoding(latin1) <- "latin1"
+
+  expect_identical(parse_yaml(format_yaml(latin1)), "\u00e9")
+})
+
+test_that("format_yaml translates every character vector element", {
+  latin1 <- rawToChar(as.raw(0xe9))
+  Encoding(latin1) <- "latin1"
+
+  expect_identical(
+    parse_yaml(format_yaml(c(latin1, latin1))),
+    c("\u00e9", "\u00e9")
+  )
+})
+
+test_that("format_yaml honors latin1 marks on valid UTF-8 bytes", {
+  latin1 <- rawToChar(as.raw(c(0xc3, 0xa9)))
+  Encoding(latin1) <- "latin1"
+  expected <- "\u00c3\u00a9"
+
+  expect_identical(parse_yaml(format_yaml(latin1)), expected)
+  expect_identical(
+    parse_yaml(format_yaml(c(latin1, latin1))),
+    c(expected, expected)
+  )
+
+  object <- setNames(list("value"), latin1)
+  reparsed <- parse_yaml(format_yaml(object), simplify = FALSE)
+  expect_identical(names(reparsed), expected)
+
+  tag <- rawToChar(as.raw(c(0x21, 0xc3, 0xa9)))
+  Encoding(tag) <- "latin1"
+  tagged <- structure("value", yaml_tag = tag)
+  expect_identical(format_yaml(tagged, width = Inf), "!\u00c3\u00a9 value")
+})
+
+test_that("format_yaml rejects malformed strings marked as UTF-8", {
+  invalid <- rawToChar(as.raw(0xff))
+  Encoding(invalid) <- "UTF-8"
+  expect_identical(Encoding(invalid), "UTF-8")
+  expect_false(validUTF8(invalid))
+
+  expect_error(
+    format_yaml(invalid),
+    "R UTF-8 string contains invalid UTF-8",
+    fixed = TRUE
+  )
+})
+
+test_that("format_yaml rejects bytes-encoded strings", {
+  bytes <- rawToChar(as.raw(0xff))
+  Encoding(bytes) <- "bytes"
+
+  expect_error(
+    format_yaml(bytes),
+    'translating strings with "bytes" encoding is not allowed',
+    fixed = TRUE
+  )
+
+  tagged <- structure("value", yaml_tag = bytes)
+  expect_error(
+    format_yaml(tagged),
+    'translating strings with "bytes" encoding is not allowed',
+    fixed = TRUE
+  )
+
+  expect_identical(format_yaml("ok"), "ok")
+})
+
+test_that("format_yaml rejects bytes encoding even when bytes are valid UTF-8", {
+  bytes <- rawToChar(as.raw(c(0xc3, 0xa9)))
+  Encoding(bytes) <- "bytes"
+
+  values <- list(
+    bytes,
+    c(bytes, bytes),
+    setNames(list("value"), bytes),
+    structure("value", yaml_tag = bytes)
+  )
+
+  for (value in values) {
+    expect_error(
+      format_yaml(value),
+      'translating strings with "bytes" encoding is not allowed',
+      fixed = TRUE
+    )
+  }
+})
+
 test_that("format_yaml quotes arbitrary-sized core integer strings", {
   values <- c(
     "0x8000000000000000",

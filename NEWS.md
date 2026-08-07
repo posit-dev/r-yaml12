@@ -1,5 +1,10 @@
 # yaml12 (development version)
 
+* Replaced the Rust-side R API layer with `savvy`/`savvy-ffi` bindings.
+  Source installs now require rustc 1.71 or newer. Vendored Rust crate
+  attribution now points to crate repository metadata when Cargo does not
+  provide crate authors.
+
 * `format_yaml()` and `write_yaml()` now automatically wrap long single-line
   strings and multiline strings containing unindented, single-line paragraphs
   separated by exactly one blank line. Strings with a safe word boundary are
@@ -28,11 +33,6 @@
 
 * `read_yaml()` and `write_yaml()` now expand tilde prefixes (`~`) in `path`,
   as by `path.expand()` (#7).
-
-* Updated the Rust integration to `rextendr` 0.5.0 and `extendr` 0.9.0,
-  resolving `extendr` crates from crates.io. Source installs now require
-  rustc 1.71 or newer. Vendored Rust crate attribution now points to crate
-  repository metadata when Cargo does not provide crate authors.
 
 * Fixed source installs on Windows ARM64 by selecting the
   `aarch64-pc-windows-gnullvm` Rust target. Windows source installs now also

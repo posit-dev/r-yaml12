@@ -1,16 +1,9 @@
-use crate::unwind::{run_with_unwind_protect, EvalError};
+use crate::r_ext;
 use crate::{api_other, Fallible};
-use extendr_api::prelude::*;
-use extendr_ffi as ffi;
 use saphyr::Tag;
+use savvy::{FunctionSexp, ListSexp, NotAvailableValue, Sexp};
 use std::collections::HashMap;
 use std::mem;
-
-#[allow(improper_ctypes)]
-extern "C" {
-    fn Rf_eval(expr: extendr_ffi::SEXP, env: extendr_ffi::SEXP) -> extendr_ffi::SEXP;
-    fn Rf_lang2(x1: extendr_ffi::SEXP, x2: extendr_ffi::SEXP) -> extendr_ffi::SEXP;
-}
 
 const HASHMAP_MIN_LEN: usize = 8;
 
@@ -43,12 +36,12 @@ impl<'a> From<&'a Tag> for TagKeyRef<'a> {
 
 struct HandlerEntry<'a> {
     key: HandlerKey<'a>,
-    handler: Function,
+    handler: FunctionSexp,
 }
 
 enum HandlerStore<'a> {
     Small(Vec<HandlerEntry<'a>>),
-    Large(HashMap<HandlerKey<'a>, Function>),
+    Large(HashMap<HandlerKey<'a>, FunctionSexp>),
 }
 
 pub(crate) struct HandlerRegistry<'a> {
@@ -56,20 +49,19 @@ pub(crate) struct HandlerRegistry<'a> {
 }
 
 impl<'a> HandlerRegistry<'a> {
-    pub(crate) fn from_robj(handlers: &'a Robj) -> Fallible<Option<Self>> {
+    pub(crate) fn from_robj(handlers: &'a Sexp) -> Fallible<Option<Self>> {
         if handlers.is_null() {
             return Ok(None);
         }
 
-        let list: List = handlers
-            .try_into()
+        let list = ListSexp::try_from(Sexp(handlers.0))
             .map_err(|_| api_other("`handlers` must be a named list of functions"))?;
 
         if list.is_empty() {
             return Ok(None);
         }
 
-        let Some(names_attr) = list.names() else {
+        let Some(names_attr) = r_ext::names(handlers)? else {
             return Err(api_other("`handlers` must be a named list of functions"));
         };
 
@@ -78,12 +70,13 @@ impl<'a> HandlerRegistry<'a> {
 
         if use_hash_map {
             let mut handlers_map = HashMap::with_capacity(len);
-            for (name, value) in names_attr.zip(list.values()) {
-                let name_str: &str = name;
+            for i in 0..len {
+                let name = r_ext::string_elt(&names_attr, i)?;
+                let value = unsafe { list.get_by_index_unchecked(i) };
                 let entry = handler_entry_from_parts(name, &value)?;
                 if handlers_map.insert(entry.key, entry.handler).is_some() {
                     return Err(api_other(format!(
-                        "Duplicate handler `{name_str}`; handler names must be unique"
+                        "Duplicate handler `{name}`; handler names must be unique"
                     )));
                 }
             }
@@ -93,12 +86,13 @@ impl<'a> HandlerRegistry<'a> {
         }
 
         let mut entries: Vec<HandlerEntry<'a>> = Vec::with_capacity(len);
-        for (name, value) in names_attr.zip(list.values()) {
-            let name_str: &str = name;
+        for i in 0..len {
+            let name = r_ext::string_elt(&names_attr, i)?;
+            let value = unsafe { list.get_by_index_unchecked(i) };
             let entry = handler_entry_from_parts(name, &value)?;
             if entries.iter().any(|existing| existing.key == entry.key) {
                 return Err(api_other(format!(
-                    "Duplicate handler `{name_str}`; handler names must be unique"
+                    "Duplicate handler `{name}`; handler names must be unique"
                 )));
             }
             entries.push(entry);
@@ -109,7 +103,7 @@ impl<'a> HandlerRegistry<'a> {
         }))
     }
 
-    pub(crate) fn get_for_tag(&self, tag: &Tag) -> Option<&Function> {
+    pub(crate) fn get_for_tag(&self, tag: &Tag) -> Option<&FunctionSexp> {
         let key_ref = TagKeyRef::from(tag);
         match &self.store {
             HandlerStore::Small(entries) => entries
@@ -121,52 +115,24 @@ impl<'a> HandlerRegistry<'a> {
                     handle: key_ref.handle,
                     suffix: key_ref.suffix,
                 };
-                // SAFETY: lookup_key only lives for this call; HashMap::get does not
-                // store the reference, so widening the lifetime for lookup is sound.
+                // HashMap::get does not store the borrowed lookup key.
                 let lookup_key: &HandlerKey<'a> = unsafe { mem::transmute(&lookup_key) };
                 map.get(lookup_key)
             }
         }
     }
 
-    pub(crate) fn apply(&self, handler: &Function, arg: Robj) -> Fallible<Robj> {
-        struct CallState<'a> {
-            handler: &'a Function,
-            arg: Robj,
-            env: ffi::SEXP,
-            result: ffi::SEXP,
-        }
-
-        let env = handler.environment().unwrap_or_else(global_env);
-        let mut state = CallState {
-            handler,
-            arg,
-            env: unsafe { env.get() },
-            result: unsafe { ffi::R_NilValue },
-        };
-        let state_ptr = &mut state as *mut CallState;
-
-        let protect_result = run_with_unwind_protect(|| unsafe {
-            let st = &mut *state_ptr;
-            // Build a call of the form handler(arg) as a language object.
-            let call = ffi::Rf_protect(Rf_lang2(st.handler.get(), st.arg.get()));
-            st.result = Rf_eval(call, st.env);
-            ffi::Rf_unprotect(1);
-        });
-
-        match protect_result {
-            Ok(()) => Ok(unsafe { Robj::from_sexp(state.result) }),
-            Err(token) => Err(EvalError::Jump(token)),
-        }
+    pub(crate) fn apply(&self, handler: &FunctionSexp, arg: Sexp) -> Fallible<Sexp> {
+        r_ext::call1(handler, arg)
     }
 }
 
-fn handler_entry_from_parts<'a>(name: &'a str, value: &Robj) -> Fallible<HandlerEntry<'a>> {
+fn handler_entry_from_parts<'a>(name: &'a str, value: &Sexp) -> Fallible<HandlerEntry<'a>> {
     if name.is_na() || name.is_empty() {
         return Err(api_other("`handlers` must be a named list of functions"));
     }
     let key = parse_handler_name(name)?;
-    let handler = value.as_function().ok_or_else(|| {
+    let handler = FunctionSexp::try_from(Sexp(value.0)).map_err(|_| {
         api_other(format!(
             "Handler `{name}` must be a function (closure or primitive)"
         ))
