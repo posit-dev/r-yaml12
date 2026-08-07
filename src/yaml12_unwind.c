@@ -85,7 +85,12 @@ static SEXP yaml12_unwind_protect(SEXP (*fun)(void *data), void *data) {
 
     yaml12_jmp_buf buf;
     if (YAML12_SETJMP(buf)) {
-        /* The generated Savvy wrapper recognizes tagged continuations. */
+        /*
+         * Match Savvy's private tagged-result ABI. Bit 0 is not an R flag:
+         * Savvy assumes it is clear on genuine SEXP pointers, uses it only
+         * while carrying the continuation through Rust, and clears it before
+         * calling R_ContinueUnwind().
+         */
         return (SEXP)((uintptr_t)token | 1);
     }
 
@@ -215,7 +220,7 @@ SEXP yaml12_scalar_string(const char *value, int value_len, int is_na) {
 /*
  * Writing R Extensions and R's own construction loops attach fresh values
  * directly with SET_*_ELT. That is safe here because the targets are ordinary
- * protected vectors with types and indices guaranteed by construction; their
+ * rooted vectors with types and indices guaranteed by construction; their
  * successful setter paths perform the write barrier and store without
  * allocating. Rf_ScalarString() protects its CHARSXP argument across its own
  * allocation.
@@ -316,23 +321,12 @@ SEXP yaml12_materialize_list(SEXP target,
                              const struct yaml12_list_element *elements,
                              const struct yaml12_string_data *names,
                              R_xlen_t length) {
-    int protect_target = target != R_NilValue;
-    if (protect_target) {
-        /* Root an existing target before the unwind runner allocates its token. */
-        PROTECT(target);
-    }
-
+    /*
+     * A non-Nil target remains rooted by the borrowed Rust OwnedListSexp for
+     * this synchronous call.
+     */
     struct yaml12_materialize_list_data data = {target, elements, names, length};
-    SEXP result = yaml12_unwind_protect(yaml12_materialize_list_impl, &data);
-
-    if (((uintptr_t)result & 1) == 1) {
-        /* R_ContinueUnwind() will restore the protection stack. */
-        return result;
-    }
-    if (protect_target) {
-        UNPROTECT(1);
-    }
-    return result;
+    return yaml12_unwind_protect(yaml12_materialize_list_impl, &data);
 }
 
 struct yaml12_call1_data {

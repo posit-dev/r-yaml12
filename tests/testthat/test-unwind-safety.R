@@ -173,6 +173,26 @@ test_that("encoding errors do not poison later string conversions", {
   expect_identical(parse_yaml(latin1), "\u00c3\u00a9")
 })
 
+test_that("string materialization errors in mixed lists do not poison later parsing", {
+  yaml <- r"--(
+- nested:
+    value: ok
+- "\0"
+)--"
+
+  gctorture(TRUE)
+  on.exit(gctorture(FALSE), add = TRUE)
+
+  expect_error(
+    parse_yaml(yaml, simplify = FALSE),
+    "embedded nul",
+    fixed = TRUE
+  )
+
+  gctorture(FALSE)
+  expect_identical(parse_yaml("value: ok"), list(value = "ok"))
+})
+
 test_that("encoded handler results remain rooted under GC pressure", {
   latin1 <- rawToChar(as.raw(c(0xc3, 0xa9)))
   Encoding(latin1) <- "latin1"
