@@ -70,6 +70,26 @@ cfg <- if (is_debug) "debug" else "release"
   ""
 )
 
+# Savvy's build script compiles its C unwind wrapper with the Rust cc crate.
+# On macOS, cc needs an explicit deployment target or it defaults to the SDK
+# version, which can be newer than R's link target.
+.macosx_deployment_target_export <- ""
+if (
+  .Platform[["OS.type"]] != "windows" &&
+    identical(Sys.info()[["sysname"]], "Darwin")
+) {
+  macosx_deployment_target <- Sys.getenv("MACOSX_DEPLOYMENT_TARGET")
+  if (!nzchar(macosx_deployment_target)) {
+    macosx_deployment_target <- "11.0"
+  }
+  message("Using MACOSX_DEPLOYMENT_TARGET=", macosx_deployment_target)
+  .macosx_deployment_target_export <- paste0(
+    "export MACOSX_DEPLOYMENT_TARGET=",
+    shQuote(macosx_deployment_target),
+    " && "
+  )
+}
+
 # read in the Makevars.in file checking
 is_windows <- .Platform[["OS.type"]] == "windows"
 
@@ -102,7 +122,12 @@ new_txt <- gsub("@CRAN_FLAGS@", .cran_flags, mv_txt) |>
   gsub("@CLEAN_TARGET@", .clean_targets, x = _) |>
   gsub("@LIBDIR@", .libdir, x = _) |>
   gsub("@TARGET@", .target, x = _) |>
-  gsub("@PANIC_EXPORTS@", .panic_exports, x = _)
+  gsub("@PANIC_EXPORTS@", .panic_exports, x = _) |>
+  gsub(
+    "@MACOSX_DEPLOYMENT_TARGET_EXPORT@",
+    .macosx_deployment_target_export,
+    x = _
+  )
 
 message("Writing `", mv_ofp, "`.")
 con <- file(mv_ofp, open = "wb")
