@@ -89,13 +89,6 @@ release_date: 2026-01-07
 str(parse_yaml(yaml_1_2))
 ```
 
-If `yaml` already gives you the behavior and compatibility you need,
-there is no need to switch. Use `yaml12` when your YAML producers and
-consumers use 1.2 or when you want the core schema rules above. Since
-`yaml12` also emits YAML 1.2, strings such as `yes` may be written
-without quotes; test that boundary if a YAML 1.1 reader will consume the
-result.
-
 See the [YAML 1.2 changes](https://yaml.org/spec/1.2.2/ext/changes/) for
 the full specification-level list and the [`yaml12` release
 post](https://tidyverse.org/blog/2026/01/yaml12-0-1-0/#why-yaml-12) for

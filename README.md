@@ -17,7 +17,7 @@ Compared with YAML 1.1’s type library, YAML 1.2’s recommended core
 schema uses more conservative type inference for unquoted values. The
 [YAML 1.1 versus 1.2 quick
 reference](https://posit-dev.github.io/r-yaml12/articles/yaml-2-minute-intro.html#why-yaml-12)
-explains the differences and when to use `yaml12`.
+summarizes the differences.
 
 ## Installation
 
