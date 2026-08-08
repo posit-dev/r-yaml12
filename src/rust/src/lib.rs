@@ -28,7 +28,15 @@ fn init_yaml12(_dll_info: *mut DllInfo) -> savvy::Result<()> {
 }
 
 fn width_arg(width: Sexp, name: &str) -> savvy::Result<Option<usize>> {
-    let invalid = || api_other(format!("`{name}` must be a single number >= 1, or Inf"));
+    let invalid = || {
+        api_other(format!(
+            "`{name}` must be NULL, Inf, or a single number >= 1"
+        ))
+    };
+    if width.is_null() {
+        return Ok(None);
+    }
+
     let width = NumericScalar::try_from(width)
         .map_err(|_| invalid())?
         .as_f64();
