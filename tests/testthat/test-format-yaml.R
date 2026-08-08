@@ -595,6 +595,7 @@ test_that("format_yaml `width` argument controls wrapping", {
   unwrapped <- format_yaml(list(key = long), width = Inf)
   expect_false(grepl(">-", unwrapped, fixed = TRUE))
   expect_identical(parse_yaml(unwrapped), list(key = long))
+  expect_identical(format_yaml(list(key = long), width = NULL), unwrapped)
 })
 
 test_that("format_yaml wraps root strings within `width`", {
@@ -664,8 +665,12 @@ test_that("write_yaml `width` argument controls wrapping", {
   expect_identical(read_yaml(path), list(key = long))
 
   write_yaml(list(key = long), path, FALSE, FALSE, Inf)
-  expect_false(any(grepl(">-", readLines(path), fixed = TRUE)))
+  unwrapped <- readLines(path)
+  expect_false(any(grepl(">-", unwrapped, fixed = TRUE)))
   expect_identical(read_yaml(path), list(key = long))
+
+  write_yaml(list(key = long), path, width = NULL)
+  expect_identical(readLines(path), unwrapped)
 })
 
 test_that("YAML formatting defaults to an integer width", {
@@ -677,7 +682,7 @@ test_that("format_yaml validates `width`", {
   for (width in list(0, -1, -Inf, NA, NaN, "80", c(40, 80))) {
     expect_error(
       format_yaml(list(key = "value"), width = width),
-      "`width` must be a single number >= 1, or Inf",
+      "`width` must be NULL, Inf, or a single number >= 1",
       fixed = TRUE
     )
   }
