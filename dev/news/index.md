@@ -36,9 +36,10 @@
   through
   [`parse_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/parse_yaml.md)
   unchanged. The new `width` argument controls the target line width;
-  `width = Inf` disables folded wrapping, mapping keys never use block
-  scalars, and unsafe values use a lossless fallback. Mapping keys
-  longer than YAML’s implicit-key limit use explicit mapping syntax.
+  `width = NULL` and `width = Inf` disable folded wrapping, mapping keys
+  never use block scalars, and unsafe values use a lossless fallback.
+  Mapping keys longer than YAML’s implicit-key limit use explicit
+  mapping syntax.
 
 - Multiline literal blocks now use explicit indentation indicators to
   preserve leading spaces or tabs. They keep physical blank lines empty

@@ -43,8 +43,8 @@ write_yaml(value, path = NULL, multi = FALSE, append = FALSE, width = 80L)
   Target maximum line width in columns. Long single-line strings and
   unindented paragraphs with safe word boundaries are wrapped.
   Individual lines may still exceed `width` when there is no safe break
-  point (e.g. a single long word) or under deep indentation. Use `Inf`
-  to disable wrapping.
+  point (e.g. a single long word) or under deep indentation. Use `NULL`
+  or `Inf` to disable wrapping.
 
 - path:
 
