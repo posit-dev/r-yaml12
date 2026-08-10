@@ -1,13 +1,6 @@
 use crate::emitter::YamlEmitter;
 use crate::r_ext;
 use crate::{api_other, Fallible};
-use crate::{
-    timestamp::{
-        core_timestamp_tag, format_posix_precise, format_r_time, offset_minutes_from_tzone,
-        yaml_from_formatted_timestamp, yaml_from_formatted_timestamp_with_tag,
-    },
-    TIMESTAMP_SUPPORT_ENABLED,
-};
 use saphyr::{Mapping, Scalar, Tag, Yaml};
 use savvy::{
     IntegerSexp, ListSexp, LogicalSexp, NotAvailableValue, RealSexp, Sexp, StringSexp, TypedSexp,
@@ -74,15 +67,6 @@ fn write_to_r_stdout(mut content: String) -> Fallible<()> {
 }
 
 fn robj_to_yaml(robj: &Sexp) -> Fallible<Yaml<'static>> {
-    if TIMESTAMP_SUPPORT_ENABLED && r_ext::get_attrib_sym(robj, r_ext::sym_yaml_tag()).is_none() {
-        if r_ext::inherits(robj, "POSIXt")? || r_ext::inherits(robj, "POSIXct")? {
-            return posix_to_yaml(robj);
-        }
-        if r_ext::inherits(robj, "Date")? {
-            return date_to_yaml(robj);
-        }
-    }
-
     let node = match Sexp(robj.0).into_typed() {
         TypedSexp::Null(_) => Ok(Yaml::Value(Scalar::Null)),
         TypedSexp::Logical(value) => logical_to_yaml(value),
@@ -190,62 +174,6 @@ fn character_to_yaml(robj: StringSexp) -> Fallible<Yaml<'static>> {
         }
     }
     Ok(Yaml::Sequence(values))
-}
-
-fn posix_to_yaml(robj: &Sexp) -> Fallible<Yaml<'static>> {
-    let tzone_attr = r_ext::get_attrib_sym(robj, r_ext::sym_tzone());
-    let tz_name = match tzone_attr.as_ref() {
-        Some(attr) => r_ext::as_string_scalar(attr)?.filter(|s| !s.is_empty()),
-        None => None,
-    };
-
-    enum PosixTz<'a> {
-        NaiveLocal,
-        Utc,
-        Fixed { offset_minutes: i32 },
-        Named(Cow<'a, str>),
-    }
-
-    let tz_kind = match tz_name {
-        None => PosixTz::NaiveLocal,
-        Some(tz) => match offset_minutes_from_tzone(tz) {
-            Some(0) => PosixTz::Utc,
-            Some(offset_minutes) => PosixTz::Fixed { offset_minutes },
-            None => PosixTz::Named(Cow::Borrowed(tz)),
-        },
-    };
-
-    let formatted = match tz_kind {
-        PosixTz::NaiveLocal => {
-            let offset_minutes = local_offset_minutes(robj)?;
-            format_posix_precise(robj, offset_minutes, true, false)?
-        }
-        PosixTz::Utc => format_posix_precise(robj, 0, false, true)?,
-        PosixTz::Fixed { offset_minutes, .. } => {
-            format_posix_precise(robj, offset_minutes, false, false)?
-        }
-        PosixTz::Named(tz) => format_r_time(robj, "%Y-%m-%dT%H:%M:%OS9%z", Some(&tz))?,
-    };
-
-    Ok(yaml_from_formatted_timestamp_with_tag(
-        formatted,
-        core_timestamp_tag(),
-    ))
-}
-
-fn date_to_yaml(robj: &Sexp) -> Fallible<Yaml<'static>> {
-    let formatted = format_r_time(robj, "%Y-%m-%d", None)?;
-    Ok(yaml_from_formatted_timestamp(formatted))
-}
-
-fn local_offset_minutes(robj: &Sexp) -> Fallible<i32> {
-    let formatted = format_r_time(robj, "%z", None)?;
-    let minutes = formatted
-        .into_iter()
-        .flatten()
-        .find_map(|s| offset_minutes_from_tzone(&s))
-        .unwrap_or(0);
-    Ok(minutes)
 }
 
 fn list_to_yaml(robj: &Sexp, list: ListSexp) -> Fallible<Yaml<'static>> {

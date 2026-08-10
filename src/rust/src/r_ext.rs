@@ -12,7 +12,6 @@ use std::{slice, str};
 // Initialized during package load before any exported .Call wrapper runs.
 static mut YAML_KEYS_SYMBOL: ffi::SEXP = ptr::null_mut();
 static mut YAML_TAG_SYMBOL: ffi::SEXP = ptr::null_mut();
-static mut TZONE_SYMBOL: ffi::SEXP = ptr::null_mut();
 
 #[allow(improper_ctypes)]
 extern "C" {
@@ -94,7 +93,6 @@ pub(crate) fn init_symbols() -> Fallible<()> {
         savvy::unwind_protect(|| {
             YAML_KEYS_SYMBOL = install_symbol(b"yaml_keys\0");
             YAML_TAG_SYMBOL = install_symbol(b"yaml_tag\0");
-            TZONE_SYMBOL = install_symbol(b"tzone\0");
             ffi::R_NilValue
         })?;
     }
@@ -107,10 +105,6 @@ pub(crate) fn sym_yaml_keys() -> ffi::SEXP {
 
 pub(crate) fn sym_yaml_tag() -> ffi::SEXP {
     unsafe { YAML_TAG_SYMBOL }
-}
-
-pub(crate) fn sym_tzone() -> ffi::SEXP {
-    unsafe { TZONE_SYMBOL }
 }
 
 pub(crate) fn get_attrib_sym(value: &Sexp, attr: ffi::SEXP) -> Option<Sexp> {
@@ -132,15 +126,6 @@ pub(crate) fn set_attrib_sym(value: &mut Sexp, attr: ffi::SEXP, attr_value: Sexp
         })?;
     }
     Ok(())
-}
-
-pub(crate) fn set_class<T, U>(value: &mut Sexp, classes: T) -> Fallible<()>
-where
-    T: AsRef<[U]>,
-    U: AsRef<str>,
-{
-    let _value_guard = PreservedSexp::new(Sexp(value.0));
-    value.set_class(classes)
 }
 
 // These scalar leaves return raw SEXPs without a Rust ownership guard. A caller
@@ -311,10 +296,6 @@ pub(crate) fn as_string_scalar(value: &Sexp) -> Fallible<Option<&'static str>> {
     Ok((!value.is_na()).then_some(value))
 }
 
-pub(crate) fn string_sexp(value: &Sexp) -> Option<StringSexp> {
-    StringSexp::try_from(Sexp(value.0)).ok()
-}
-
 pub(crate) fn string_elt(strings: &StringSexp, i: usize) -> Fallible<&'static str> {
     debug_assert!(i < strings.len());
     unsafe {
@@ -332,26 +313,6 @@ pub(crate) fn names(value: &Sexp) -> Fallible<Option<StringSexp>> {
         return Ok(None);
     };
     Ok(Some(StringSexp::try_from(names)?))
-}
-
-pub(crate) fn class(value: &Sexp) -> Fallible<Option<StringSexp>> {
-    let Some(class) = get_attrib_sym(value, unsafe { ffi::R_ClassSymbol }) else {
-        return Ok(None);
-    };
-    Ok(Some(StringSexp::try_from(class)?))
-}
-
-pub(crate) fn inherits(value: &Sexp, class_name: &str) -> Fallible<bool> {
-    let Some(class_attr) = class(value)? else {
-        return Ok(false);
-    };
-    for i in 0..class_attr.len() {
-        let value = string_elt(&class_attr, i)?;
-        if !value.is_na() && value == class_name {
-            return Ok(true);
-        }
-    }
-    Ok(false)
 }
 
 pub(crate) fn has_attributes(value: &Sexp) -> bool {

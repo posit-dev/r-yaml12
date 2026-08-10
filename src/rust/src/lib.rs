@@ -2,7 +2,6 @@ mod emitter;
 mod handlers;
 mod r_ext;
 mod r_to_yaml;
-mod timestamp;
 mod warning;
 mod yaml_to_r;
 
@@ -15,8 +14,6 @@ use savvy_ffi::DllInfo;
 pub(crate) type Fallible<T> = savvy::Result<T>;
 
 pub(crate) const R_STRING_MAX_BYTES: usize = i32::MAX as usize;
-/// Toggle timestamp parsing/formatting. Set to `true` to re-enable.
-pub(crate) const TIMESTAMP_SUPPORT_ENABLED: bool = false;
 
 fn api_other(msg: impl Into<String>) -> savvy::Error {
     savvy::Error::new(msg.into())
