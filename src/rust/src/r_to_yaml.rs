@@ -32,7 +32,6 @@ fn emit_yaml_documents(
     }
     let mut output = String::new();
     let mut emitter = YamlEmitter::new(&mut output);
-    emitter.multiline_strings(true);
     emitter.string_wrap_width(width);
     if multi {
         emitter
@@ -274,7 +273,10 @@ fn extract_yaml_tag(robj: &Sexp) -> Fallible<Option<Tag>> {
             handle: String::new(),
             suffix: "!".to_string(),
         }
-    } else if let Some(rest) = tag_str.strip_prefix("!!") {
+    } else if let Some(rest) = tag_str
+        .strip_prefix("!!")
+        .or_else(|| tag_str.strip_prefix("tag:yaml.org,2002:"))
+    {
         if rest.is_empty() {
             return Err(invalid_tag_error());
         }
@@ -293,18 +295,10 @@ fn extract_yaml_tag(robj: &Sexp) -> Fallible<Option<Tag>> {
             handle: "!".to_string(),
             suffix: rest.to_string(),
         }
-    } else if let Some((handle, suffix)) = tag_str.rsplit_once('!') {
-        if suffix.is_empty() {
-            return Err(invalid_tag_error());
-        }
-        Tag {
-            handle: handle.to_string(),
-            suffix: suffix.to_string(),
-        }
     } else {
         Tag {
-            handle: String::new(),
-            suffix: tag_str.to_string(),
+            handle: "!".to_string(),
+            suffix: format!("<{tag_str}>"),
         }
     };
 

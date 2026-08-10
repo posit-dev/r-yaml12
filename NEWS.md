@@ -1,5 +1,10 @@
 # yaml12 (development version)
 
+* `parse_yaml()` now preserves unrecognized core-schema tags in the `yaml_tag`
+  attribute.
+
+* `parse_yaml()` now invokes mapping-key handlers once per key.
+
 * `write_yaml()` no longer adds optional document end (`...`) markers. Written
   documents still begin with `---` and end with a newline.
 

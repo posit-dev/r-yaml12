@@ -121,10 +121,6 @@ impl<'a> HandlerRegistry<'a> {
             }
         }
     }
-
-    pub(crate) fn apply(&self, handler: &FunctionSexp, arg: Sexp) -> Fallible<Sexp> {
-        r_ext::call1(handler, arg)
-    }
 }
 
 fn handler_entry_from_parts<'a>(name: &'a str, value: &Sexp) -> Fallible<HandlerEntry<'a>> {
