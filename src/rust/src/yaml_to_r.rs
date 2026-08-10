@@ -1,8 +1,7 @@
 use crate::handlers::HandlerRegistry;
 use crate::r_ext::{self, PreservedSexp};
-use crate::timestamp::{is_timestamp_tag, parse_timestamp_node, simplify_timestamp_sequence};
 use crate::warning::emit_warning;
-use crate::{api_other, Fallible, TIMESTAMP_SUPPORT_ENABLED};
+use crate::{api_other, Fallible};
 use saphyr::{Mapping, Scalar, Tag, Yaml, YamlLoader};
 use saphyr_parser::{Parser, ScalarStyle};
 use savvy::{
@@ -38,9 +37,6 @@ fn resolve_representation(node: &mut Yaml, _simplify: bool) {
                             Yaml::value_from_cow_and_metadata(value, style, Some(&tag))
                         }
                     }
-                    // _ if is_timestamp_tag(tag.as_ref()) => {
-                    //     Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value))))
-                    // }
                     "binary" | "set" | "omap" | "pairs" | "timestamp" => {
                         Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value))))
                     }
@@ -265,15 +261,6 @@ fn sequence_to_robj(
                 return r_ext::materialize_string_vector(&values);
             }
             RVectorType::List => {}
-        }
-    }
-
-    // can't simplify via scalar types; try timestamp-aware simplification
-    if TIMESTAMP_SUPPORT_ENABLED {
-        if let Some(out) =
-            simplify_timestamp_sequence(seq, |node| resolve_representation(node, true))?
-        {
-            return Ok(out);
         }
     }
 
@@ -522,14 +509,6 @@ fn convert_tagged(
         if let Some(handler) = registry.get_for_tag(tag) {
             let value = yaml_to_robj(node, simplify, handlers)?;
             return registry.apply(handler, value);
-        }
-    }
-
-    if TIMESTAMP_SUPPORT_ENABLED && is_timestamp_tag(tag) {
-        let keep_empty_tzone = tag.handle.as_str() == "!";
-        let preserve_tzone = true;
-        if let Some(timestamp) = parse_timestamp_node(node, preserve_tzone, keep_empty_tzone)? {
-            return Ok(timestamp);
         }
     }
 
