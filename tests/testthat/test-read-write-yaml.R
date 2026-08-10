@@ -10,9 +10,7 @@ test_that("write_yaml writes and read_yaml reads single documents", {
   expect_true(file.exists(path))
   file_lines <- readLines(path)
   body_lines <- strsplit(encoded, "\n", fixed = TRUE)[[1]]
-  expect_identical(file_lines[[1]], "---")
-  expect_identical(file_lines[[length(file_lines)]], "...")
-  expect_identical(file_lines[seq_along(body_lines) + 1L], body_lines)
+  expect_identical(file_lines, c("---", body_lines))
   expect_identical(read_yaml(path), value)
   expect_identical(read_yaml(path, simplify = TRUE), value)
   expect_identical(
@@ -34,6 +32,7 @@ test_that("write_yaml appends YAML documents", {
   write_yaml(second, path, FALSE, TRUE)
   write_yaml(docs, path, multi = TRUE, append = TRUE)
 
+  expect_false(any(readLines(path) == "..."))
   expect_identical(
     read_yaml(path, multi = TRUE),
     c(list(first, second), docs)
@@ -71,8 +70,7 @@ test_that("write_yaml defaults to R stdout when path is NULL", {
   )
   expect_identical(out, value)
   expect_true(startsWith(output, "---\n"))
-  expect_true(endsWith(output, "\n..."))
-  expect_identical(output, paste0("---\n", encoded, "\n..."))
+  expect_identical(output, paste0("---\n", encoded))
   expect_identical(parse_yaml(output), value)
 })
 
@@ -93,7 +91,6 @@ test_that("write_yaml and read_yaml handle multi-document streams", {
   if (identical(expected_lines[[length(expected_lines)]], "")) {
     expected_lines <- expected_lines[-length(expected_lines)]
   }
-  expected_lines <- c(expected_lines, "...")
   expect_identical(file_lines, expected_lines)
 
   expect_identical(
@@ -147,7 +144,7 @@ test_that("write_yaml emits empty multi-document streams", {
   docs <- list()
 
   expect_identical(write_yaml(docs, path, multi = TRUE), docs)
-  expect_identical(readChar(path, file.info(path)$size), "---\n...\n")
+  expect_identical(readChar(path, file.info(path)$size), "---\n")
 
   expect_identical(read_yaml(path, multi = TRUE), list(NULL))
   expect_identical(read_yaml(path, multi = TRUE, simplify = TRUE), list(NULL))
@@ -156,7 +153,7 @@ test_that("write_yaml emits empty multi-document streams", {
     capture.output(write_yaml(docs, multi = TRUE)),
     collapse = "\n"
   )
-  expect_identical(output, "---\n...")
+  expect_identical(output, "---")
 })
 
 test_that("write_yaml flushes a final newline for files", {

@@ -64,9 +64,9 @@ dbg_yaml <- function(text) {
 #'
 #' @description
 #' `format_yaml()` returns YAML as a character string. `write_yaml()` writes a
-#' YAML stream to a file or stdout and always emits document start (`---`)
-#' markers and a final end (`...`) marker. Both functions honor a `yaml_tag`
-#' attribute on values (see examples).
+#' YAML stream to a file or stdout and starts every document with a document
+#' start (`---`) marker. Both functions honor a `yaml_tag` attribute on values
+#' (see examples).
 #'
 #' Long single-line strings and multiline strings containing unindented,
 #' single-line paragraphs separated by exactly one blank line are

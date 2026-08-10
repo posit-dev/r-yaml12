@@ -279,8 +279,8 @@ For the writing functions (`write_yaml()`, `format_yaml()`), `multi`
 also defaults to `FALSE`, producing a single YAML document. When
 `multi = TRUE`, the provided R object is treated as a list of documents
 and written as a YAML document stream, with documents separated by the
-start marker `---`. Regardless of `multi`, `write_yaml()` always
-includes an initial start marker and a final end marker.
+start marker `---`. `write_yaml()` starts every document with this marker
+and does not add the optional end marker.
 
 ```{r}
 write_yaml(list("foo", "bar"))
