@@ -416,11 +416,8 @@ pub(crate) fn write_yaml_impl(
 ) -> Fallible<()> {
     let mut output = format_yaml_impl(value, multi, width)?;
     // `dump_docs()` ends multi-doc streams with a trailing newline; `dump()` does not.
-    // Both always emit the `---\n` document start.
-    if multi {
-        output.push_str("...\n");
-    } else {
-        output.push_str("\n...\n");
+    if !multi {
+        output.push('\n');
     }
     if let Some(path) = path {
         let result = if append {

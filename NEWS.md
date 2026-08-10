@@ -1,5 +1,8 @@
 # yaml12 (development version)
 
+* `write_yaml()` no longer adds optional document end (`...`) markers. Written
+  documents still begin with `---` and end with a newline.
+
 * `format_yaml()` and `write_yaml()` now emit `Inf`, `-Inf`, and `NaN` as
   `.Inf`, `-.Inf`, and `.NaN` so they round-trip as doubles (#9).
 

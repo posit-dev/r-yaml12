@@ -10,7 +10,7 @@
     Code
       readChar(path, file.info(path)$size)
     Output
-      [1] "---\ntail: |\n  line1\n  line2\n...\n"
+      [1] "---\ntail: |\n  line1\n  line2\n"
 
 # read_yaml errors clearly on non-UTF-8 input
 
