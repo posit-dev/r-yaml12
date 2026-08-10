@@ -2,6 +2,13 @@
 
 ## yaml12 (development version)
 
+- [`parse_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/parse_yaml.md)
+  now preserves unrecognized core-schema tags in the `yaml_tag`
+  attribute.
+
+- [`parse_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/parse_yaml.md)
+  now invokes mapping-key handlers once per key.
+
 - [`write_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
   no longer adds optional document end (`...`) markers. Written
   documents still begin with `---` and end with a newline.

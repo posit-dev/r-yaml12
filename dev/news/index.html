@@ -39,7 +39,9 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="yaml12-development-version">yaml12 (development version)<a class="anchor" aria-label="anchor" href="#yaml12-development-version"></a></h2>
-<ul><li><p><code><a href="../reference/format_yaml.html">write_yaml()</a></code> no longer adds optional document end (<code>...</code>) markers. Written documents still begin with <code>---</code> and end with a newline.</p></li>
+<ul><li><p><code><a href="../reference/parse_yaml.html">parse_yaml()</a></code> now preserves unrecognized core-schema tags in the <code>yaml_tag</code> attribute.</p></li>
+<li><p><code><a href="../reference/parse_yaml.html">parse_yaml()</a></code> now invokes mapping-key handlers once per key.</p></li>
+<li><p><code><a href="../reference/format_yaml.html">write_yaml()</a></code> no longer adds optional document end (<code>...</code>) markers. Written documents still begin with <code>---</code> and end with a newline.</p></li>
 <li><p><code><a href="../reference/format_yaml.html">format_yaml()</a></code> and <code><a href="../reference/format_yaml.html">write_yaml()</a></code> now emit <code>Inf</code>, <code>-Inf</code>, and <code>NaN</code> as <code>.Inf</code>, <code>-.Inf</code>, and <code>.NaN</code> so they round-trip as doubles (<a href="https://github.com/posit-dev/r-yaml12/issues/9" class="external-link">#9</a>).</p></li>
 <li><p><code><a href="../reference/format_yaml.html">write_yaml()</a></code> gains an <code>append</code> argument for adding YAML documents to existing files (<a href="https://github.com/posit-dev/r-yaml12/issues/4" class="external-link">#4</a>).</p></li>
 <li><p>Replaced the Rust-side R API layer with <code>savvy</code>/<code>savvy-ffi</code> bindings. Source installs now require rustc 1.71 or newer. Vendored Rust crate attribution now points to crate repository metadata when Cargo does not provide crate authors.</p></li>
