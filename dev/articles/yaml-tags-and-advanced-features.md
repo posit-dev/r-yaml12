@@ -318,9 +318,10 @@ For the writing functions
 `multi` also defaults to `FALSE`, producing a single YAML document. When
 `multi = TRUE`, the provided R object is treated as a list of documents
 and written as a YAML document stream, with documents separated by the
-start marker `---`. Regardless of `multi`,
+start marker `---`.
 [`write_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
-always includes an initial start marker and a final end marker.
+starts every document with this marker and does not add the optional end
+marker.
 
 ``` r
 
@@ -328,13 +329,11 @@ write_yaml(list("foo", "bar"))
 #> ---
 #> - foo
 #> - bar
-#> ...
 write_yaml(list("foo", "bar"), multi = TRUE)
 #> ---
 #> foo
 #> ---
 #> bar
-#> ...
 ```
 
 When `multi = FALSE`, parsing stops after the first document—even if
@@ -378,7 +377,6 @@ tagged <- structure("1 + x", yaml_tag = "!expr")
 write_yaml(tagged)
 #> ---
 #> !expr 1 + x
-#> ...
 ```
 
 ## Anchors

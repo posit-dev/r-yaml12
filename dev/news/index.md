@@ -2,6 +2,10 @@
 
 ## yaml12 (development version)
 
+- [`write_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
+  no longer adds optional document end (`...`) markers. Written
+  documents still begin with `---` and end with a newline.
+
 - [`format_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)
   and
   [`write_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/format_yaml.md)

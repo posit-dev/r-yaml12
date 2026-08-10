@@ -343,21 +343,19 @@ stream are returned.</p>
 <code>FALSE</code>, producing a single YAML document. When
 <code>multi = TRUE</code>, the provided R object is treated as a list of
 documents and written as a YAML document stream, with documents
-separated by the start marker <code>---</code>. Regardless of
-<code>multi</code>, <code><a href="../reference/format_yaml.html">write_yaml()</a></code> always includes an initial
-start marker and a final end marker.</p>
+separated by the start marker <code>---</code>.
+<code><a href="../reference/format_yaml.html">write_yaml()</a></code> starts every document with this marker and
+does not add the optional end marker.</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/format_yaml.html">write_yaml</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"foo"</span>, <span class="st">"bar"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; - foo</span></span>
 <span><span class="co">#&gt; - bar</span></span>
-<span><span class="co">#&gt; ...</span></span>
 <span><span class="fu"><a href="../reference/format_yaml.html">write_yaml</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"foo"</span>, <span class="st">"bar"</span><span class="op">)</span>, multi <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; foo</span></span>
 <span><span class="co">#&gt; ---</span></span>
-<span><span class="co">#&gt; bar</span></span>
-<span><span class="co">#&gt; ...</span></span></code></pre></div>
+<span><span class="co">#&gt; bar</span></span></code></pre></div>
 <p>When <code>multi = FALSE</code>, parsing stops after the first
 document—even if later content is not valid YAML. That makes it easy to
 extract front matter from files that mix YAML with other text (like R
@@ -393,8 +391,7 @@ calling <code><a href="../reference/format_yaml.html">format_yaml()</a></code> o
 <code class="sourceCode R"><span><span class="va">tagged</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/structure.html" class="external-link">structure</a></span><span class="op">(</span><span class="st">"1 + x"</span>, yaml_tag <span class="op">=</span> <span class="st">"!expr"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/format_yaml.html">write_yaml</a></span><span class="op">(</span><span class="va">tagged</span><span class="op">)</span></span>
 <span><span class="co">#&gt; ---</span></span>
-<span><span class="co">#&gt; !expr 1 + x</span></span>
-<span><span class="co">#&gt; ...</span></span></code></pre></div>
+<span><span class="co">#&gt; !expr 1 + x</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="anchors">Anchors<a class="anchor" aria-label="anchor" href="#anchors"></a>

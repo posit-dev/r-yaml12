@@ -1,9 +1,9 @@
 # Format or write R objects as YAML 1.2.
 
 `format_yaml()` returns YAML as a character string. `write_yaml()`
-writes a YAML stream to a file or stdout and always emits document start
-(`---`) markers and a final end (`...`) marker. Both functions honor a
-`yaml_tag` attribute on values (see examples).
+writes a YAML stream to a file or stdout and starts every document with
+a document start (`---`) marker. Both functions honor a `yaml_tag`
+attribute on values (see examples).
 
 Long single-line strings and multiline strings containing unindented,
 single-line paragraphs separated by exactly one blank line are
@@ -93,18 +93,15 @@ write_yaml(list(foo = 1, bar = list(2, "baz")))
 #> bar:
 #>   - 2.0
 #>   - baz
-#> ...
 
 write_yaml(list("foo", "bar"), multi = TRUE)
 #> ---
 #> foo
 #> ---
 #> bar
-#> ...
 
 tagged <- structure("1 + 1", yaml_tag = "!expr")
 write_yaml(tagged)
 #> ---
 #> !expr 1 + 1
-#> ...
 ```
