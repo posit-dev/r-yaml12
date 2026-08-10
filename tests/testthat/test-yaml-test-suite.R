@@ -117,17 +117,16 @@ for (case in test_cases) {
 
       parsed_tags <- collect_yaml_tags(parsed)
       expected_tags <- extract_event_tags(case)
-      core_tags_to_keep <- paste0(
+      converted_core_tags <- paste0(
         "tag:yaml.org,2002:",
-        c("binary", "set", "omap", "pairs", "timestamp")
+        c("bool", "int", "float", "null", "str", "seq", "map")
       )
-      expected_non_core_tags <- expected_tags[
-        !startsWith(expected_tags, "tag:yaml.org,2002:") |
-          expected_tags %in% core_tags_to_keep
+      expected_preserved_tags <- expected_tags[
+        !expected_tags %in% converted_core_tags
       ]
       expect_equal(
         sort(unique(parsed_tags)),
-        sort(unique(expected_non_core_tags)),
+        sort(unique(expected_preserved_tags)),
         info = paste("yaml_tag mismatch for", case_title)
       )
 
@@ -138,23 +137,6 @@ for (case in test_cases) {
       expected <- sort_named_lists(expected)
 
       expect_equal(parsed, expected)
-
-      return()
-      if (length(waldo::compare(parsed, expected, tolerance = 0))) {
-        # message("failing case: ", case)
-        # withr::with_dir(case, {
-        #   cat("case files: \n")
-        #   print(list.files())
-        #   cat("in.yaml:\n")
-        #   print(readLines("in.yaml"))
-        #   cat("in.json:\n")
-        #   print(readLines("in.json"))
-        #   browser()
-        #   waldo::compare(parsed, expected)
-        #   read_yaml("in.yaml")
-        # })
-        # fail(paste("case fails:", case))
-      }
     }
   })
 }

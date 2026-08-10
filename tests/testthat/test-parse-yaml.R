@@ -344,6 +344,20 @@ test_that("parse_yaml applies handlers to tagged mapping keys", {
   expect_identical(result, list(KEY = "value"))
 })
 
+test_that("parse_yaml applies mapping key handlers once", {
+  calls <- 0L
+  handlers <- list(
+    "!suffix" = function(x) {
+      calls <<- calls + 1L
+      paste0(x, "!")
+    }
+  )
+
+  result <- parse_yaml("!suffix key: value", handlers = handlers)
+  expect_identical(result, list("key!" = "value"))
+  expect_identical(calls, 1L)
+})
+
 test_that("parse_yaml keeps handled string keys in yaml_keys when needed", {
   handlers <- list(
     "!upper" = function(x) toupper(x)
@@ -514,6 +528,34 @@ test_that("parse_yaml errors clearly on invalid canonical tags", {
   expect_snapshot(error = TRUE, parse_yaml("!!null foo"))
 })
 
+test_that("parse_yaml preserves unknown core tags", {
+  collection <- parse_yaml(
+    "!!python/object:__main__.DangerousPayload {payload: true}"
+  )
+  expect_identical(
+    collection,
+    structure(
+      list(payload = TRUE),
+      yaml_tag = "tag:yaml.org,2002:python/object:__main__.DangerousPayload"
+    )
+  )
+  collection_yaml <- format_yaml(collection)
+  expect_true(startsWith(
+    collection_yaml,
+    "!!python/object:__main__.DangerousPayload"
+  ))
+  expect_identical(parse_yaml(collection_yaml), collection)
+
+  scalar <- parse_yaml('!!unknown "true"')
+  expect_identical(
+    scalar,
+    structure("true", yaml_tag = "tag:yaml.org,2002:unknown")
+  )
+  scalar_yaml <- format_yaml(scalar)
+  expect_true(startsWith(scalar_yaml, "!!unknown"))
+  expect_identical(parse_yaml(scalar_yaml), scalar)
+})
+
 test_that("parse_yaml renders non-string mapping keys", {
   yaml <- r"--(
 1: a
@@ -601,6 +643,18 @@ test_that("parse_yaml preserves non-core tags on mapping keys via yaml_keys", {
 
   expect_snapshot(str(parse_yaml("!custom foo: 1\n", simplify = TRUE)))
   expect_snapshot(str(parse_yaml("!custom foo: 1\n", simplify = FALSE)))
+})
+
+test_that("parse_yaml round-trips verbatim tags on mapping keys", {
+  parsed <- parse_yaml("!<foo> key: value", simplify = FALSE)
+  expected <- structure(
+    list("value"),
+    names = "",
+    yaml_keys = list(structure("key", yaml_tag = "foo"))
+  )
+
+  expect_identical(parsed, expected)
+  expect_identical(parse_yaml(format_yaml(parsed), simplify = FALSE), parsed)
 })
 
 test_that("parse_yaml does not set yaml_keys when all mapping keys are strings", {

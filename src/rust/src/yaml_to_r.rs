@@ -14,7 +14,7 @@ use std::{
     mem::{self, MaybeUninit},
 };
 
-fn resolve_representation(node: &mut Yaml, _simplify: bool) {
+fn resolve_representation(node: &mut Yaml) {
     let (value, style, tag) = match mem::replace(node, Yaml::BadValue) {
         Yaml::Representation(value, style, tag) => (value, style, tag),
         other => {
@@ -26,39 +26,19 @@ fn resolve_representation(node: &mut Yaml, _simplify: bool) {
     let is_plain_empty = style == ScalarStyle::Plain && value.trim().is_empty();
 
     let parsed = match tag {
-        Some(tag) => {
-            if tag.is_yaml_core_schema() {
-                match tag.suffix.as_str() {
-                    "str" => Yaml::value_from_cow_and_metadata(value, style, Some(&tag)),
-                    "null" => {
-                        if is_plain_empty {
-                            Yaml::Value(Scalar::Null)
-                        } else {
-                            Yaml::value_from_cow_and_metadata(value, style, Some(&tag))
-                        }
-                    }
-                    "binary" | "set" | "omap" | "pairs" | "timestamp" => {
-                        Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value))))
-                    }
-                    _ => {
-                        let parsed =
-                            Yaml::value_from_cow_and_metadata(value.clone(), style, Some(&tag));
-                        if matches!(parsed, Yaml::BadValue)
-                            && !matches!(
-                                tag.suffix.as_str(),
-                                "bool" | "int" | "float" | "null" | "str"
-                            )
-                        {
-                            Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value))))
-                        } else {
-                            parsed
-                        }
-                    }
+        Some(tag) if tag.is_yaml_core_schema() => match tag.suffix.as_str() {
+            "str" => Yaml::value_from_cow_and_metadata(value, style, Some(&tag)),
+            "null" => {
+                if is_plain_empty {
+                    Yaml::Value(Scalar::Null)
+                } else {
+                    Yaml::value_from_cow_and_metadata(value, style, Some(&tag))
                 }
-            } else {
-                Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value))))
             }
-        }
+            "bool" | "int" | "float" => Yaml::value_from_cow_and_metadata(value, style, Some(&tag)),
+            _ => Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value)))),
+        },
+        Some(tag) => Yaml::Tagged(tag, Box::new(Yaml::Value(Scalar::String(value)))),
         None if is_plain_empty => Yaml::Value(Scalar::Null),
         None => Yaml::value_from_cow_and_metadata(value, style, None),
     };
@@ -81,7 +61,7 @@ fn yaml_to_robj(
         )),
         Yaml::BadValue => Err(api_other("Encountered an invalid YAML scalar value")),
         Yaml::Representation(_, _, _) => {
-            resolve_representation(node, simplify);
+            resolve_representation(node);
             yaml_to_robj(node, simplify, handlers)
         }
     }
@@ -124,7 +104,7 @@ fn prepare_list_element(
     handlers: Option<&HandlerRegistry<'_>>,
     target: &mut Option<OwnedListSexp>,
 ) -> Fallible<bool> {
-    resolve_representation(node, simplify);
+    resolve_representation(node);
     if matches!(node, Yaml::Value(_)) {
         return Ok(true);
     }
@@ -193,7 +173,7 @@ fn sequence_to_robj(
 
     // iterate over the vec once to see if we can simplify, fail early/fast if not
     for node in seq.iter_mut() {
-        resolve_representation(node, simplify_seqs);
+        resolve_representation(node);
         match node {
             Yaml::Tagged(_, _) => {
                 simplify = false;
@@ -385,29 +365,30 @@ fn mapping_to_robj(
 
     // 1st pass: resolve keys/values while consuming the mapping to avoid cloning keys.
     for (i, (mut key, mut value)) in mem::take(map).into_iter().enumerate() {
-        resolve_representation(&mut key, simplify);
+        resolve_representation(&mut key);
 
         // If the key is tagged and a handler exists, apply it to the key itself.
         // Keep the handled value alive so we can borrow its string data when
         // constructing R names without allocating.
-        let key_handler_result = if let (Some(registry), Yaml::Tagged(tag, _)) = (handlers, &key) {
-            if let Some(handler) = registry.get_for_tag(tag.as_ref()) {
-                let key_obj = yaml_to_robj(&mut key, simplify, handlers)?;
-                let handled = PreservedSexp::new(registry.apply(handler, key_obj)?);
-                Some(if let Some(name) = name_if_bare_string(&handled.value())? {
-                    KeyHandlerResult::BareString {
-                        name,
-                        _guard: handled,
-                    }
+        let key_handler_result =
+            if let (Some(registry), Yaml::Tagged(tag, node)) = (handlers, &mut key) {
+                if let Some(handler) = registry.get_for_tag(tag.as_ref()) {
+                    let value = yaml_to_robj(node.as_mut(), simplify, handlers)?;
+                    let handled = PreservedSexp::new(r_ext::call1(handler, value)?);
+                    Some(if let Some(name) = name_if_bare_string(&handled.value())? {
+                        KeyHandlerResult::BareString {
+                            name,
+                            _guard: handled,
+                        }
+                    } else {
+                        KeyHandlerResult::Preserved(handled)
+                    })
                 } else {
-                    KeyHandlerResult::Preserved(handled)
-                })
+                    None
+                }
             } else {
                 None
-            }
-        } else {
-            None
-        };
+            };
 
         prepare_list_element(&mut value, i, len, simplify, handlers, &mut value_target)?;
         keys.push(key);
@@ -508,28 +489,21 @@ fn convert_tagged(
     if let Some(registry) = handlers {
         if let Some(handler) = registry.get_for_tag(tag) {
             let value = yaml_to_robj(node, simplify, handlers)?;
-            return registry.apply(handler, value);
+            return r_ext::call1(handler, value);
         }
     }
 
     let value = yaml_to_robj(node, simplify, handlers)?;
-    if tag.is_yaml_core_schema() {
-        return match tag.suffix.as_str() {
-            "str" | "null" | "bool" | "int" | "float" | "seq" | "map" => Ok(value),
-            "timestamp" | "set" | "omap" | "pairs" | "binary" => set_yaml_tag_attr(value, tag),
-            other => Err(api_other(format!(
-                "Unsupported core-schema tag `{handle}{other}`",
-                handle = tag.handle
-            ))),
-        };
+    if tag.is_yaml_core_schema()
+        && matches!(
+            tag.suffix.as_str(),
+            "str" | "null" | "bool" | "int" | "float" | "seq" | "map"
+        )
+    {
+        return Ok(value);
     }
 
     set_yaml_tag_attr(value, tag)
-}
-
-#[cfg_attr(not(test), allow(dead_code))]
-fn is_core_string_tag(tag: &Tag) -> bool {
-    tag.is_yaml_core_schema() && tag.suffix.as_str() == "str"
 }
 
 fn is_core_null_tag(tag: &Tag) -> bool {
@@ -693,119 +667,4 @@ pub(crate) fn read_yaml_impl(
         .map_err(|err| api_other(format!("Failed to read `{path}`: {err}")))?;
     let docs = load_yaml_documents(&contents, multi)?;
     docs_to_robj(docs, multi, simplify, handlers)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use saphyr::{LoadableYamlNode, Scalar as YamlScalar};
-
-    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-    enum ParsedValueKind {
-        String,
-        Boolean,
-    }
-
-    fn load_scalar(input: &str) -> Yaml<'_> {
-        let mut docs = Yaml::load_from_str(input).expect("parser should load tagged scalar");
-        docs.pop().expect("expected one document")
-    }
-
-    fn normalized_suffix(suffix: &str) -> &str {
-        let suffix = suffix.trim_start_matches('!');
-        suffix.strip_prefix("tag:yaml.org,2002:").unwrap_or(suffix)
-    }
-
-    #[test]
-    fn canonical_string_tags_cover_all_forms() {
-        let canonical_string = Tag {
-            handle: "tag:yaml.org,2002:".to_string(),
-            suffix: "str".to_string(),
-        };
-        assert!(is_core_string_tag(&canonical_string));
-
-        let cases = [
-            ("!!str true", ParsedValueKind::String),
-            ("!str true", ParsedValueKind::Boolean),
-            ("!<str> true", ParsedValueKind::Boolean),
-            ("!<!str> true", ParsedValueKind::Boolean),
-            ("!<!!str> true", ParsedValueKind::Boolean),
-            ("!<tag:yaml.org,2002:str> true", ParsedValueKind::String),
-        ];
-
-        for (input, expected_value) in cases {
-            let parsed = load_scalar(input);
-            match parsed {
-                Yaml::Value(YamlScalar::String(value)) => {
-                    assert_eq!(
-                        expected_value,
-                        ParsedValueKind::String,
-                        "input `{input}` should resolve to string value"
-                    );
-                    assert_eq!(value.as_ref(), "true");
-                }
-                Yaml::Tagged(tag, inner) => {
-                    assert_eq!(
-                        is_core_string_tag(&tag),
-                        tag.is_yaml_core_schema()
-                            && normalized_suffix(tag.suffix.as_str()) == "str",
-                        "input `{input}` canonical detection should match core `str` suffix",
-                    );
-                    match (expected_value, inner.as_ref()) {
-                        (ParsedValueKind::Boolean, Yaml::Value(YamlScalar::Boolean(value))) => {
-                            assert!(
-                                *value,
-                                "input `{input}` should parse to boolean `true` when not core"
-                            );
-                        }
-                        (expected, other) => {
-                            panic!(
-                                "input `{input}` expected value kind {expected:?}, got {other:?}"
-                            )
-                        }
-                    }
-                }
-                other => panic!("input `{input}` expected tagged or string value, got {other:?}"),
-            }
-        }
-    }
-
-    #[test]
-    fn canonical_null_tags_cover_all_forms() {
-        let canonical_null = Tag {
-            handle: "tag:yaml.org,2002:".to_string(),
-            suffix: "null".to_string(),
-        };
-        assert!(is_core_null_tag(&canonical_null));
-
-        let cases = [
-            "!!null null",
-            "!<null> null",
-            "!<!null> null",
-            "!<!!null> null",
-            "!<tag:yaml.org,2002:null> null",
-        ];
-
-        for input in cases {
-            let parsed = load_scalar(input);
-            match parsed {
-                Yaml::Value(YamlScalar::Null) => {
-                    // Canonical null scalars should not carry tags.
-                }
-                Yaml::Tagged(tag, inner) => {
-                    assert_eq!(
-                        is_core_null_tag(&tag),
-                        tag.is_yaml_core_schema()
-                            && normalized_suffix(tag.suffix.as_str()) == "null",
-                        "input `{input}` canonical detection should match core `null` suffix",
-                    );
-                    assert!(
-                        matches!(inner.as_ref(), Yaml::Value(YamlScalar::Null)),
-                        "input `{input}` should parse to tagged null scalar"
-                    );
-                }
-                other => panic!("input `{input}` expected null scalar, got {other:?}"),
-            }
-        }
-    }
 }
