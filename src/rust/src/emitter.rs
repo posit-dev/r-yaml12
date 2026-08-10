@@ -713,3 +713,132 @@ fn requires_explicit_key(key: &Yaml<'_>) -> bool {
         None => true,
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::{folded_lines, YamlEmitter};
+    use saphyr::{LoadableYamlNode, Scalar, Yaml};
+
+    fn emit_wrapped(doc: &Yaml) -> String {
+        let mut output = String::new();
+        let mut emitter = YamlEmitter::new(&mut output);
+        emitter.string_wrap_width(Some(80));
+        emitter.dump(doc).unwrap();
+        output
+    }
+
+    fn reparse(yaml: &str) -> Yaml<'static> {
+        Yaml::load_from_str(yaml).unwrap().remove(0)
+    }
+
+    fn mapping_with_value(value: &str) -> Yaml<'static> {
+        let mut mapping = saphyr::Mapping::new();
+        mapping.insert(
+            Yaml::Value(Scalar::String("key".into())),
+            Yaml::Value(Scalar::String(value.to_string().into())),
+        );
+        Yaml::Mapping(mapping)
+    }
+
+    #[test]
+    fn wraps_long_strings_as_folded_blocks() {
+        let value = "word ".repeat(30).trim_end().to_string();
+        let doc = mapping_with_value(&value);
+        let output = emit_wrapped(&doc);
+        assert!(output.contains("key: >-\n"), "{output}");
+        for line in output.lines() {
+            assert!(line.chars().count() <= 80, "line too long: {line:?}");
+        }
+        assert_eq!(reparse(&output), doc);
+    }
+
+    #[test]
+    fn wrapping_respects_indentation() {
+        let value = "word ".repeat(30).trim_end().to_string();
+        let mut inner = saphyr::Mapping::new();
+        inner.insert(
+            Yaml::Value(Scalar::String("inner".into())),
+            Yaml::Value(Scalar::String(value.into())),
+        );
+        let mut outer = saphyr::Mapping::new();
+        outer.insert(
+            Yaml::Value(Scalar::String("outer".into())),
+            Yaml::Mapping(inner),
+        );
+        let doc = Yaml::Mapping(outer);
+        let output = emit_wrapped(&doc);
+        for line in output.lines() {
+            assert!(line.chars().count() <= 80, "line too long: {line:?}");
+        }
+        assert_eq!(reparse(&output), doc);
+    }
+
+    #[test]
+    fn short_and_unbreakable_strings_stay_inline() {
+        let short = mapping_with_value("just a short string");
+        assert!(emit_wrapped(&short).contains("key: just a short string"));
+
+        let unbreakable = mapping_with_value(&"x".repeat(120));
+        assert!(!emit_wrapped(&unbreakable).contains(">-"));
+    }
+
+    #[test]
+    fn strings_with_unsafe_whitespace_are_not_folded() {
+        for value in [
+            format!(" {}", "word ".repeat(25).trim_end()),
+            format!("{} ", "word ".repeat(25).trim_end()),
+        ] {
+            let doc = mapping_with_value(&value);
+            let output = emit_wrapped(&doc);
+            assert!(!output.contains(">-"), "{output}");
+            assert_eq!(reparse(&output), doc);
+        }
+
+        // Double spaces and tab-adjacent spaces are not break points.
+        let value = format!("{}  {}", "y".repeat(50), "z".repeat(50));
+        let doc = mapping_with_value(&value);
+        let output = emit_wrapped(&doc);
+        assert!(!output.contains(">-"), "{output}");
+        assert_eq!(reparse(&output), doc);
+    }
+
+    #[test]
+    fn long_mapping_keys_are_not_wrapped() {
+        let key = "word ".repeat(30).trim_end().to_string();
+        let mut mapping = saphyr::Mapping::new();
+        mapping.insert(
+            Yaml::Value(Scalar::String(key.into())),
+            Yaml::Value(Scalar::Integer(1)),
+        );
+        let doc = Yaml::Mapping(mapping);
+        let output = emit_wrapped(&doc);
+        assert!(!output.contains(">-"), "{output}");
+        assert_eq!(reparse(&output), doc);
+    }
+
+    #[test]
+    fn multiline_keys_are_quoted_not_literal_blocks() {
+        let mut mapping = saphyr::Mapping::new();
+        mapping.insert(
+            Yaml::Value(Scalar::String("multi\nline".into())),
+            Yaml::Value(Scalar::Integer(1)),
+        );
+        let doc = Yaml::Mapping(mapping);
+        let output = emit_wrapped(&doc);
+        assert!(output.contains("\"multi\\nline\": 1"), "{output}");
+        assert_eq!(reparse(&output), doc);
+    }
+
+    #[test]
+    fn folded_lines_break_only_at_safe_spaces() {
+        let s = "aaaa bbbb cccc dddd";
+        assert_eq!(folded_lines(s, 9), Some(vec!["aaaa bbbb", "cccc dddd"]));
+        // A word longer than the width gets its own over-long line.
+        let s = "aaaaaaaaaaaa bb";
+        assert_eq!(folded_lines(s, 4), Some(vec!["aaaaaaaaaaaa", "bb"]));
+        // No break points at all.
+        assert_eq!(folded_lines(&"a".repeat(20), 4), None);
+        // Already fits.
+        assert_eq!(folded_lines("aa bb", 10), None);
+    }
+}
