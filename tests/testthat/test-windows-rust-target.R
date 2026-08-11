@@ -86,10 +86,13 @@ test_that("windows Rust target check reports missing targets", {
 
 test_that("configure.win checks the Rust target before configuring", {
   configure_win <- readLines(source_file("configure.win"))
+  abort_line <- grep("set -e", configure_win, fixed = TRUE)
   check_line <- grep("windows-rust-target.R.*--check", configure_win)
   config_line <- grep("tools/config.R", configure_win, fixed = TRUE)
 
+  expect_length(abort_line, 1L)
   expect_length(check_line, 1L)
   expect_length(config_line, 1L)
+  expect_lt(abort_line, check_line)
   expect_lt(check_line, config_line)
 })
