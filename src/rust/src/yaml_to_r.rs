@@ -318,12 +318,12 @@ fn simplified_double_sequence_to_robj(seq: &[Yaml]) -> Fallible<Sexp> {
     Ok(out.into())
 }
 
-enum KeyHandlerResult {
-    BareString {
-        name: &'static str,
-        _guard: PreservedSexp,
+enum PreparedKey<'input> {
+    Yaml(Yaml<'input>),
+    Handled {
+        name: Option<&'static str>,
+        value: PreservedSexp,
     },
-    Preserved(PreservedSexp),
 }
 
 fn mapping_to_robj(
@@ -333,70 +333,35 @@ fn mapping_to_robj(
 ) -> Fallible<Sexp> {
     let len = map.len();
 
-    let all_plain_string_keys = map
-        .iter()
-        .all(|(key, _)| matches!(key, Yaml::Value(Scalar::String(_))));
-
-    if all_plain_string_keys {
-        let mut entries: Vec<_> = mem::take(map).into_iter().collect();
-        let mut target = None;
-        for (index, (_, value)) in entries.iter_mut().enumerate() {
-            prepare_list_element(value, index, len, simplify, handlers, &mut target)?;
-        }
-        let elements = entries
-            .iter()
-            .map(|(_, value)| prepared_list_element(value))
-            .collect::<Fallible<Vec<_>>>()?;
-        let names = entries
-            .iter()
-            .map(|(key, _)| match key {
-                Yaml::Value(Scalar::String(name)) => r_ext::string_data(name.as_ref()),
-                _ => unreachable!("checked for only plain string keys"),
-            })
-            .collect::<Fallible<Vec<_>>>()?;
-
-        return r_ext::materialize_list(target.as_ref(), &elements, Some(&names));
-    }
-
-    let mut keys: Vec<Yaml> = Vec::with_capacity(len);
-    let mut values: Vec<Yaml> = Vec::with_capacity(len);
-    let mut key_handler_results: Vec<Option<KeyHandlerResult>> = Vec::with_capacity(len);
+    let mut entries = Vec::with_capacity(len);
     let mut value_target = None;
 
-    // 1st pass: resolve keys/values while consuming the mapping to avoid cloning keys.
+    // Both loaders preserve scalar representations. Resolve keys while consuming
+    // the mapping to avoid cloning them.
     for (i, (mut key, mut value)) in mem::take(map).into_iter().enumerate() {
         resolve_representation(&mut key);
 
         // If the key is tagged and a handler exists, apply it to the key itself.
         // Keep the handled value alive so we can borrow its string data when
         // constructing R names without allocating.
-        let key_handler_result =
-            if let (Some(registry), Yaml::Tagged(tag, node)) = (handlers, &mut key) {
-                if let Some(handler) = registry.get_for_tag(tag.as_ref()) {
-                    let value = yaml_to_robj(node.as_mut(), simplify, handlers)?;
-                    let handled = PreservedSexp::new(r_ext::call1(handler, value)?);
-                    Some(if let Some(name) = name_if_bare_string(&handled.value())? {
-                        KeyHandlerResult::BareString {
-                            name,
-                            _guard: handled,
-                        }
-                    } else {
-                        KeyHandlerResult::Preserved(handled)
-                    })
-                } else {
-                    None
-                }
+        let key = if let (Some(registry), Yaml::Tagged(tag, node)) = (handlers, &mut key) {
+            if let Some(handler) = registry.get_for_tag(tag.as_ref()) {
+                let value = yaml_to_robj(node.as_mut(), simplify, handlers)?;
+                let value = PreservedSexp::new(r_ext::call1(handler, value)?);
+                let name = name_if_bare_string(&value.value())?;
+                PreparedKey::Handled { name, value }
             } else {
-                None
-            };
+                PreparedKey::Yaml(key)
+            }
+        } else {
+            PreparedKey::Yaml(key)
+        };
 
         prepare_list_element(&mut value, i, len, simplify, handlers, &mut value_target)?;
-        keys.push(key);
-        values.push(value);
-        key_handler_results.push(key_handler_result);
+        entries.push((key, value));
     }
 
-    // 2nd pass: build names as &str from keys.
+    // 2nd pass: build names and list elements together.
     // String mapping keys should contribute regular R names. `needs_yaml_keys_attr`
     // tracks whether we must attach the `yaml_keys` attribute because at least
     // one key cannot be represented purely by R names: either a non-string key,
@@ -404,35 +369,22 @@ fn mapping_to_robj(
     // core string tags are treated as "no information" for this purpose.
     let mut needs_yaml_keys_attr = false;
     let mut names = Vec::with_capacity(len);
-    for (key, key_handler_result) in keys.iter().zip(key_handler_results.iter()) {
-        if let Some(handled) = key_handler_result {
-            match handled {
-                KeyHandlerResult::BareString { name, .. } => names.push(r_ext::string_data(name)?),
-                KeyHandlerResult::Preserved(_) => {
-                    names.push(r_ext::string_data("")?);
-                    needs_yaml_keys_attr = true;
-                }
+    let mut elements = Vec::with_capacity(len);
+    for (key, value) in &entries {
+        match key {
+            PreparedKey::Handled {
+                name: Some(name), ..
+            } => names.push(r_ext::string_data(name)?),
+            PreparedKey::Yaml(Yaml::Value(Scalar::String(name))) => {
+                names.push(r_ext::string_data(name.as_ref())?);
             }
-        } else {
-            match key {
-                Yaml::Value(Scalar::String(string_key)) => {
-                    // Plain string key: representable as an R name with no extra metadata.
-                    names.push(r_ext::string_data(string_key.as_ref())?);
-                }
-                _ => {
-                    // Tagged or non-string keys get tracked in `yaml_keys`. Core string tags are
-                    // normalized to plain strings by `resolve_representation`, so any tagged key
-                    // reaching here carries extra information.
-                    names.push(r_ext::string_data("")?);
-                    needs_yaml_keys_attr = true;
-                }
+            _ => {
+                names.push(r_ext::string_data("")?);
+                needs_yaml_keys_attr = true;
             }
         }
+        elements.push(prepared_list_element(value)?);
     }
-    let elements = values
-        .iter()
-        .map(prepared_list_element)
-        .collect::<Fallible<Vec<_>>>()?;
     if needs_yaml_keys_attr && value_target.is_none() {
         value_target = Some(OwnedListSexp::new(len, false)?);
     }
@@ -446,27 +398,24 @@ fn mapping_to_robj(
     drop(names);
 
     let mut keys_target = Some(OwnedListSexp::new(len, false)?);
-    for (i, (key, handled_value)) in keys.iter_mut().zip(key_handler_results.iter()).enumerate() {
-        match handled_value {
-            Some(KeyHandlerResult::BareString { .. }) => {}
-            Some(KeyHandlerResult::Preserved(value)) => {
+    let mut key_elements = Vec::with_capacity(len);
+    for (i, (key, _)) in entries.iter_mut().enumerate() {
+        let element = match key {
+            PreparedKey::Handled {
+                name: Some(name), ..
+            } => r_ext::ListElement::string(name)?,
+            PreparedKey::Handled { value, .. } => {
                 keys_target.as_mut().unwrap().set_value(i, value.value())?;
+                r_ext::ListElement::skip()
             }
-            None => {
+            PreparedKey::Yaml(key) => {
                 prepare_list_element(key, i, len, simplify, handlers, &mut keys_target)?;
+                prepared_list_element(key)?
             }
-        }
+        };
+        key_elements.push(element);
     }
 
-    let key_elements = keys
-        .iter()
-        .zip(key_handler_results.iter())
-        .map(|(key, handled_value)| match handled_value {
-            Some(KeyHandlerResult::BareString { name, .. }) => r_ext::ListElement::string(name),
-            Some(KeyHandlerResult::Preserved(_)) => Ok(r_ext::ListElement::skip()),
-            None => prepared_list_element(key),
-        })
-        .collect::<Fallible<Vec<_>>>()?;
     let yaml_keys = r_ext::materialize_list(keys_target.as_ref(), &key_elements, None)?;
     let mut list = list;
     r_ext::set_attrib_sym(&mut list, r_ext::sym_yaml_keys(), yaml_keys)?;
