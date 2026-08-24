@@ -81,7 +81,10 @@ if (!nzchar(rsync)) {
 }
 
 # Preserve symlinks and delete stale entries; trailing slash copies contents.
-run(rsync, c("-a", "--delete", file.path(clone_dir, "data"), dest_dir))
+run(
+  rsync,
+  c("-a", "--delete", "--exclude=.git", file.path(clone_dir, "data"), dest_dir)
+)
 
 # Remove symlinks--keep only the actual target directories with data.
 all_dirs <- list.dirs(dest_data, recursive = TRUE, full.names = TRUE)
