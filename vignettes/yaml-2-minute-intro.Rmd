@@ -245,6 +245,47 @@ YAML 1.2 uses simple rules to then infer the type of a plain node:
 If a sequence is homogeneous and `simplify = TRUE`, nulls become the
 appropriate `NA_*` values.
 
+## End-to-end example
+
+``` yaml
+doc:
+  pets:
+    - cat
+    - dog
+  numbers: [1, 2.5, 0x10, .inf, null]
+  integers: [1, 2, 3, 0x10, null]
+  flags: {enabled: true, label: on}
+  literal: |
+    hello
+    world
+  folded: >
+    hello
+    world
+  quoted:
+    - "line\nbreak"
+    - 'quote: ''here'''
+  plain: [yes, no]
+  mixed: [won't simplify, 123, true]
+```
+
+R result (`parse_yaml()` with defaults):
+
+``` r
+list(
+  doc = list(
+    pets = c("cat", "dog"),
+    numbers = c(1, 2.5, 16, Inf, NA_real_),
+    integers = c(1L, 2L, 3L, 16L, NA_integer_),
+    flags = list(enabled = TRUE, label = "on"),
+    literal = "hello\nworld\n",
+    folded = "hello world\n",
+    quoted = c("line\nbreak", "quote: 'here'"),
+    plain = c("yes", "no"),
+    mixed = list("won't simplify", 123L, TRUE)
+  )
+)
+```
+
 ## Why YAML 1.2? {#why-yaml-12}
 
 For most R users, the main visible difference between YAML 1.1 and 1.2
@@ -304,47 +345,6 @@ See the [YAML 1.2 changes](https://yaml.org/spec/1.2.2/ext/changes/) for
 the full specification-level list and the [`yaml12` release
 post](https://tidyverse.org/blog/2026/01/yaml12-0-1-0/#why-yaml-12) for
 more background.
-
-## End-to-end example
-
-``` yaml
-doc:
-  pets:
-    - cat
-    - dog
-  numbers: [1, 2.5, 0x10, .inf, null]
-  integers: [1, 2, 3, 0x10, null]
-  flags: {enabled: true, label: on}
-  literal: |
-    hello
-    world
-  folded: >
-    hello
-    world
-  quoted:
-    - "line\nbreak"
-    - 'quote: ''here'''
-  plain: [yes, no]
-  mixed: [won't simplify, 123, true]
-```
-
-R result (`parse_yaml()` with defaults):
-
-``` r
-list(
-  doc = list(
-    pets = c("cat", "dog"),
-    numbers = c(1, 2.5, 16, Inf, NA_real_),
-    integers = c(1L, 2L, 3L, 16L, NA_integer_),
-    flags = list(enabled = TRUE, label = "on"),
-    literal = "hello\nworld\n",
-    folded = "hello world\n",
-    quoted = c("line\nbreak", "quote: 'here'"),
-    plain = c("yes", "no"),
-    mixed = list("won't simplify", 123L, TRUE)
-  )
-)
-```
 
 ## Quick notes
 
