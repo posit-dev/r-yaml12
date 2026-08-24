@@ -1,7 +1,11 @@
-# yaml12 (development version)
+# yaml12 0.2.0 (2026-08-24)
 
-* `parse_yaml()` now preserves unrecognized core-schema tags in the `yaml_tag`
-  attribute.
+* The parser now accepts and ignores reserved directives such as `%***` and
+  treats indented `---` text as part of a multiline plain scalar.
+
+* `parse_yaml()` and `read_yaml()` now preserve tags in the
+  `tag:yaml.org,2002:` namespace that are not converted to built-in R values as
+  a `yaml_tag` attribute.
 
 * `parse_yaml()` now invokes mapping-key handlers once per key.
 

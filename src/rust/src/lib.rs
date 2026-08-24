@@ -37,14 +37,13 @@ fn width_arg(width: Sexp, name: &str) -> savvy::Result<Option<usize>> {
     let width = NumericScalar::try_from(width)
         .map_err(|_| invalid())?
         .as_f64();
-    if width.is_nan() || width < 1.0 {
+    if !width.is_finite() {
+        return Ok(None);
+    }
+    if width < 1.0 {
         return Err(invalid());
     }
-    if width.is_infinite() {
-        Ok(None)
-    } else {
-        Ok(Some(width.floor() as usize))
-    }
+    Ok(Some(width.floor() as usize))
 }
 
 #[savvy]
