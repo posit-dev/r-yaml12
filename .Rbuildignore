@@ -2,6 +2,7 @@
 ^\.Rproj\.user$
 ^\.git$
 ^src/\.cargo$
+^src/rust/\.cargo$
 ^src/rust/vendor$
 ^src/rust/target$
 ^src/Makevars$
@@ -21,3 +22,4 @@
 ^vignettes/articles$
 ^yaml12-logo\.png$
 ^yaml12-logo-cropped\.png$
+^benchmarks\.pdf$
