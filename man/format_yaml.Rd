@@ -19,8 +19,7 @@ encode a stream.}
 and unindented paragraphs with safe word boundaries are wrapped.
 Individual lines may still exceed \code{width} when there is no safe break
 point (e.g. a single long word) or under deep indentation. Use \code{NULL} or
-a non-finite value (\code{Inf}, \code{-Inf}, or \code{NaN}) to disable wrapping. Missing
-\code{NA} is invalid.}
+\code{Inf} to disable wrapping.}
 
 \item{path}{Scalar string file path to write YAML to when using
 \code{write_yaml()}. Tilde prefixes (\code{~}) are expanded as by

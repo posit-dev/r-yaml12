@@ -33,11 +33,10 @@
   emitted as folded block scalars: `>-` preserves no final newline, while `>`
   preserves exactly one. Paragraph breaks and all other string content
   round-trip through `parse_yaml()` unchanged. The new `width` argument
-  controls the target line width; `width = NULL` and non-finite values (`Inf`,
-  `-Inf`, or `NaN`) disable folded wrapping, while missing `NA` is invalid.
-  Mapping keys never use block scalars, and unsafe values use a lossless
-  fallback. Mapping keys longer than YAML's implicit-key limit use explicit
-  mapping syntax.
+  controls the target line width; `width = NULL` and `width = Inf` disable
+  folded wrapping, mapping keys never use block scalars, and unsafe values use
+  a lossless fallback. Mapping keys longer than YAML's implicit-key limit use
+  explicit mapping syntax.
 
 * Multiline literal blocks now use explicit indentation indicators to preserve
   leading spaces or tabs. They keep physical blank lines empty and preserve

@@ -687,7 +687,7 @@ test_that("format_yaml validates `width`", {
   for (width in list(0, -1, NA_real_, "80", c(40, 80))) {
     expect_error(
       format_yaml(list(key = "value"), width = width),
-      "`width` must be NULL, NaN, Inf, -Inf, or a single number >= 1",
+      "`width` must be NULL, Inf, or a single number >= 1",
       fixed = TRUE
     )
   }
