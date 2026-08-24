@@ -7,15 +7,15 @@ artifacts and `License` are kept; the rest of the upstream repo is omitted.
 ## Layout
 - `data/<CASE_ID>/`: canonical files for each test case (`in.yaml`, `out.yaml`
   or `emit.yaml`, `in.json`, `test.event`, optional `error`, marker `===`).
-  Some emitter cases have multiple numbered subdirs; many entries under
-  `data/tags/` are symlinks pointing at the canonical cases.
+  Some emitter cases have multiple numbered subdirs. The upstream
+  `data/name/` and `data/tags/` symlink indexes are removed when the data is
+  regenerated, so only the canonical cases are vendored.
 - `License`: upstream license for the test-suite content.
 
 ## How we use it
 `tests/testthat/test-yaml-test-suite.R` loads cases from `data/` and compares
 parser output against upstream expectations, including tag metadata, JSON
-round-trips, and libyaml event streams. Symlinks allow categories of cases
-(e.g., `tags/`) to share canonical inputs without duplicating content.
+round-trips, and libyaml event streams.
 
 ## Regenerating
 From the package root:
