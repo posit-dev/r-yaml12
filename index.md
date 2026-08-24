@@ -4,6 +4,12 @@ A YAML 1.2 parser/formatter for R, implemented in Rust for speed and
 correctness. Built on the excellent
 [`saphyr`](https://github.com/saphyr-rs/saphyr) crate.
 
+Compared with YAML 1.1’s type library, YAML 1.2’s recommended core
+schema uses more conservative type inference for unquoted values. The
+[YAML 1.1 versus 1.2 quick
+reference](https://posit-dev.github.io/r-yaml12/articles/yaml-2-minute-intro.html#why-yaml-12)
+summarizes the differences.
+
 ## Installation
 
 You can install yaml12 from CRAN with:
@@ -21,6 +27,20 @@ You can install the development version of yaml12 from
 # install.packages("pak")
 pak::pak("posit-dev/r-yaml12")
 ```
+
+### Windows ARM64 source installs
+
+On Windows ARM64, source installs require the Rust target used by
+Rtools45:
+
+``` sh
+rustup target add aarch64-pc-windows-gnullvm
+```
+
+They also require Microsoft C++ Build Tools with ARM64 components. Cargo
+uses the Microsoft linker for host-side Rust procedural macros during
+the source build. Binary installs do not run Cargo and do not need this
+setup.
 
 ## Quick start
 
@@ -157,7 +177,7 @@ identical(obj, roundtripped)
 
 ## Documentation
 
-- YAML quick primer:
+- YAML quick primer and YAML 1.1 versus 1.2 quick reference:
   <https://posit-dev.github.io/r-yaml12/articles/yaml-2-minute-intro.html>.
 - Tags, handlers, anchors, and advanced YAML features:
   <https://posit-dev.github.io/r-yaml12/articles/yaml-tags-and-advanced-features.html>.

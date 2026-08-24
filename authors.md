@@ -15,16 +15,16 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/posit-dev/r-yaml12/blob/HEAD/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/posit-dev/r-yaml12/blob/main/DESCRIPTION)
 
-Kalinowski T (2025). *yaml12: Fast 'YAML' 1.2 Parser and Formatter*. R
-package version 0.1.0, <https://posit-dev.github.io/r-yaml12/>.
+Kalinowski T (2026). *yaml12: Fast 'YAML' 1.2 Parser and Formatter*. R
+package version 0.2.0, <https://posit-dev.github.io/r-yaml12/>.
 
     @Manual{,
       title = {yaml12: Fast 'YAML' 1.2 Parser and Formatter},
       author = {Tomasz Kalinowski},
-      year = {2025},
-      note = {R package version 0.1.0},
+      year = {2026},
+      note = {R package version 0.2.0},
       url = {https://posit-dev.github.io/r-yaml12/},
     }
 
@@ -32,27 +32,30 @@ package version 0.1.0, <https://posit-dev.github.io/r-yaml12/>.
 
     Authors of vendored cargo crates
      - arraydeque 0.5.1: andylokandy
-     - autocfg 1.5.0: Josh Stone
+     - autocfg 1.5.1: Josh Stone
+     - cc 1.4.4: see https://github.com/rust-lang/cc-rs
      - cfg-if 1.0.4: Alex Crichton
      - encoding_rs 0.8.35: Henri Sivonen
-     - extendr-api 0.8.1: andy-thomason, Thomas Down, Mossa Merhi Reimert, Josiah Parry, Claus O. Wilke, Hiroaki Yutani, Ilia A. Kosenkov, Michael Milton
-     - extendr-ffi 0.8.1: andy-thomason, Thomas Down, Mossa Merhi Reimert, Josiah Parry, Claus O. Wilke, Hiroaki Yutani, Ilia A. Kosenkov, Michael Milton
-     - extendr-macros 0.8.1: andy-thomason, Thomas Down, Mossa Merhi Reimert, Josiah Parry, Claus O. Wilke, Hiroaki Yutani, Ilia A. Kosenkov, Michael Milton
-     - foldhash 0.1.5: Orson Peters
-     - hashbrown 0.15.5: Amanieu d'Antras
-     - hashlink 0.10.0: kyren
-     - lazy_static 1.5.0: Marvin Löbel
+     - find-msvc-tools 0.1.11: see https://github.com/rust-lang/cc-rs
+     - foldhash 0.2.0: Orson Peters
+     - hashbrown 0.16.1: Amanieu d'Antras
+     - hashlink 0.11.1: see https://github.com/djc/hashlink
      - num-traits 0.2.19: The Rust Project Developers
-     - once_cell 1.21.3: Aleksey Kladov
-     - ordered-float 5.1.0: Jonathan Reem, Matt Brubeck
-     - paste 1.0.15: David Tolnay
-     - proc-macro2 1.0.103: David Tolnay, Alex Crichton
-     - quote 1.0.42: David Tolnay
-     - saphyr 0.0.6: Ethiraric, David Aguilar, Yuheng Chen
-     - saphyr-parser 0.0.6: Ethiraric, David Aguilar, Yuheng Chen
-     - syn 2.0.111: David Tolnay
-     - thiserror 2.0.17: David Tolnay
-     - thiserror-impl 2.0.17: David Tolnay
-     - unicode-ident 1.0.22: David Tolnay
+     - ordered-float 5.4.0: Jonathan Reem, Matt Brubeck
+     - proc-macro2 1.0.107: David Tolnay, Alex Crichton
+     - quote 1.0.47: David Tolnay
+     - rustversion 1.0.23: David Tolnay
+     - saphyr 0.0.11: Ethiraric, David Aguilar, Yuheng Chen
+     - saphyr-parser 0.0.11: Ethiraric, David Aguilar, Yuheng Chen
+     - savvy 0.8.14: Hiroaki Yutani
+     - savvy-bindgen 0.8.14: Hiroaki Yutani
+     - savvy-ffi 0.8.14: Hiroaki Yutani
+     - savvy-macro 0.8.14: Hiroaki Yutani
+     - shlex 2.0.1: comex, Fenhl, Adrian Taylor, Alex Touchet, Daniel Parks, Garrett Berg
+     - syn 2.0.119: David Tolnay
+     - syn 3.0.4: David Tolnay
+     - thiserror 2.0.20: David Tolnay
+     - thiserror-impl 2.0.20: David Tolnay
+     - unicode-ident 1.0.24: David Tolnay
 
-    (This file was auto-generated from 'cargo metadata' on 2025-12-02)
+    (This file was auto-generated from 'cargo metadata' on 2026-08-24)

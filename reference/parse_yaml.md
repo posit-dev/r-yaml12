@@ -33,7 +33,9 @@ read_yaml(path, multi = FALSE, simplify = TRUE, handlers = NULL)
 
 - path:
 
-  Scalar string path to a YAML file\`.
+  Scalar string path to a YAML file. Tilde prefixes (`~`) are expanded
+  as by
+  [`base::path.expand()`](https://rdrr.io/r/base/path.expand.html).
 
 ## Value
 
@@ -45,6 +47,16 @@ When `multi = TRUE`, returns a list of parsed documents.
 YAML tags without a corresponding `handler` are preserved in a
 `yaml_tag` attribute. Mappings with keys that are not all simple scalar
 strings are returned as a named list with a `yaml_keys` attribute.
+
+## Duplicate mapping keys
+
+YAML 1.2 requires mapping keys to be unique, but `parse_yaml()` and
+`read_yaml()` do not currently reject duplicates. When a key is repeated
+with the same spelling and quoting style, only its last value is
+retained. Keys written differently, such as `key` and `"key"`, may
+remain as separate entries even when they produce the same R name. A
+future release may warn or error for these cases, so this behavior
+should not be relied upon.
 
 ## Examples
 
