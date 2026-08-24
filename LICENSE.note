@@ -19,7 +19,7 @@ License:     Apache-2.0 OR MIT
 
 Name:        cc
 Repository:  https://github.com/rust-lang/cc-rs
-Authors:     Alex Crichton
+Authors:     see https://github.com/rust-lang/cc-rs
 License:     MIT OR Apache-2.0
 
 -------------------------------------------------------------
