@@ -88,6 +88,17 @@ document. When <code>multi = TRUE</code>, returns a list of parsed documents.</p
 attribute. Mappings with keys that are not all simple scalar strings are
 returned as a named list with a <code>yaml_keys</code> attribute.</p>
     </div>
+    <div class="section level2">
+    <h2 id="duplicate-mapping-keys">Duplicate mapping keys<a class="anchor" aria-label="anchor" href="#duplicate-mapping-keys"></a></h2>
+
+
+<p>YAML 1.2 requires mapping keys to be unique, but <code>parse_yaml()</code> and
+<code>read_yaml()</code> do not currently reject duplicates. When a key is repeated
+with the same spelling and quoting style, only its last value is retained.
+Keys written differently, such as <code>key</code> and <code>"key"</code>, may remain as separate
+entries even when they produce the same R name. A future release may warn or
+error for these cases, so this behavior should not be relied upon.</p>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
