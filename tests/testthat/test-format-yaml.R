@@ -563,18 +563,23 @@ test_that("format_yaml keeps paragraph-shaped mapping keys inline", {
   expect_identical(parse_yaml(encoded, simplify = FALSE), object)
 })
 
-test_that("format_yaml leaves multiline wrapping disabled at infinite width", {
+test_that("format_yaml leaves multiline wrapping disabled at non-finite widths", {
   paragraph <- "alpha beta gamma delta epsilon"
   value <- paste(paragraph, paragraph, sep = "\n\n")
-  expect_yaml_emission(
-    list(body = value),
-    paste0(
-      "body: |-\n",
-      "  alpha beta gamma delta epsilon\n\n",
-      "  alpha beta gamma delta epsilon"
-    ),
-    width = Inf
-  )
+  widths <- list(`Inf` = Inf, `-Inf` = -Inf, `NaN` = NaN)
+
+  for (width_name in names(widths)) {
+    expect_yaml_emission(
+      list(body = value),
+      paste0(
+        "body: |-\n",
+        "  alpha beta gamma delta epsilon\n\n",
+        "  alpha beta gamma delta epsilon"
+      ),
+      width = widths[[width_name]],
+      info = width_name
+    )
+  }
 })
 
 test_that("format_yaml wrapping round-trips nested structures", {
@@ -679,10 +684,10 @@ test_that("YAML formatting defaults to an integer width", {
 })
 
 test_that("format_yaml validates `width`", {
-  for (width in list(0, -1, -Inf, NA, NaN, "80", c(40, 80))) {
+  for (width in list(0, -1, NA_real_, "80", c(40, 80))) {
     expect_error(
       format_yaml(list(key = "value"), width = width),
-      "`width` must be NULL, Inf, or a single number >= 1",
+      "`width` must be NULL, NaN, Inf, -Inf, or a single number >= 1",
       fixed = TRUE
     )
   }

@@ -102,7 +102,8 @@ dbg_yaml <- function(text) {
 #'   and unindented paragraphs with safe word boundaries are wrapped.
 #'   Individual lines may still exceed `width` when there is no safe break
 #'   point (e.g. a single long word) or under deep indentation. Use `NULL` or
-#'   `Inf` to disable wrapping.
+#'   a non-finite value (`Inf`, `-Inf`, or `NaN`) to disable wrapping. Missing
+#'   `NA` is invalid.
 #' @return `format_yaml()` returns a scalar character string containing YAML.
 #'   `write_yaml()` invisibly returns `value`.
 #' @rdname format_yaml
