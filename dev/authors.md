@@ -18,13 +18,13 @@ Source:
 [`DESCRIPTION`](https://github.com/posit-dev/r-yaml12/blob/main/DESCRIPTION)
 
 Kalinowski T (2026). *yaml12: Fast 'YAML' 1.2 Parser and Formatter*. R
-package version 0.1.0.9000, <https://posit-dev.github.io/r-yaml12/>.
+package version 0.2.0.9000, <https://posit-dev.github.io/r-yaml12/>.
 
     @Manual{,
       title = {yaml12: Fast 'YAML' 1.2 Parser and Formatter},
       author = {Tomasz Kalinowski},
       year = {2026},
-      note = {R package version 0.1.0.9000},
+      note = {R package version 0.2.0.9000},
       url = {https://posit-dev.github.io/r-yaml12/},
     }
 

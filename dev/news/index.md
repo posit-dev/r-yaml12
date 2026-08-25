@@ -2,9 +2,18 @@
 
 ## yaml12 (development version)
 
+## yaml12 0.2.0 (2026-08-24)
+
+CRAN release: 2026-08-25
+
+- The parser now accepts and ignores reserved directives such as `%***`
+  and treats indented `---` text as part of a multiline plain scalar.
+
 - [`parse_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/parse_yaml.md)
-  now preserves unrecognized core-schema tags in the `yaml_tag`
-  attribute.
+  and
+  [`read_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/parse_yaml.md)
+  now preserve tags in the `tag:yaml.org,2002:` namespace that are not
+  converted to built-in R values as a `yaml_tag` attribute.
 
 - [`parse_yaml()`](https://posit-dev.github.io/r-yaml12/dev/reference/parse_yaml.md)
   now invokes mapping-key handlers once per key.

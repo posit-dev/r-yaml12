@@ -17,74 +17,6 @@ YAML has three building blocks: **scalars** (single values),
 pairs with unique keys). JSON is a subset of YAML 1.2, so all valid JSON
 is also valid YAML and parses the same way.
 
-## Why YAML 1.2?
-
-For most R users, the main visible difference between YAML 1.1 and 1.2
-is how plain (unquoted) scalars get their types. YAML 1.2’s recommended
-core schema recognizes fewer special spellings, so ordinary words such
-as `yes` and `on` stay strings. R’s [`yaml`](https://yaml.r-lib.org/)
-package implements a YAML 1.1 parser and emitter, while `yaml12`
-implements YAML 1.2.2.
-
-### YAML 1.1 versus 1.2 quick reference
-
-The YAML 1.1 column below follows its type library. The YAML 1.2 column
-follows the recommended core schema. Individual parsers may support a
-subset of these rules or offer other schemas.
-
-| Plain YAML or feature | YAML 1.1 type library | YAML 1.2 core schema |
-|----|----|----|
-| `yes`, `no`, `on`, `off`, `y`, `n` | Boolean | String |
-| `true`, `True`, `TRUE` (and false variants) | Boolean | Boolean |
-| `010` | Octal integer `8` | Decimal integer `10` |
-| `0o10` | String | Octal integer `8` |
-| `0b10` | Binary integer `2` | String |
-| `1:20` | Sexagesimal integer `80` | String |
-| `1_000` | Decimal integer `1000` | String |
-| `2026-01-07` | Timestamp | String |
-| `<<` mapping key | Merge mappings | Ordinary string key |
-
-YAML 1.2 also dropped `!!pairs`, `!!omap`, `!!set`, `!!timestamp`, and
-`!!binary` from its core type set. Those explicit tags remain valid YAML
-syntax, but YAML 1.2 no longer assigns them core meanings. `yaml12`
-preserves them as unhandled tags, and handlers let application code opt
-into their meaning. The [advanced YAML
-article](https://posit-dev.github.io/r-yaml12/articles/yaml-tags-and-advanced-features.html#core-schema-tags)
-shows how this works.
-
-These changes make YAML 1.2 more conservative, not string-only. Plain
-`true`, `null`, and numeric forms still get typed values. For example,
-`10.23` is a number in both versions; quote it if it must remain a
-string.
-
-Here is how `yaml12` resolves a few values that differ from YAML 1.1:
-
-``` r
-
-yaml_1_2 <- "
-country: NO
-enabled: on
-port: 22:22
-leading_zero: 010
-octal: 0o10
-release_date: 2026-01-07
-"
-
-str(parse_yaml(yaml_1_2))
-#> List of 6
-#>  $ country     : chr "NO"
-#>  $ enabled     : chr "on"
-#>  $ port        : chr "22:22"
-#>  $ leading_zero: int 10
-#>  $ octal       : int 8
-#>  $ release_date: chr "2026-01-07"
-```
-
-See the [YAML 1.2 changes](https://yaml.org/spec/1.2.2/ext/changes/) for
-the full specification-level list and the [`yaml12` release
-post](https://tidyverse.org/blog/2026/01/yaml12-0-1-0/#why-yaml-12) for
-more background.
-
 ## A first example
 
 ``` yaml
@@ -329,6 +261,74 @@ list(
   )
 )
 ```
+
+## Why YAML 1.2?
+
+For most R users, the main visible difference between YAML 1.1 and 1.2
+is how plain (unquoted) scalars get their types. YAML 1.2’s recommended
+core schema recognizes fewer special spellings, so ordinary words such
+as `yes` and `on` stay strings. R’s [`yaml`](https://yaml.r-lib.org/)
+package implements a YAML 1.1 parser and emitter, while `yaml12`
+implements YAML 1.2.2.
+
+### YAML 1.1 versus 1.2 quick reference
+
+The YAML 1.1 column below follows its type library. The YAML 1.2 column
+follows the recommended core schema. Individual parsers may support a
+subset of these rules or offer other schemas.
+
+| Plain YAML or feature | YAML 1.1 type library | YAML 1.2 core schema |
+|----|----|----|
+| `yes`, `no`, `on`, `off`, `y`, `n` | Boolean | String |
+| `true`, `True`, `TRUE` (and false variants) | Boolean | Boolean |
+| `010` | Octal integer `8` | Decimal integer `10` |
+| `0o10` | String | Octal integer `8` |
+| `0b10` | Binary integer `2` | String |
+| `1:20` | Sexagesimal integer `80` | String |
+| `1_000` | Decimal integer `1000` | String |
+| `2026-01-07` | Timestamp | String |
+| `<<` mapping key | Merge mappings | Ordinary string key |
+
+YAML 1.2 also dropped `!!pairs`, `!!omap`, `!!set`, `!!timestamp`, and
+`!!binary` from its core type set. Those explicit tags remain valid YAML
+syntax, but YAML 1.2 no longer assigns them core meanings. `yaml12`
+preserves them as unhandled tags, and handlers let application code opt
+into their meaning. The [advanced YAML
+article](https://posit-dev.github.io/r-yaml12/articles/yaml-tags-and-advanced-features.html#core-schema-tags)
+shows how this works.
+
+These changes make YAML 1.2 more conservative, not string-only. Plain
+`true`, `null`, and numeric forms still get typed values. For example,
+`10.23` is a number in both versions; quote it if it must remain a
+string.
+
+Here is how `yaml12` resolves a few values that differ from YAML 1.1:
+
+``` r
+
+yaml_1_2 <- "
+country: NO
+enabled: on
+port: 22:22
+leading_zero: 010
+octal: 0o10
+release_date: 2026-01-07
+"
+
+str(parse_yaml(yaml_1_2))
+#> List of 6
+#>  $ country     : chr "NO"
+#>  $ enabled     : chr "on"
+#>  $ port        : chr "22:22"
+#>  $ leading_zero: int 10
+#>  $ octal       : int 8
+#>  $ release_date: chr "2026-01-07"
+```
+
+See the [YAML 1.2 changes](https://yaml.org/spec/1.2.2/ext/changes/) for
+the full specification-level list and the [`yaml12` release
+post](https://tidyverse.org/blog/2026/01/yaml12-0-1-0/#why-yaml-12) for
+more background.
 
 ## Quick notes
 
