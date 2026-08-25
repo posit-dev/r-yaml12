@@ -1,3 +1,5 @@
+# yaml12 (development version)
+
 # yaml12 0.2.0 (2026-08-24)
 
 * The parser now accepts and ignores reserved directives such as `%***` and
