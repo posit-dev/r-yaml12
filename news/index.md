@@ -2,6 +2,8 @@
 
 ## yaml12 0.2.0 (2026-08-24)
 
+CRAN release: 2026-08-25
+
 - The parser now accepts and ignores reserved directives such as `%***`
   and treats indented `---` text as part of a multiline plain scalar.
 
