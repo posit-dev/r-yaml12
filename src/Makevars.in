@@ -11,7 +11,6 @@ $(SHLIB): $(STATLIB)
 
 CARGOTMP = $(CURDIR)/.cargo
 VENDOR_DIR = $(CURDIR)/vendor
-VENDOR_METADATA = $(CURDIR)/._vendor
 
 
 # RUSTFLAGS appends --print=native-static-libs to ensure that 
@@ -43,7 +42,7 @@ $(STATLIB):
 	rm -Rf $(CARGOTMP);
 
 rust_clean: $(SHLIB)
-	rm -Rf $(CARGOTMP) $(VENDOR_DIR) $(VENDOR_METADATA) @CLEAN_TARGET@
+	rm -Rf $(CARGOTMP) $(VENDOR_DIR) @CLEAN_TARGET@
 
 clean:
-	rm -Rf $(SHLIB) $(STATLIB) $(OBJECTS) $(TARGET_DIR) $(VENDOR_DIR) $(VENDOR_METADATA)
+	rm -Rf $(SHLIB) $(STATLIB) $(OBJECTS) $(TARGET_DIR) $(VENDOR_DIR)
