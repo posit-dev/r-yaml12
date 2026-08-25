@@ -1,4 +1,4 @@
 #!/usr/bin/env sh
 set -e
-"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" tools/windows-rust-target.R --check
-"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" tools/config.R
+"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" --vanilla tools/windows-rust-target.R --check
+"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" --vanilla tools/config.R

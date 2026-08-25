@@ -1,4 +1,4 @@
-TARGET = $(shell "$(R_HOME)/bin$(R_ARCH_BIN)/Rscript.exe" "../tools/windows-rust-target.R")
+TARGET := $(shell "$(R_HOME)/bin$(R_ARCH_BIN)/Rscript.exe" --vanilla "../tools/windows-rust-target.R")
 
 TARGET_DIR = ./rust/target
 LIBDIR = $(TARGET_DIR)/$(TARGET)/@LIBDIR@
