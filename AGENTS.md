@@ -13,7 +13,8 @@
 ## Notes
 
 - Do not hand-edit generated files: `man/`, `NAMESPACE`, `src/init.c`,
-  `src/rust/api.h`, `inst/AUTHORS`, `src/Makevars`, `src/Makevars.win`.
+  `src/rust/api.h`, `inst/AUTHORS`, `LICENSE.note`, `src/Makevars`,
+  `src/Makevars.win`.
 - If Rust `#[savvy]` entrypoints change, regenerate savvy glue from the package
   root with `savvy-cli update .`, then run `Rscript tools/patch-savvy-init.R`.
   Keep the generated `src/init.c` and `src/rust/api.h`; do not commit
@@ -24,8 +25,12 @@
   working directory.
 - R package builds happen from the package root and invoke Rust through
   `configure*`, generated Makevars, and Cargo.
+- Refresh Rust dependencies from the package root with
+  `Rscript --vanilla tools/vendor-rust.R`. This package-owned workflow uses
+  Cargo directly; binding generation and dependency vendoring are separate.
 - Treat `src/rust/Cargo.lock`, `src/rust/vendor.tar.xz`,
-  `src/rust/vendor-config.toml`, and `inst/AUTHORS` as one dependency snapshot.
+  `src/rust/vendor-config.toml`, `inst/AUTHORS`, and `LICENSE.note` as one
+  dependency snapshot.
 - CRAN-style package builds are offline when `vendor.tar.xz` exists and
   `NOT_CRAN` is unset. Offline failures often mean stale vendor contents,
   missing crates, or a lockfile/vendor mismatch.

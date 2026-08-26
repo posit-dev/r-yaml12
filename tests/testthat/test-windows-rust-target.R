@@ -1,22 +1,3 @@
-source_file <- function(...) {
-  paths <- list(...)
-  candidates <- c(
-    do.call(test_path, c(list("..", ".."), paths)),
-    do.call(
-      file.path,
-      c(list(getwd(), "..", "..", "00_pkg_src", "yaml12"), paths)
-    )
-  )
-
-  for (candidate in candidates) {
-    if (file.exists(candidate)) {
-      return(candidate)
-    }
-  }
-
-  skip("Source file is not available in this test layout")
-}
-
 load_windows_rust_target <- function() {
   env <- new.env(parent = baseenv())
   source(source_file("tools", "windows-rust-target.R"), local = env)
