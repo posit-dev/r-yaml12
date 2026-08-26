@@ -56,13 +56,36 @@ test_that("windows Rust target selection supports ARM Windows", {
 
 test_that("windows Makevars uses the Rust target helper", {
   makevars_win <- readLines(source_file("src", "Makevars.win.in"))
+  target_line <- grep("^TARGET :=", makevars_win, value = TRUE)
 
-  expect_true(any(grepl("windows-rust-target.R", makevars_win, fixed = TRUE)))
+  expect_length(target_line, 1L)
+  expect_true(grepl("windows-rust-target.R", target_line, fixed = TRUE))
+  expect_true(grepl("--vanilla", target_line, fixed = TRUE))
   expect_false(any(grepl(
     "$(WIN)))-pc-windows-gnu",
     makevars_win,
     fixed = TRUE
   )))
+})
+
+test_that("windows Rust target detection ignores startup profile output", {
+  skip_if_not(.Platform$OS.type == "windows")
+
+  profile <- tempfile(fileext = ".Rprofile")
+  writeLines('cat("Hello ")', profile)
+  withr::local_envvar(R_PROFILE_USER = profile)
+
+  output <- system2(
+    file.path(R.home("bin"), "Rscript.exe"),
+    c(
+      "--vanilla",
+      shQuote(source_file("tools", "windows-rust-target.R"))
+    ),
+    stdout = TRUE
+  )
+
+  windows_rust_target <- load_windows_rust_target()
+  expect_identical(output, windows_rust_target())
 })
 
 test_that("windows Rust target check reports missing targets", {
@@ -93,6 +116,8 @@ test_that("configure.win checks the Rust target before configuring", {
   expect_length(abort_line, 1L)
   expect_length(check_line, 1L)
   expect_length(config_line, 1L)
+  expect_true(grepl("--vanilla", configure_win[check_line], fixed = TRUE))
+  expect_true(grepl("--vanilla", configure_win[config_line], fixed = TRUE))
   expect_lt(abort_line, check_line)
   expect_lt(check_line, config_line)
 })
