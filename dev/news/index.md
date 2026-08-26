@@ -2,6 +2,10 @@
 
 ## yaml12 (development version)
 
+- Windows source builds now ignore R startup profiles while selecting
+  the Rust target, so profile output cannot become part of Cargo’s
+  `--target` argument.
+
 ## yaml12 0.2.0 (2026-08-24)
 
 CRAN release: 2026-08-25
