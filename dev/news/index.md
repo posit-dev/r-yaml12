@@ -2,6 +2,11 @@
 
 ## yaml12 (development version)
 
+- Added a package-owned command for refreshing the complete locked Rust
+  dependency snapshot. Its portable archive writer omits macOS metadata
+  that can otherwise produce warnings when Windows extracts the vendored
+  crates.
+
 - Windows source builds now ignore R startup profiles while selecting
   the Rust target, so profile output cannot become part of Cargo’s
   `--target` argument.

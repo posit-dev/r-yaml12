@@ -58,4 +58,4 @@ package version 0.2.0.9000, <https://posit-dev.github.io/r-yaml12/>.
      - thiserror-impl 2.0.20: David Tolnay
      - unicode-ident 1.0.24: David Tolnay
 
-    (This file was auto-generated from 'cargo metadata' on 2026-08-24)
+    (This file was auto-generated from 'cargo metadata' on 2026-08-25)

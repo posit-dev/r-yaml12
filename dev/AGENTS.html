@@ -54,12 +54,13 @@
 </ul></div>
 <div class="section level2">
 <h2 id="notes">Notes<a class="anchor" aria-label="anchor" href="#notes"></a></h2>
-<ul><li>Do not hand-edit generated files: <code>man/</code>, <code>NAMESPACE</code>, <code>src/init.c</code>, <code>src/rust/api.h</code>, <code>inst/AUTHORS</code>, <code>src/Makevars</code>, <code>src/Makevars.win</code>.</li>
+<ul><li>Do not hand-edit generated files: <code>man/</code>, <code>NAMESPACE</code>, <code>src/init.c</code>, <code>src/rust/api.h</code>, <code>inst/AUTHORS</code>, <code>LICENSE.note</code>, <code>src/Makevars</code>, <code>src/Makevars.win</code>.</li>
 <li>If Rust <code>#[savvy]</code> entrypoints change, regenerate savvy glue from the package root with <code>savvy-cli update .</code>, then run <code>Rscript tools/patch-savvy-init.R</code>. Keep the generated <code>src/init.c</code> and <code>src/rust/api.h</code>; do not commit <code>R/000-wrappers.R</code> unless the public wrapper strategy changes.</li>
 <li>If roxygen, exports, or Rd-facing surface change, regenerate from the package root with <code>devtools::document()</code>.</li>
 <li>Direct Cargo work happens in <code>src/rust</code>; Cargo discovery depends on the working directory.</li>
 <li>R package builds happen from the package root and invoke Rust through <code>configure*</code>, generated Makevars, and Cargo.</li>
-<li>Treat <code>src/rust/Cargo.lock</code>, <code>src/rust/vendor.tar.xz</code>, <code>src/rust/vendor-config.toml</code>, and <code>inst/AUTHORS</code> as one dependency snapshot.</li>
+<li>Refresh Rust dependencies from the package root with <code>Rscript --vanilla tools/vendor-rust.R</code>. This package-owned workflow uses Cargo directly; binding generation and dependency vendoring are separate.</li>
+<li>Treat <code>src/rust/Cargo.lock</code>, <code>src/rust/vendor.tar.xz</code>, <code>src/rust/vendor-config.toml</code>, <code>inst/AUTHORS</code>, and <code>LICENSE.note</code> as one dependency snapshot.</li>
 <li>CRAN-style package builds are offline when <code>vendor.tar.xz</code> exists and <code>NOT_CRAN</code> is unset. Offline failures often mean stale vendor contents, missing crates, or a lockfile/vendor mismatch.</li>
 <li>
 <code>saphyr</code> uses <code>t-kalinowski/saphyr</code> branch <code>r-patched</code>; keep <code>vendor-config.toml</code> aligned.</li>
